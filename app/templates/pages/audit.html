@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Log Audit · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/audit.css?v=1" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Log Audit</h1>
+      <p>Login berhasil/gagal dan pengiriman email password ke pengguna.</p>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" type="button" aria-label="Notifications">●</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="audit-page" id="audit-page">
+    <section class="audit-stats" id="audit-stats" aria-label="Ringkasan audit"></section>
+
+    <section class="audit-toolbar">
+      <label class="audit-search">
+        <span>⌕</span>
+        <input id="audit-search" type="search" placeholder="Cari email, nama, IP, pesan…" autocomplete="off" />
+      </label>
+      <select id="audit-category" aria-label="Filter kategori">
+        <option value="">Semua kategori</option>
+        <option value="login">Login</option>
+        <option value="email">Email password</option>
+      </select>
+      <select id="audit-success" aria-label="Filter hasil">
+        <option value="">Semua hasil</option>
+        <option value="true">Berhasil</option>
+        <option value="false">Gagal</option>
+      </select>
+      <select id="audit-action" aria-label="Filter aksi">
+        <option value="">Semua aksi</option>
+        <option value="login_success">Login berhasil</option>
+        <option value="login_failed">Login gagal</option>
+        <option value="password_email_sent">Reset password terkirim</option>
+        <option value="password_email_failed">Reset password gagal</option>
+        <option value="welcome_email_sent">Welcome email terkirim</option>
+        <option value="welcome_email_failed">Welcome email gagal</option>
+      </select>
+      <button type="button" class="btn btn-ghost" id="btn-audit-refresh">Muat ulang</button>
+    </section>
+
+    <section class="audit-table-wrap">
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>Waktu</th>
+            <th>Aksi</th>
+            <th>Hasil</th>
+            <th>Target / Akun</th>
+            <th>Oleh</th>
+            <th>IP</th>
+            <th>Pesan</th>
+          </tr>
+        </thead>
+        <tbody id="audit-tbody">
+          <tr><td colspan="7" class="audit-empty">Memuat log…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="audit-pager" id="audit-pager" hidden>
+      <button type="button" class="btn btn-ghost" id="btn-audit-prev">Sebelumnya</button>
+      <span id="audit-page-label">Halaman 1</span>
+      <button type="button" class="btn btn-ghost" id="btn-audit-next">Berikutnya</button>
+    </section>
+
+    <p class="audit-status" id="audit-status" aria-live="polite"></p>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/audit.js?v=1" defer></script>
+{% endblock %}

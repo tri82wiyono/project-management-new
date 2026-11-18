@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.models import User
+from app.services.audit import write_audit_log
 from app.services.auth import require_admin
 from app.services.email import send_welcome_user_email
 from app.services.roles import get_role_by_code, list_roles
@@ -100,8 +101,9 @@ def list_users(
 @router.post("")
 def create_user(
     payload: UserCreate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    current: User = Depends(require_admin),
 ) -> dict:
     email = _normalize_email(payload.email)
     role = _resolve_role_code(db, payload.role)
@@ -134,8 +136,26 @@ def create_user(
                 temporary_password=temp_password,
             )
             email_sent = True
+            write_audit_log(
+                db,
+                action="welcome_email_sent",
+                success=True,
+                actor=current,
+                target=user,
+                message=f"Email welcome/password terkirim ke {user.email}",
+                request=request,
+            )
         except Exception as exc:  # noqa: BLE001
             email_error = str(exc)
+            write_audit_log(
+                db,
+                action="welcome_email_failed",
+                success=False,
+                actor=current,
+                target=user,
+                message=f"Gagal kirim email welcome ke {user.email}: {email_error}",
+                request=request,
+            )
 
     data = _serialize(user)
     data["email_sent"] = email_sent
@@ -198,8 +218,9 @@ def update_user(
 def reset_user_password(
     user_id: int,
     payload: ResetPasswordRequest,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    current: User = Depends(require_admin),
 ) -> dict:
     user = db.get(User, user_id)
     if not user:
@@ -224,8 +245,26 @@ def reset_user_password(
                 temporary_password=temp_password,
             )
             email_sent = True
+            write_audit_log(
+                db,
+                action="password_email_sent",
+                success=True,
+                actor=current,
+                target=user,
+                message=f"Email reset password terkirim ke {user.email}",
+                request=request,
+            )
         except Exception as exc:  # noqa: BLE001
             email_error = str(exc)
+            write_audit_log(
+                db,
+                action="password_email_failed",
+                success=False,
+                actor=current,
+                target=user,
+                message=f"Gagal kirim email reset password ke {user.email}: {email_error}",
+                request=request,
+            )
 
     data = {
         **_serialize(user),

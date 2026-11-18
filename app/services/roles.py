@@ -15,6 +15,7 @@ PERMISSION_CATALOG = [
     {"key": "users.manage", "label": "Kelola Users"},
     {"key": "roles.manage", "label": "Kelola Roles"},
     {"key": "settings.manage", "label": "Kelola Settings"},
+    {"key": "audit.view", "label": "Lihat Log Audit"},
 ]
 
 DEFAULT_ROLES = [
@@ -62,14 +63,20 @@ DEFAULT_ROLES = [
 
 def ensure_default_roles(db: Session) -> list[Role]:
     created: list[Role] = []
+    dirty = False
+    catalog_keys = [item["key"] for item in PERMISSION_CATALOG]
     for item in DEFAULT_ROLES:
         existing = db.scalar(select(Role).where(Role.code == item["code"]).limit(1))
         if existing:
+            # Keep Admin permissions aligned with catalog (e.g. audit.view)
+            if existing.code == "Admin" and set(existing.permissions or []) != set(catalog_keys):
+                existing.permissions = list(catalog_keys)
+                dirty = True
             continue
         row = Role(**item)
         db.add(row)
         created.append(row)
-    if created:
+    if created or dirty:
         db.commit()
         for row in created:
             db.refresh(row)

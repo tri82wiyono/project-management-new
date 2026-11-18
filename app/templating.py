@@ -10,6 +10,7 @@ NAV_ITEMS = [
     {"key": "projects", "label": "Projects", "icon": "▣", "href": "/projects"},
     {"key": "tasks", "label": "Tasks", "icon": "☰", "href": "/tasks"},
     {"key": "users", "label": "Users", "icon": "◎", "href": "/users"},
+    {"key": "audit", "label": "Log Audit", "icon": "▥", "href": "/audit"},
     {"key": "timeline", "label": "Timeline", "icon": "▤", "href": "/timeline"},
     {"key": "team", "label": "Team", "icon": "◎", "href": "/#team"},
     {"key": "reports", "label": "Reports", "icon": "◔", "href": "/#reports"},

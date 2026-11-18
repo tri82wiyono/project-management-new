@@ -148,6 +148,30 @@ def ensure_schema() -> None:
       AND NOT EXISTS (SELECT 1 FROM smtp_settings WHERE is_active = TRUE);
     CREATE UNIQUE INDEX IF NOT EXISTS uq_smtp_settings_provider ON smtp_settings (provider);
     """
+    audit_logs_sql = """
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      action VARCHAR(60) NOT NULL,
+      success BOOLEAN DEFAULT TRUE,
+      actor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_name VARCHAR(120) DEFAULT '',
+      actor_email VARCHAR(180) DEFAULT '',
+      target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      target_name VARCHAR(120) DEFAULT '',
+      target_email VARCHAR(180) DEFAULT '',
+      message VARCHAR(500) DEFAULT '',
+      ip_address VARCHAR(64),
+      user_agent VARCHAR(500) DEFAULT '',
+      meta JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_action ON audit_logs(action);
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_success ON audit_logs(success);
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs(created_at);
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_target_email ON audit_logs(target_email);
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_actor_user_id ON audit_logs(actor_user_id);
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_target_user_id ON audit_logs(target_user_id);
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -158,3 +182,4 @@ def ensure_schema() -> None:
         conn.execute(text(user_devices_sql))
         conn.execute(text(task_notes_sql))
         conn.execute(text(smtp_profiles_sql))
+        conn.execute(text(audit_logs_sql))

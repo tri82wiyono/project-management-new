@@ -34,6 +34,7 @@ from app.services.devices import (
     touch_device,
     trust_device_now,
 )
+from app.services.audit import write_audit_log
 from app.services.email import send_new_device_confirmation_email
 from app.services.identity import get_identity_dict
 from app.services.mfa import (
@@ -96,8 +97,10 @@ def _issuer_name(db: Session) -> str:
 
 
 def _app_url(db: Session) -> str:
+    from app.services.identity import resolve_public_app_url
+
     identity = get_identity_dict(db)
-    return (identity.get("app_url") or "http://localhost:8891").rstrip("/")
+    return resolve_public_app_url(identity.get("app_url"))
 
 
 def _user_payload(user) -> dict:
@@ -169,6 +172,18 @@ def _is_administrator(user, db: Session | None = None) -> bool:
     return False
 
 
+def _audit_login_success(db: Session, request: Request, user, *, note: str = "") -> None:
+    write_audit_log(
+        db,
+        action="login_success",
+        success=True,
+        actor=user,
+        target=user,
+        message=note or f"Login berhasil: {user.email}",
+        request=request,
+    )
+
+
 def _finalize_login(request: Request, response: Response, db: Session, user) -> dict | JSONResponse:
     """After password (+ MFA), enforce trusted-device binding."""
     cookie = get_device_cookie(request)
@@ -178,6 +193,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
         register_successful_login(db, user)
         set_session_user(request, user)
         set_device_cookie(response, cookie, request)
+        _audit_login_success(db, request, user, note=f"Login berhasil (perangkat terpercaya): {user.email}")
         return {
             "ok": True,
             "mfa_required": False,
@@ -192,6 +208,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
         register_successful_login(db, user)
         set_session_user(request, user)
         set_device_cookie(response, raw_token, request)
+        _audit_login_success(db, request, user, note=f"Login berhasil (admin bypass device): {user.email}")
         return {
             "ok": True,
             "mfa_required": False,
@@ -209,6 +226,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
         register_successful_login(db, user)
         set_session_user(request, user)
         set_device_cookie(response, raw_token, request)
+        _audit_login_success(db, request, user, note=f"Login berhasil (perangkat pertama): {user.email}")
         return {
             "ok": True,
             "mfa_required": False,
@@ -252,9 +270,30 @@ def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
 @router.post("/api/auth/login")
 def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     if not verify_captcha(payload.captcha_id, payload.captcha_answer):
+        write_audit_log(
+            db,
+            action="login_failed",
+            success=False,
+            target_email=payload.email.strip().lower(),
+            message="Login gagal: captcha salah atau kedaluwarsa",
+            request=request,
+        )
         raise HTTPException(status_code=400, detail="Captcha salah atau sudah kedaluwarsa")
 
-    user = authenticate_user(db, payload.email, payload.password, complete_login=False)
+    try:
+        user = authenticate_user(db, payload.email, payload.password, complete_login=False)
+    except HTTPException as exc:
+        write_audit_log(
+            db,
+            action="login_failed",
+            success=False,
+            target_email=payload.email.strip().lower(),
+            message=f"Login gagal: {exc.detail}",
+            request=request,
+            meta={"status_code": exc.status_code},
+        )
+        raise
+
     if user.mfa_enabled and user.mfa_secret:
         set_pending_mfa(request, user)
         return {
@@ -284,6 +323,15 @@ def verify_mfa_login(
         remaining = consume_backup_code(user.mfa_backup_codes, code)
         if remaining is None:
             register_failed_login(db, user)
+            write_audit_log(
+                db,
+                action="login_failed",
+                success=False,
+                actor=user,
+                target=user,
+                message=f"Login gagal: kode MFA/backup salah ({user.email})",
+                request=request,
+            )
             raise HTTPException(status_code=400, detail="Kode MFA atau backup code salah")
         user.mfa_backup_codes = remaining
         db.commit()

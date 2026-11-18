@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from html import escape
 from urllib.parse import quote
 
-from app.services.identity import get_identity_dict
+from app.services.identity import get_identity_dict, resolve_public_app_url
 
 # PulseDesk palette (matches dashboard.css) — solid colors only for email clients
 BRAND = "#453a82"
@@ -33,7 +33,7 @@ def _branding() -> dict:
         "brand_mark": identity.get("brand_mark") or "PM",
         "brand_tagline": identity.get("brand_tagline") or "Project OS",
         "organization_name": identity.get("organization_name") or "Bank Sumut",
-        "app_url": (identity.get("app_url") or "http://localhost:8891").rstrip("/"),
+        "app_url": resolve_public_app_url(identity.get("app_url")),
     }
 
 
@@ -169,7 +169,11 @@ def welcome_user_email(
     login_url: str | None = None,
 ) -> EmailContent:
     branding = _branding()
-    url = login_url or f"{branding['app_url']}/"
+    if login_url and login_url.strip().lower().startswith(("http://", "https://")):
+        raw = login_url.strip().rstrip("/")
+        url = raw if raw.endswith("/login") else f"{resolve_public_app_url(raw)}/login"
+    else:
+        url = f"{resolve_public_app_url(branding['app_url'])}/login"
     safe_name = name.strip() or "Pengguna"
     brand_name = branding["brand_name"]
     app_name = branding["app_name"]
@@ -198,7 +202,7 @@ def welcome_user_email(
         {_detail_row("Email", email)}
         {_detail_row("Password sementara", temporary_password, last=True)}
       </table>
-      {_cta_button(f"Masuk ke {brand_name}", url)}
+      {_cta_button("Silahkan Login", url)}
       <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:{MUTED};">
         Demi keamanan, segera ganti password setelah login berhasil.
       </p>

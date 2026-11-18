@@ -236,3 +236,32 @@ class TaskNote(Base):
 
     task: Mapped[Task] = relationship(back_populates="notes")
     author: Mapped[User | None] = relationship()
+
+
+class AuditLog(Base):
+    """Login & email password events for admin review."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # login_success | login_failed | password_email_sent | password_email_failed
+    # welcome_email_sent | welcome_email_failed
+    action: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    success: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    actor_name: Mapped[str] = mapped_column(String(120), default="")
+    actor_email: Mapped[str] = mapped_column(String(180), default="")
+    target_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    target_name: Mapped[str] = mapped_column(String(120), default="")
+    target_email: Mapped[str] = mapped_column(String(180), default="", index=True)
+    message: Mapped[str] = mapped_column(String(500), default="")
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str] = mapped_column(String(500), default="")
+    meta: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine, get_db
 from app.db_migrate import ensure_schema
+from app.routers import audit as audit_router
 from app.routers import auth as auth_router
 from app.routers import dashboard, projects, roles as roles_router
 from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
@@ -130,6 +131,7 @@ app.include_router(settings_router.router)
 app.include_router(users_router.router)
 app.include_router(roles_router.router)
 app.include_router(timeline_router.router)
+app.include_router(audit_router.router)
 
 
 def _user_context(request: Request, db: Session) -> dict:
@@ -243,6 +245,17 @@ def users_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
         current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/users.html", context)
+
+
+@app.get("/audit", response_class=HTMLResponse)
+def audit_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="audit",
+        page_title="Log Audit",
+        page_subtitle="Pantau login dan pengiriman email password.",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/audit.html", context)
 
 
 @app.get("/settings", response_class=HTMLResponse)
