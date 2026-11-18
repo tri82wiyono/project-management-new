@@ -118,6 +118,17 @@ def ensure_schema() -> None:
     CREATE INDEX IF NOT EXISTS ix_user_devices_user_id ON user_devices(user_id);
     CREATE INDEX IF NOT EXISTS ix_user_devices_confirm_token_hash ON user_devices(confirm_token_hash);
     """
+    task_notes_sql = """
+    CREATE TABLE IF NOT EXISTS task_notes (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      kind VARCHAR(20) DEFAULT 'problem',
+      author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_task_notes_task_id ON task_notes(task_id);
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -126,3 +137,4 @@ def ensure_schema() -> None:
         conn.execute(text(migrate_task_assignees_sql))
         conn.execute(text(sync_primary_assignee_sql))
         conn.execute(text(user_devices_sql))
+        conn.execute(text(task_notes_sql))

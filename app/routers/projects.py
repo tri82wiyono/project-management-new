@@ -3,8 +3,15 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import Project, ProjectStatus, Task, TeamMember, User
-from app.schemas.schemas import ProjectCreate, ProjectListResponse, ProjectOut, ProjectStats, ProjectUpdate
+from app.models.models import Project, ProjectStatus, Task, TaskNote, TeamMember, User
+from app.schemas.schemas import (
+    ProjectCreate,
+    ProjectListResponse,
+    ProjectOut,
+    ProjectStats,
+    ProjectTaskNoteOut,
+    ProjectUpdate,
+)
 from app.services.project_progress import recalculate_project_progress
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -140,6 +147,43 @@ def get_project(project_id: int, db: Session = Depends(get_db)) -> ProjectOut:
     project = _load_project(db, project_id)
     counts = _task_count_map(db, [project.id])
     return _to_out(project, counts.get(project.id, 0))
+
+
+@router.get("/{project_id}/notes", response_model=list[ProjectTaskNoteOut])
+def list_project_notes(
+    project_id: int,
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[ProjectTaskNoteOut]:
+    if not db.get(Project, project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    notes = (
+        db.scalars(
+            select(TaskNote)
+            .join(Task, Task.id == TaskNote.task_id)
+            .options(joinedload(TaskNote.author), joinedload(TaskNote.task))
+            .where(Task.project_id == project_id)
+            .order_by(TaskNote.created_at.desc())
+            .limit(limit)
+        )
+        .unique()
+        .all()
+    )
+    return [
+        ProjectTaskNoteOut(
+            id=note.id,
+            task_id=note.task_id,
+            body=note.body,
+            kind=note.kind or "problem",
+            author_id=note.author_id,
+            author_name=note.author.name if note.author else None,
+            created_at=note.created_at,
+            task_title=note.task.title if note.task else f"Task #{note.task_id}",
+            task_status=note.task.status if note.task else None,
+        )
+        for note in notes
+    ]
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)

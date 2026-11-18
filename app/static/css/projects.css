@@ -573,6 +573,19 @@
   grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr);
   gap: 12px;
 }
+.detail-grid-wrap.detail-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+.detail-grid-3 > .detail-card,
+.detail-grid-3 > .related-tasks {
+  min-width: 0;
+  height: 100%;
+}
+.detail-grid-3 .related-tasks ul {
+  max-height: 260px;
+  overflow: auto;
+}
 
 .detail-card h4,
 .related-tasks h4 {
@@ -635,6 +648,72 @@
 .related-empty {
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.project-notes-count {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.project-notes-list {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+.project-note-item {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid #f59e0b;
+}
+.project-note-item.kind-problem {
+  border-left-color: #ef4444;
+  background: linear-gradient(180deg, #fffafa, #f8fafc);
+}
+.project-note-item.kind-note {
+  border-left-color: #3b82f6;
+}
+.project-note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+.project-note-kind {
+  font-weight: 700;
+  color: var(--ink);
+}
+.project-note-task {
+  color: #3558c7;
+  font-weight: 650;
+  text-decoration: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-note-task:hover {
+  text-decoration: underline;
+}
+.project-note-item p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
 }
 
 /* Modal */
@@ -863,10 +942,21 @@
   font-size: 0.8rem;
 }
 
+@media (max-width: 1100px) {
+  .detail-grid-wrap.detail-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .detail-grid-3 > .related-tasks {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 900px) {
   .projects-stats { grid-template-columns: 1fr; }
   .projects-hero { flex-direction: column; }
   .field-row { grid-template-columns: 1fr; }
   .projects-toolbar { flex-direction: column; align-items: stretch; }
-  .detail-grid-wrap { grid-template-columns: 1fr; }
+  .detail-grid-wrap,
+  .detail-grid-wrap.detail-grid-3 { grid-template-columns: 1fr; }
+  .detail-grid-3 > .related-tasks { grid-column: auto; }
 }

@@ -97,11 +97,14 @@ function renderKanban(board) {
         const pct = Math.round(Number(task.project_progress || 0));
         const showBar = col.status === "in_progress" && task.project_progress != null;
         return `
-        <article class="task-card">
+        <article class="task-card${task.notes_count > 0 ? " has-notes" : ""}${task.has_problem ? " has-problem" : ""}">
           <h4>${task.title}</h4>
           ${showBar ? `<div class="task-progress" title="Project ${pct}%"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>` : ""}
           <div class="task-card-foot">
             <span class="tag ${tagClass(task.category)}">${task.category}</span>
+            ${task.notes_count > 0
+              ? `<span class="task-note-badge${task.has_problem ? " is-problem" : ""}" title="${task.notes_count} catatan">${task.notes_count}</span>`
+              : ""}
             ${(() => {
               const people = (task.assignees && task.assignees.length)
                 ? task.assignees

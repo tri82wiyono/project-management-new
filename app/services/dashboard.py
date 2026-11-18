@@ -49,6 +49,9 @@ def _task_assignees(task: Task) -> list[UserOut]:
 def _task_out(task: Task) -> TaskOut:
     assignees = _task_assignees(task)
     primary = assignees[0] if assignees else None
+    notes = list(task.notes or [])
+    notes_count = len(notes)
+    has_problem = any((n.kind or "problem") == "problem" for n in notes)
     return TaskOut(
         id=task.id,
         title=task.title,
@@ -66,6 +69,8 @@ def _task_out(task: Task) -> TaskOut:
         assignees=assignees,
         project_name=task.project.name if task.project else None,
         project_progress=float(task.project.progress) if task.project else None,
+        notes_count=notes_count,
+        has_problem=has_problem,
     )
 
 
@@ -224,6 +229,7 @@ def get_kanban(db: Session, project_id: int | None = None) -> KanbanBoard:
         joinedload(Task.assignee),
         joinedload(Task.assignees).joinedload(TaskAssignee.user),
         joinedload(Task.project),
+        joinedload(Task.notes),
     )
     if project_id:
         stmt = stmt.where(Task.project_id == project_id)

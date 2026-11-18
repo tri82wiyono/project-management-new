@@ -133,6 +133,30 @@ class TaskOut(BaseModel):
     assignees: list[UserOut] = []
     project_name: str | None = None
     project_progress: float | None = None
+    notes_count: int = 0
+    has_problem: bool = False
+
+
+class TaskNoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+    kind: Literal["problem", "note"] = "problem"
+
+
+class TaskNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    task_id: int
+    body: str
+    kind: str
+    author_id: int | None = None
+    author_name: str | None = None
+    created_at: datetime
+
+
+class ProjectTaskNoteOut(TaskNoteOut):
+    task_title: str
+    task_status: TaskStatus | None = None
 
 
 class KanbanColumn(BaseModel):

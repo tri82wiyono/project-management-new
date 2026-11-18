@@ -5,8 +5,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import Project, Task, TaskAssignee, TaskStatus, User
-from app.schemas.schemas import TaskCreate, TaskOut, TaskUpdate
+from app.models.models import Project, Task, TaskAssignee, TaskNote, TaskStatus, User
+from app.schemas.schemas import TaskCreate, TaskNoteCreate, TaskNoteOut, TaskOut, TaskUpdate
 from app.services.dashboard import _task_out
 from app.services.project_progress import recalculate_project_progress
 
@@ -18,6 +18,19 @@ def _task_query():
         joinedload(Task.assignee),
         joinedload(Task.assignees).joinedload(TaskAssignee.user),
         joinedload(Task.project),
+        joinedload(Task.notes),
+    )
+
+
+def _note_out(note: TaskNote) -> TaskNoteOut:
+    return TaskNoteOut(
+        id=note.id,
+        task_id=note.task_id,
+        body=note.body,
+        kind=note.kind or "problem",
+        author_id=note.author_id,
+        author_name=note.author.name if note.author else None,
+        created_at=note.created_at,
     )
 
 
@@ -146,4 +159,49 @@ def delete_task(task_id: int, db: Session = Depends(get_db)) -> None:
     db.delete(task)
     db.flush()
     recalculate_project_progress(db, project_id)
+    db.commit()
+
+
+@router.get("/{task_id}/notes", response_model=list[TaskNoteOut])
+def list_task_notes(task_id: int, db: Session = Depends(get_db)) -> list[TaskNoteOut]:
+    if not db.get(Task, task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    notes = db.scalars(
+        select(TaskNote)
+        .options(joinedload(TaskNote.author))
+        .where(TaskNote.task_id == task_id)
+        .order_by(TaskNote.created_at.desc())
+    ).unique().all()
+    return [_note_out(n) for n in notes]
+
+
+@router.post("/{task_id}/notes", response_model=TaskNoteOut, status_code=status.HTTP_201_CREATED)
+def create_task_note(
+    task_id: int,
+    payload: TaskNoteCreate,
+    db: Session = Depends(get_db),
+) -> TaskNoteOut:
+    if not db.get(Task, task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    body = payload.body.strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Catatan tidak boleh kosong")
+    note = TaskNote(task_id=task_id, body=body, kind=payload.kind)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    note = db.scalar(
+        select(TaskNote).options(joinedload(TaskNote.author)).where(TaskNote.id == note.id)
+    )
+    return _note_out(note)
+
+
+@router.delete("/{task_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task_note(task_id: int, note_id: int, db: Session = Depends(get_db)) -> None:
+    note = db.scalar(
+        select(TaskNote).where(TaskNote.id == note_id, TaskNote.task_id == task_id)
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Catatan tidak ditemukan")
+    db.delete(note)
     db.commit()

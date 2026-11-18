@@ -41,6 +41,7 @@ const state = {
   projectId: Number(document.getElementById("project-detail-page")?.dataset.projectId || 0),
   project: null,
   tasks: [],
+  notes: [],
   users: [],
   selectedPicIds: [],
   suggestions: [],
@@ -74,6 +75,21 @@ function escapeHtml(text) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function formatNoteTime(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
 }
 
 function formatDate(value) {
@@ -168,7 +184,7 @@ function renderDetail() {
       </div>
     </section>
 
-    <section class="detail-grid-wrap">
+    <section class="detail-grid-wrap detail-grid-3">
       <article class="panel detail-card">
         <h4>Overview</h4>
         <div class="details-grid">
@@ -214,28 +230,54 @@ function renderDetail() {
             .join("")}
         </div>
       </article>
+
+      <article class="panel detail-card related-tasks">
+        <div class="related-head">
+          <h4>Related tasks</h4>
+          <a href="/tasks?project_id=${p.id}">Lihat semua →</a>
+        </div>
+        ${
+          related.length
+            ? `<ul>${related
+                .map(
+                  (t) => `
+              <li>
+                <div>
+                  <strong>${escapeHtml(t.title)}</strong>
+                  <small>${escapeHtml(t.category || "General")}${t.due_date ? ` · due ${formatDate(t.due_date)}` : ""}${
+                    t.notes_count > 0 ? ` · ${t.notes_count} catatan` : ""
+                  }</small>
+                </div>
+                <span class="task-status">${TASK_STATUS_LABEL[t.status] || t.status}</span>
+              </li>`
+                )
+                .join("")}</ul>`
+            : `<div class="cal-empty details-empty" style="padding:18px 8px">Belum ada task untuk project ini.</div>`
+        }
+      </article>
     </section>
 
-    <section class="panel related-tasks">
+    <section class="panel project-notes">
       <div class="related-head">
-        <h4>Related tasks</h4>
-        <a href="/tasks?project_id=${p.id}">Lihat semua →</a>
+        <h4>Catatan / Problem</h4>
+        <span class="project-notes-count">${state.notes.length}</span>
       </div>
       ${
-        related.length
-          ? `<ul>${related
+        state.notes.length
+          ? `<div class="project-notes-list">${state.notes
               .map(
-                (t) => `
-            <li>
-              <div>
-                <strong>${escapeHtml(t.title)}</strong>
-                <small>${escapeHtml(t.category || "General")}${t.due_date ? ` · due ${formatDate(t.due_date)}` : ""}</small>
+                (note) => `
+            <article class="project-note-item kind-${escapeHtml(note.kind || "problem")}">
+              <div class="project-note-meta">
+                <span class="project-note-kind">${note.kind === "note" ? "Catatan" : "Problem"}</span>
+                <a class="project-note-task" href="/tasks?project_id=${p.id}" title="Buka board task">${escapeHtml(note.task_title || `Task #${note.task_id}`)}</a>
+                <span>${escapeHtml(formatNoteTime(note.created_at))}</span>
               </div>
-              <span class="task-status">${TASK_STATUS_LABEL[t.status] || t.status}</span>
-            </li>`
+              <p>${escapeHtml(note.body)}</p>
+            </article>`
               )
-              .join("")}</ul>`
-          : `<div class="cal-empty details-empty" style="padding:18px 8px">Belum ada task untuk project ini.</div>`
+              .join("")}</div>`
+          : `<div class="cal-empty details-empty" style="padding:18px 8px">Belum ada catatan pada task di project ini.</div>`
       }
     </section>
   `;
@@ -472,13 +514,15 @@ async function boot() {
     return;
   }
   try {
-    const [project, tasks, users] = await Promise.all([
+    const [project, tasks, notes, users] = await Promise.all([
       api(`/api/projects/${state.projectId}`),
       api(`/api/tasks?project_id=${state.projectId}`),
+      api(`/api/projects/${state.projectId}/notes`),
       api("/api/team?active_only=true"),
     ]);
     state.project = project;
     state.tasks = Array.isArray(tasks) ? tasks : [];
+    state.notes = Array.isArray(notes) ? notes : [];
     state.users = Array.isArray(users) ? users : users.items || [];
     renderDetail();
   } catch (err) {

@@ -201,6 +201,11 @@ class Task(Base):
         back_populates="task",
         cascade="all, delete-orphan",
     )
+    notes: Mapped[list["TaskNote"]] = relationship(
+        back_populates="task",
+        cascade="all, delete-orphan",
+        order_by="desc(TaskNote.created_at)",
+    )
 
 
 class TaskAssignee(Base):
@@ -213,3 +218,17 @@ class TaskAssignee(Base):
 
     task: Mapped[Task] = relationship(back_populates="assignees")
     user: Mapped[User] = relationship(back_populates="task_links")
+
+
+class TaskNote(Base):
+    __tablename__ = "task_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), default="problem")  # problem | note
+    author_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    task: Mapped[Task] = relationship(back_populates="notes")
+    author: Mapped[User | None] = relationship()

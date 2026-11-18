@@ -317,6 +317,224 @@
   color: var(--muted);
   font-size: 0.58rem;
 }
+
+.tasks-page .task-card.has-notes {
+  box-shadow:
+    inset 3px 0 0 #f59e0b,
+    0 1px 2px rgba(24, 34, 51, 0.04);
+}
+.tasks-page .task-card.has-problem {
+  box-shadow:
+    inset 3px 0 0 #ef4444,
+    0 1px 2px rgba(24, 34, 51, 0.04);
+}
+
+.task-note-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  margin-right: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  line-height: 1;
+  cursor: pointer;
+}
+.task-note-badge.is-problem {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.task-modal-card {
+  width: min(560px, 100%);
+}
+.task-modal-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  border: 1px solid var(--line);
+}
+.task-modal-tab {
+  flex: 1 1 0;
+  border: 0;
+  background: transparent;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.task-modal-tab.is-active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(24, 34, 51, 0.08);
+}
+.task-notes-count {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: #e2e8f0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: #334155;
+}
+.task-modal-tab.is-active .task-notes-count {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.task-tab-panel[hidden] { display: none !important; }
+.task-modal-form[data-active-tab="notes"] #task-detail-actions {
+  display: none;
+}
+
+.task-notes-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 280px;
+}
+.task-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  min-height: 160px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.task-notes-empty {
+  margin: auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 28px 12px;
+  line-height: 1.45;
+}
+.task-note-item {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #f59e0b;
+}
+.task-note-item.kind-problem {
+  border-left-color: #ef4444;
+  background: linear-gradient(180deg, #fffafa, #fff);
+}
+.task-note-item.kind-note {
+  border-left-color: #3b82f6;
+}
+.task-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+.task-note-kind {
+  font-weight: 700;
+  color: var(--ink);
+}
+.task-note-item p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.task-note-delete {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.task-note-delete:hover { color: #dc2626; }
+
+.task-notes-compose {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+.note-kind-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  width: fit-content;
+}
+.note-kind-btn {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+.note-kind-btn.is-active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(24, 34, 51, 0.08);
+}
+.note-kind-btn[data-note-kind="problem"].is-active {
+  color: #b91c1c;
+}
+.note-kind-btn[data-note-kind="note"].is-active {
+  color: #1d4ed8;
+}
+.task-notes-compose-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+.task-notes-compose textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 0.8rem;
+  resize: vertical;
+  min-height: 64px;
+  background: #fff;
+}
+.task-notes-hint {
+  margin: auto 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 24px 12px;
+  line-height: 1.45;
+}
 .kanban-empty {
   color: var(--muted);
   font-size: 0.72rem;

@@ -37,6 +37,10 @@ const state = {
   assigneeSearch: "",
   assigneeSuggestions: [],
   assigneeHighlight: -1,
+  notes: [],
+  noteKind: "problem",
+  activeTab: "detail",
+  notesEditable: false,
 };
 
 const els = {
@@ -79,6 +83,18 @@ const els = {
   assigneeDropdown: document.getElementById("assignee-dropdown"),
   assigneeOptions: document.getElementById("assignee-options"),
   assigneeChips: document.getElementById("assignee-chips"),
+  notesPanel: document.getElementById("task-notes-panel"),
+  notesList: document.getElementById("task-notes-list"),
+  notesCount: document.getElementById("task-notes-count"),
+  notesHint: document.getElementById("task-notes-hint"),
+  notesCompose: document.getElementById("task-notes-compose"),
+  noteInput: document.getElementById("task-note-input"),
+  btnAddNote: document.getElementById("btn-add-note"),
+  tabDetail: document.getElementById("task-tab-detail"),
+  tabNotes: document.getElementById("task-tab-notes"),
+  tabBtnDetail: document.getElementById("tab-btn-detail"),
+  tabBtnNotes: document.getElementById("tab-btn-notes"),
+  detailActions: document.getElementById("task-detail-actions"),
 };
 
 const MONTH_NAMES = [
@@ -409,7 +425,7 @@ function renderBoard() {
         ${col.tasks
           .map((task) => `
           <article
-            class="task-card status-${col.status}"
+            class="task-card status-${col.status}${task.notes_count > 0 ? " has-notes" : ""}${task.has_problem ? " has-problem" : ""}"
             draggable="true"
             data-task-id="${task.id}"
             data-action="edit"
@@ -420,6 +436,15 @@ function renderBoard() {
             <h4>${escapeHtml(task.title)}</h4>
             <div class="task-card-foot">
               <span class="tag ${tagClass(task.category)}">${escapeHtml(task.category || "General")}</span>
+              ${task.notes_count > 0
+                ? `<span class="task-note-badge${task.has_problem ? " is-problem" : ""}" data-open-notes="${task.id}" title="${task.notes_count} catatan — klik untuk buka">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M7 4h10a2 2 0 0 1 2 2v14l-4-2.5L11 20l-4-2.5V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                      <path d="M9.5 9h5M9.5 12.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                    ${task.notes_count}
+                  </span>`
+                : ""}
               ${renderAssigneeAvatars(task)}
             </div>
             <div class="task-card-hint">Drag to move · click to edit</div>
@@ -451,7 +476,163 @@ function renderHeader() {
   }
 }
 
-function openModal(task = null, presetStatus = "todo") {
+function formatNoteTime(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function selectedNoteKind() {
+  return state.noteKind === "note" ? "note" : "problem";
+}
+
+function syncNoteKindButtons() {
+  document.querySelectorAll(".note-kind-btn").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.noteKind === state.noteKind);
+  });
+}
+
+function setActiveTab(tab = "detail") {
+  state.activeTab = tab === "notes" ? "notes" : "detail";
+  const isNotes = state.activeTab === "notes";
+  els.tabBtnDetail?.classList.toggle("is-active", !isNotes);
+  els.tabBtnNotes?.classList.toggle("is-active", isNotes);
+  els.tabBtnDetail?.setAttribute("aria-selected", String(!isNotes));
+  els.tabBtnNotes?.setAttribute("aria-selected", String(isNotes));
+  if (els.tabDetail) els.tabDetail.hidden = isNotes;
+  if (els.tabNotes) els.tabNotes.hidden = !isNotes;
+  els.form?.setAttribute("data-active-tab", state.activeTab);
+  if (isNotes) {
+    els.noteInput?.focus();
+  } else {
+    els.fieldTitle?.focus();
+  }
+}
+
+function renderNotes() {
+  if (!els.notesList) return;
+  const count = state.notes.length;
+  if (els.notesCount) els.notesCount.textContent = String(count);
+  if (!state.notesEditable) {
+    els.notesList.innerHTML = "";
+    return;
+  }
+  if (!count) {
+    els.notesList.innerHTML = `<div class="task-notes-empty">Belum ada catatan.<br/>Tulis problem atau update di bawah.</div>`;
+    return;
+  }
+  els.notesList.innerHTML = state.notes
+    .map(
+      (note) => `
+      <article class="task-note-item kind-${escapeHtml(note.kind || "problem")}">
+        <div class="task-note-meta">
+          <span class="task-note-kind">${note.kind === "note" ? "Catatan" : "Problem"}</span>
+          <span>${escapeHtml(formatNoteTime(note.created_at))}</span>
+          <button type="button" class="task-note-delete" data-delete-note="${note.id}" title="Hapus catatan">×</button>
+        </div>
+        <p>${escapeHtml(note.body)}</p>
+      </article>`
+    )
+    .join("");
+}
+
+async function loadNotes(taskId) {
+  if (!taskId) {
+    state.notes = [];
+    renderNotes();
+    return;
+  }
+  try {
+    state.notes = await api(`/api/tasks/${taskId}/notes`);
+  } catch {
+    state.notes = [];
+  }
+  renderNotes();
+}
+
+function setNotesPanelMode(editing) {
+  state.notesEditable = Boolean(editing);
+  if (els.notesCompose) els.notesCompose.hidden = !editing;
+  if (els.notesHint) els.notesHint.hidden = editing;
+  if (els.noteInput) els.noteInput.value = "";
+  state.noteKind = "problem";
+  syncNoteKindButtons();
+  if (!editing) {
+    state.notes = [];
+    if (els.notesCount) els.notesCount.textContent = "0";
+  }
+  renderNotes();
+}
+
+async function addNote() {
+  const id = els.fieldId.value;
+  if (!id) {
+    setActiveTab("detail");
+    els.formError.hidden = false;
+    els.formError.textContent = "Simpan detail task dulu sebelum menambah catatan.";
+    return;
+  }
+  const body = (els.noteInput?.value || "").trim();
+  if (!body) {
+    els.formError.hidden = false;
+    els.formError.textContent = "Isi catatan terlebih dahulu.";
+    return;
+  }
+  els.formError.hidden = true;
+  els.btnAddNote.disabled = true;
+  try {
+    const note = await api(`/api/tasks/${id}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ body, kind: selectedNoteKind() }),
+    });
+    state.notes = [note, ...state.notes];
+    els.noteInput.value = "";
+    renderNotes();
+    await loadBoard();
+  } catch (err) {
+    els.formError.hidden = false;
+    els.formError.textContent = err.message || "Gagal menambah catatan.";
+  } finally {
+    els.btnAddNote.disabled = false;
+  }
+}
+
+async function deleteNote(noteId) {
+  const taskId = els.fieldId.value;
+  if (!taskId || !noteId) return;
+  const ok = window.pmConfirm
+    ? await window.pmConfirm({
+        title: "Hapus catatan?",
+        message: "Catatan ini akan dihapus dari task.",
+        tone: "danger",
+        icon: "!",
+        okText: "Hapus",
+        cancelText: "Batal",
+      })
+    : window.confirm("Hapus catatan ini?");
+  if (!ok) return;
+  try {
+    await api(`/api/tasks/${taskId}/notes/${noteId}`, { method: "DELETE" });
+    state.notes = state.notes.filter((n) => String(n.id) !== String(noteId));
+    renderNotes();
+    await loadBoard();
+  } catch (err) {
+    els.formError.hidden = false;
+    els.formError.textContent = err.message || "Gagal menghapus catatan.";
+  }
+}
+
+function openModal(task = null, presetStatus = "todo", options = {}) {
+  const startTab = options.tab === "notes" ? "notes" : "detail";
   els.form.reset();
   els.formError.hidden = true;
   els.formError.textContent = "";
@@ -460,7 +641,7 @@ function openModal(task = null, presetStatus = "todo") {
 
   if (task) {
     els.modalTitle.textContent = "Edit Task";
-    els.modalSubtitle.textContent = "Ubah detail atau status task.";
+    els.modalSubtitle.textContent = "Ubah detail atau catat problem di tab Catatan.";
     els.fieldId.value = task.id;
     els.fieldTitle.value = task.title || "";
     els.fieldDescription.value = task.description || "";
@@ -470,9 +651,12 @@ function openModal(task = null, presetStatus = "todo") {
     els.fieldPriority.value = task.priority || "medium";
     setDueDate(task.due_date || "");
     els.btnDelete.hidden = false;
+    setNotesPanelMode(true);
+    if (els.notesCount) els.notesCount.textContent = String(task.notes_count || 0);
+    loadNotes(task.id);
   } else {
     els.modalTitle.textContent = "New Task";
-    els.modalSubtitle.textContent = "Task akan muncul di board ini dan di dashboard.";
+    els.modalSubtitle.textContent = "Isi detail dulu. Catatan bisa ditambah setelah task tersimpan.";
     els.fieldId.value = "";
     els.fieldStatus.value = presetStatus || "todo";
     els.fieldCategory.value = "General";
@@ -484,11 +668,12 @@ function openModal(task = null, presetStatus = "todo") {
         : "";
     setDueDate("");
     els.btnDelete.hidden = true;
+    setNotesPanelMode(false);
   }
 
   closeDuePicker();
   els.modal.hidden = false;
-  els.fieldTitle.focus();
+  setActiveTab(task && startTab === "notes" ? "notes" : "detail");
 }
 
 function closeModal() {
@@ -544,10 +729,23 @@ async function saveTask(event) {
   }
 
   try {
-    await (id
-      ? api(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) })
-      : api("/api/tasks", { method: "POST", body: JSON.stringify(payload) }));
-    closeModal();
+    if (id) {
+      await api(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      closeModal();
+    } else {
+      const created = await api("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      // Keep modal open so user can add catatan right away.
+      els.fieldId.value = String(created.id);
+      els.modalTitle.textContent = "Edit Task";
+      els.modalSubtitle.textContent = "Task tersimpan. Tambahkan catatan bila ada problem.";
+      els.btnDelete.hidden = false;
+      setNotesPanelMode(true);
+      await loadNotes(created.id);
+      setActiveTab("notes");
+    }
     await loadBoard();
   } catch (err) {
     els.formError.hidden = false;
@@ -687,6 +885,14 @@ function wireBoardEvents() {
       openModal(null, addBtn.dataset.addStatus);
       return;
     }
+    const notesBtn = e.target.closest("[data-open-notes]");
+    if (notesBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const task = findTask(notesBtn.dataset.openNotes);
+      if (task) openModal(task, task.status, { tab: "notes" });
+      return;
+    }
     const card = e.target.closest("[data-task-id][data-action='edit']");
     if (!card) return;
     const task = findTask(card.dataset.taskId);
@@ -799,6 +1005,27 @@ function wireModalEvents() {
   els.btnCancel.addEventListener("click", closeModal);
   els.btnDelete.addEventListener("click", deleteTask);
   els.form.addEventListener("submit", saveTask);
+  els.tabBtnDetail?.addEventListener("click", () => setActiveTab("detail"));
+  els.tabBtnNotes?.addEventListener("click", () => setActiveTab("notes"));
+  document.querySelectorAll(".note-kind-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.noteKind = btn.dataset.noteKind === "note" ? "note" : "problem";
+      syncNoteKindButtons();
+      els.noteInput?.focus();
+    });
+  });
+  els.btnAddNote?.addEventListener("click", addNote);
+  els.notesList?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-delete-note]");
+    if (!btn) return;
+    deleteNote(btn.dataset.deleteNote);
+  });
+  els.noteInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      addNote();
+    }
+  });
   els.modal.addEventListener("click", (e) => {
     if (e.target === els.modal) closeModal();
   });
