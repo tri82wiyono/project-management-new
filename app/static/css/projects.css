@@ -327,10 +327,49 @@
   background: #fef2f2 !important;
 }
 
+.project-cell-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-inline-delete {
+  flex: 0 0 auto;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.project-inline-delete:hover {
+  background: #fee2e2;
+}
+
 .projects-table .col-actions {
   width: 1%;
   white-space: nowrap;
   text-align: right;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #fff;
+  box-shadow: -8px 0 12px rgba(15, 23, 42, 0.06);
+}
+
+.projects-table thead .col-actions {
+  background: #f7f9fc;
+  z-index: 3;
+}
+
+.projects-table tbody tr:hover .col-actions {
+  background: #f5f8ff;
 }
 
 .projects-pagination {

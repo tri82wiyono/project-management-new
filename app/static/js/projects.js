@@ -361,10 +361,15 @@ function renderList() {
       return `
       <tr class="project-row" data-id="${p.id}" tabindex="0" role="link" aria-label="Open ${escapeHtml(p.name)}">
         <td>
-          <a class="project-cell-copy project-name-link" href="/projects/${p.id}" title="${escapeHtml(p.name)}">
-            <strong>${escapeHtml(p.name)}</strong>
-            ${p.description ? `<span>${escapeHtml(p.description)}</span>` : ""}
-          </a>
+          <div class="project-cell-main">
+            <a class="project-cell-copy project-name-link" href="/projects/${p.id}" title="${escapeHtml(p.name)}">
+              <strong>${escapeHtml(p.name)}</strong>
+              ${p.description ? `<span>${escapeHtml(p.description)}</span>` : ""}
+            </a>
+            ${state.canDelete
+              ? `<button type="button" class="project-inline-delete" data-action="delete" data-id="${p.id}" title="Hapus project">Hapus</button>`
+              : ""}
+          </div>
         </td>
         <td class="col-pic">${renderPicCell(p)}</td>
         <td><span class="status-badge ${p.status}">${STATUS_LABEL[p.status] || p.status}</span></td>
@@ -382,7 +387,7 @@ function renderList() {
             <button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${p.id}">Edit</button>
             <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}" data-action="tasks">Tasks</a>
             ${state.canDelete
-              ? `<button type="button" class="btn btn-ghost btn-sm btn-danger-text" data-action="delete" data-id="${p.id}">Hapus</button>`
+              ? `<button type="button" class="btn btn-ghost btn-sm btn-danger-text" data-action="delete" data-id="${p.id}" title="Hapus project">Hapus</button>`
               : ""}
           </div>
         </td>
@@ -719,6 +724,7 @@ async function loadCurrentUser() {
 async function boot() {
   wireEvents();
   try {
+    // Role Admin harus terbaca dulu agar tombol Hapus ikut ter-render
     await loadCurrentUser();
     await Promise.all([loadStats(), loadProjects(), loadUsers()]);
   } catch (err) {
