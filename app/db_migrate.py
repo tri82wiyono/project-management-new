@@ -185,14 +185,20 @@ def ensure_schema() -> None:
     CREATE TABLE IF NOT EXISTS project_documents (
       id SERIAL PRIMARY KEY,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      kind VARCHAR(20) DEFAULT 'file',
       original_name VARCHAR(255) NOT NULL,
-      stored_name VARCHAR(255) NOT NULL,
+      stored_name VARCHAR(255),
+      external_url VARCHAR(2000),
       content_type VARCHAR(120) DEFAULT 'application/octet-stream',
       size_bytes INTEGER DEFAULT 0,
       uploaded_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ix_project_documents_project_id ON project_documents(project_id);
+    ALTER TABLE project_documents ADD COLUMN IF NOT EXISTS kind VARCHAR(20) DEFAULT 'file';
+    ALTER TABLE project_documents ADD COLUMN IF NOT EXISTS external_url VARCHAR(2000);
+    ALTER TABLE project_documents ALTER COLUMN stored_name DROP NOT NULL;
+    UPDATE project_documents SET kind = 'file' WHERE kind IS NULL OR kind = '';
     """
     with engine.begin() as conn:
         for stmt in statements:

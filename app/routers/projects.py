@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -8,6 +8,7 @@ from app.models.models import Project, ProjectDocument, ProjectStatus, Task, Tas
 from app.schemas.schemas import (
     ProjectCreate,
     ProjectDocumentOut,
+    ProjectDocumentUrlCreate,
     ProjectListResponse,
     ProjectOut,
     ProjectStats,
@@ -298,13 +299,35 @@ async def upload_project_documents(
     return await docs_svc.save_uploads(db, project_id=project_id, files=files, user=user)
 
 
+@router.post(
+    "/{project_id}/documents/url",
+    response_model=ProjectDocumentOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_project_document_url(
+    project_id: int,
+    payload: ProjectDocumentUrlCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.manage")),
+) -> ProjectDocumentOut:
+    if not db.get(Project, project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return docs_svc.save_url(
+        db,
+        project_id=project_id,
+        url=payload.url,
+        title=payload.title,
+        user=user,
+    )
+
+
 @router.get("/{project_id}/documents/{document_id}/download")
 def download_project_document(
     project_id: int,
     document_id: int,
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("projects.view")),
-) -> FileResponse:
+):
     doc = db.scalar(
         select(ProjectDocument).where(
             ProjectDocument.id == document_id,
@@ -313,6 +336,8 @@ def download_project_document(
     )
     if not doc:
         raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan")
+    if (doc.kind or "file") == "url" and doc.external_url:
+        return RedirectResponse(url=doc.external_url, status_code=302)
     path = docs_svc.resolve_file_path(doc)
     return FileResponse(
         path=path,

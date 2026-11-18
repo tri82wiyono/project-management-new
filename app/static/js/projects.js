@@ -82,6 +82,9 @@ const els = {
   docDropzone: document.getElementById("doc-dropzone"),
   docInput: document.getElementById("field-documents"),
   docList: document.getElementById("doc-file-list"),
+  docUrl: document.getElementById("field-doc-url"),
+  docUrlTitle: document.getElementById("field-doc-url-title"),
+  btnAddDocUrl: document.getElementById("btn-add-doc-url"),
 };
 
 function formatDate(value) {
@@ -459,6 +462,18 @@ function totalDocSlotsUsed() {
   return state.existingDocs.length + state.pendingDocs.length;
 }
 
+function setDocMode(mode) {
+  const next = mode === "url" ? "url" : "file";
+  document.querySelectorAll("[data-doc-mode]").forEach((btn) => {
+    const active = btn.dataset.docMode === next;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-doc-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.docPanel !== next;
+  });
+}
+
 function renderDocList() {
   if (!els.docList) return;
   const items = [
@@ -466,15 +481,17 @@ function renderDocList() {
       kind: "existing",
       id: d.id,
       name: d.original_name,
-      size: d.size_bytes,
-      url: d.download_url,
+      meta: d.kind === "url" ? "URL / Drive" : formatBytes(d.size_bytes),
+      url: d.open_url || d.download_url || d.external_url,
+      actionLabel: d.kind === "url" ? "Buka" : "Download",
     })),
-    ...state.pendingDocs.map((f, idx) => ({
+    ...state.pendingDocs.map((item, idx) => ({
       kind: "pending",
       id: idx,
-      name: f.name,
-      size: f.size,
-      url: null,
+      name: item.type === "url" ? (item.title || item.url) : item.file.name,
+      meta: item.type === "url" ? "URL · siap ditambah" : `${formatBytes(item.file.size)} · siap diunggah`,
+      url: item.type === "url" ? item.url : null,
+      actionLabel: item.type === "url" ? "Buka" : null,
     })),
   ];
 
@@ -487,10 +504,10 @@ function renderDocList() {
       <li class="doc-file-item" data-kind="${item.kind}" data-id="${item.id}">
         <div class="doc-file-meta">
           <strong title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</strong>
-          <span>${formatBytes(item.size)}${item.kind === "pending" ? " · siap diunggah" : ""}</span>
+          <span>${escapeHtml(item.meta)}</span>
         </div>
         <div class="doc-file-actions">
-          ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Download</a>` : ""}
+          ${item.url && item.actionLabel ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${item.actionLabel}</a>` : ""}
           <button type="button" class="is-danger" data-remove-doc="${item.kind}:${item.id}">Hapus</button>
         </div>
       </li>
@@ -505,6 +522,9 @@ function resetDocs() {
   state.pendingDocs = [];
   state.existingDocs = [];
   if (els.docInput) els.docInput.value = "";
+  if (els.docUrl) els.docUrl.value = "";
+  if (els.docUrlTitle) els.docUrlTitle.value = "";
+  setDocMode("file");
   renderDocList();
 }
 
@@ -532,7 +552,7 @@ function addPendingFiles(fileList) {
       els.formError.textContent = `File terlalu besar (maks 10 MB): ${file.name}`;
       continue;
     }
-    accepted.push(file);
+    accepted.push({ type: "file", file });
   }
 
   if (accepted.length) {
@@ -541,6 +561,38 @@ function addPendingFiles(fileList) {
     renderDocList();
   }
   if (els.docInput) els.docInput.value = "";
+}
+
+function addPendingUrl() {
+  const url = (els.docUrl?.value || "").trim();
+  const title = (els.docUrlTitle?.value || "").trim();
+  if (!url) {
+    els.formError.hidden = false;
+    els.formError.textContent = "Isi URL dokumen terlebih dahulu.";
+    return;
+  }
+  if (!/^https?:\/\//i.test(url)) {
+    els.formError.hidden = false;
+    els.formError.textContent = "URL harus dimulai dengan http:// atau https://";
+    return;
+  }
+  if (totalDocSlotsUsed() >= MAX_DOCS) {
+    els.formError.hidden = false;
+    els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
+    return;
+  }
+  const exists = state.pendingDocs.some((d) => d.type === "url" && d.url === url)
+    || state.existingDocs.some((d) => d.kind === "url" && d.external_url === url);
+  if (exists) {
+    els.formError.hidden = false;
+    els.formError.textContent = "URL tersebut sudah ditambahkan.";
+    return;
+  }
+  els.formError.hidden = true;
+  state.pendingDocs.push({ type: "url", url, title });
+  if (els.docUrl) els.docUrl.value = "";
+  if (els.docUrlTitle) els.docUrlTitle.value = "";
+  renderDocList();
 }
 
 async function removeExistingDoc(docId) {
@@ -553,66 +605,95 @@ async function removeExistingDoc(docId) {
 
 async function uploadPendingDocs(projectId) {
   if (!state.pendingDocs.length) return;
-  const body = new FormData();
-  state.pendingDocs.forEach((file) => body.append("files", file, file.name));
-  const res = await fetch(`/api/projects/${projectId}/documents`, {
-    method: "POST",
-    body,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const detail = data.detail;
-    throw new Error(
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
-          : `Upload gagal (${res.status})`
-    );
+  const files = state.pendingDocs.filter((d) => d.type === "file").map((d) => d.file);
+  const urls = state.pendingDocs.filter((d) => d.type === "url");
+  const created = [];
+
+  if (files.length) {
+    const body = new FormData();
+    files.forEach((file) => body.append("files", file, file.name));
+    const res = await fetch(`/api/projects/${projectId}/documents`, { method: "POST", body });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = data.detail;
+      throw new Error(
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
+            : `Upload gagal (${res.status})`
+      );
+    }
+    if (Array.isArray(data)) created.push(...data);
   }
+
+  for (const item of urls) {
+    const row = await api(`/api/projects/${projectId}/documents/url`, {
+      method: "POST",
+      body: JSON.stringify({ url: item.url, title: item.title || null }),
+    });
+    created.push(row);
+  }
+
   state.pendingDocs = [];
-  state.existingDocs = Array.isArray(data)
-    ? [...state.existingDocs, ...data]
-    : state.existingDocs;
+  state.existingDocs = [...state.existingDocs, ...created];
 }
 
 function wireDocEvents() {
-  if (!els.docDropzone || !els.docInput) return;
-
-  els.docDropzone.addEventListener("click", () => {
-    if (totalDocSlotsUsed() >= MAX_DOCS) {
-      els.formError.hidden = false;
-      els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
-      return;
-    }
-    els.docInput.click();
+  document.querySelectorAll("[data-doc-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => setDocMode(btn.dataset.docMode));
   });
 
-  els.docDropzone.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
+  els.btnAddDocUrl?.addEventListener("click", addPendingUrl);
+  els.docUrl?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
       e.preventDefault();
-      els.docDropzone.click();
+      addPendingUrl();
     }
   });
+  els.docUrlTitle?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addPendingUrl();
+    }
+  });
 
-  ["dragenter", "dragover"].forEach((evt) => {
-    els.docDropzone.addEventListener(evt, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      els.docDropzone.classList.add("dragover");
+  if (els.docDropzone && els.docInput) {
+    els.docDropzone.addEventListener("click", () => {
+      if (totalDocSlotsUsed() >= MAX_DOCS) {
+        els.formError.hidden = false;
+        els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
+        return;
+      }
+      els.docInput.click();
     });
-  });
-  ["dragleave", "drop"].forEach((evt) => {
-    els.docDropzone.addEventListener(evt, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      els.docDropzone.classList.remove("dragover");
+
+    els.docDropzone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        els.docDropzone.click();
+      }
     });
-  });
-  els.docDropzone.addEventListener("drop", (e) => {
-    addPendingFiles(e.dataTransfer?.files);
-  });
-  els.docInput.addEventListener("change", () => addPendingFiles(els.docInput.files));
+
+    ["dragenter", "dragover"].forEach((evt) => {
+      els.docDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        els.docDropzone.classList.add("dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach((evt) => {
+      els.docDropzone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        els.docDropzone.classList.remove("dragover");
+      });
+    });
+    els.docDropzone.addEventListener("drop", (e) => {
+      addPendingFiles(e.dataTransfer?.files);
+    });
+    els.docInput.addEventListener("change", () => addPendingFiles(els.docInput.files));
+  }
 
   els.docList?.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-remove-doc]");

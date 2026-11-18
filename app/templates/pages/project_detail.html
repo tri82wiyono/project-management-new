@@ -56,21 +56,38 @@
 
         <div class="field">
           <span>Documents</span>
-          <div
-            class="doc-dropzone"
-            id="doc-dropzone"
-            tabindex="0"
-            role="button"
-            aria-label="Upload dokumen project"
-          >
-            <input type="file" id="field-documents" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip" hidden />
-            <div class="doc-dropzone-inner">
-              <strong>Drag & drop file di sini</strong>
-              <span>atau klik untuk memilih · maks. 3 file · 10 MB/file</span>
-            </div>
+          <div class="doc-mode-tabs" role="tablist" aria-label="Jenis dokumen">
+            <button type="button" class="doc-mode-tab is-active" data-doc-mode="file" role="tab" aria-selected="true">Upload file</button>
+            <button type="button" class="doc-mode-tab" data-doc-mode="url" role="tab" aria-selected="false">URL / Drive</button>
           </div>
+
+          <div class="doc-mode-panel" id="doc-mode-file" data-doc-panel="file">
+            <div
+              class="doc-dropzone"
+              id="doc-dropzone"
+              tabindex="0"
+              role="button"
+              aria-label="Upload dokumen project"
+            >
+              <input type="file" id="field-documents" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip" hidden />
+              <div class="doc-dropzone-inner">
+                <strong>Drag & drop file di sini</strong>
+                <span>atau klik untuk memilih · maks. 3 item · 10 MB/file</span>
+              </div>
+            </div>
+            <small class="field-hint">PDF, Office, gambar, ZIP, TXT/CSV.</small>
+          </div>
+
+          <div class="doc-mode-panel" id="doc-mode-url" data-doc-panel="url" hidden>
+            <div class="doc-url-form">
+              <input id="field-doc-url" type="url" placeholder="https://drive.google.com/…" autocomplete="off" />
+              <input id="field-doc-url-title" type="text" placeholder="Judul (opsional)" maxlength="255" autocomplete="off" />
+              <button type="button" class="btn btn-ghost" id="btn-add-doc-url">Tambah URL</button>
+            </div>
+            <small class="field-hint">Tempel tautan Google Drive, OneDrive, SharePoint, atau URL dokumen lain.</small>
+          </div>
+
           <ul class="doc-file-list" id="doc-file-list" hidden></ul>
-          <small class="field-hint">PDF, Office, gambar, ZIP, TXT/CSV.</small>
         </div>
 
         <div class="field">
@@ -132,5 +149,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/project-detail.js?v=4" defer></script>
+  <script src="/static/js/project-detail.js?v=5" defer></script>
 {% endblock %}

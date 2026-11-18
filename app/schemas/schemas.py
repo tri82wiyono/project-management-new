@@ -59,11 +59,19 @@ class ProjectDocumentOut(BaseModel):
 
     id: int
     project_id: int
+    kind: str = "file"  # file | url
     original_name: str
     content_type: str
     size_bytes: int
     created_at: datetime
+    external_url: str | None = None
     download_url: str | None = None
+    open_url: str | None = None
+
+
+class ProjectDocumentUrlCreate(BaseModel):
+    url: str = Field(min_length=8, max_length=2000)
+    title: str | None = Field(default=None, max_length=255)
 
 
 class ProjectOut(ProjectBase):
