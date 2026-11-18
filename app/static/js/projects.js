@@ -31,6 +31,8 @@ const STATUS_VALUES = Object.keys(STATUS_LABEL);
 
 const PAGE_SIZE = 10;
 
+const TRASH_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7l1 12a2 2 0 0 0 2 1.8h2a2 2 0 0 0 2-1.8L16 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+
 const state = {
   projects: [],
   users: [],
@@ -361,15 +363,10 @@ function renderList() {
       return `
       <tr class="project-row" data-id="${p.id}" tabindex="0" role="link" aria-label="Open ${escapeHtml(p.name)}">
         <td>
-          <div class="project-cell-main">
-            <a class="project-cell-copy project-name-link" href="/projects/${p.id}" title="${escapeHtml(p.name)}">
-              <strong>${escapeHtml(p.name)}</strong>
-              ${p.description ? `<span>${escapeHtml(p.description)}</span>` : ""}
-            </a>
-            ${state.canDelete
-              ? `<button type="button" class="project-inline-delete" data-action="delete" data-id="${p.id}" title="Hapus project">Hapus</button>`
-              : ""}
-          </div>
+          <a class="project-cell-copy project-name-link" href="/projects/${p.id}" title="${escapeHtml(p.name)}">
+            <strong>${escapeHtml(p.name)}</strong>
+            ${p.description ? `<span>${escapeHtml(p.description)}</span>` : ""}
+          </a>
         </td>
         <td class="col-pic">${renderPicCell(p)}</td>
         <td><span class="status-badge ${p.status}">${STATUS_LABEL[p.status] || p.status}</span></td>
@@ -387,7 +384,7 @@ function renderList() {
             <button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${p.id}">Edit</button>
             <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}" data-action="tasks">Tasks</a>
             ${state.canDelete
-              ? `<button type="button" class="btn btn-ghost btn-sm btn-danger-text" data-action="delete" data-id="${p.id}" title="Hapus project">Hapus</button>`
+              ? `<button type="button" class="icon-action danger" data-action="delete" data-id="${p.id}" title="Hapus project" aria-label="Hapus project">${TRASH_ICON}</button>`
               : ""}
           </div>
         </td>

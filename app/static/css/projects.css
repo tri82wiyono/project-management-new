@@ -319,37 +319,35 @@
   align-items: center;
 }
 
-.btn-danger-text {
-  color: #b91c1c !important;
-}
-
-.btn-danger-text:hover {
-  background: #fef2f2 !important;
-}
-
-.project-cell-main {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.project-inline-delete {
-  flex: 0 0 auto;
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
+.table-actions .icon-action {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 0.68rem;
-  font-weight: 700;
+  background: #fff;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  white-space: nowrap;
+  padding: 0;
 }
 
-.project-inline-delete:hover {
-  background: #fee2e2;
+.table-actions .icon-action svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.table-actions .icon-action.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fff;
+}
+
+.table-actions .icon-action.danger:hover {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .projects-table .col-actions {
