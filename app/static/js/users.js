@@ -39,90 +39,14 @@
       .replaceAll('"', "&quot;");
   }
 
-  // —— Shared confirm / notice modal ——
-  const confirmModal = $("confirm-modal");
-  const confirmCard = confirmModal?.querySelector(".confirm-card");
-  const confirmIcon = $("confirm-icon");
-  const confirmTitle = $("confirm-title");
-  const confirmMessage = $("confirm-message");
-  const confirmMeta = $("confirm-meta");
-  const confirmCancel = $("confirm-cancel");
-  const confirmOk = $("confirm-ok");
-  let confirmResolver = null;
-
-  function closeConfirmModal(result) {
-    if (!confirmModal) return;
-    confirmModal.hidden = true;
-    if (confirmResolver) {
-      const resolve = confirmResolver;
-      confirmResolver = null;
-      resolve(result);
-    }
-  }
-
-  function openDialog({
-    title = "Konfirmasi",
-    message = "Apakah Anda yakin?",
-    meta = "",
-    tone = "primary", // primary | danger | success | warn
-    icon = "?",
-    okText = "Lanjutkan",
-    cancelText = "Batal",
-    notice = false,
-  } = {}) {
-    return new Promise((resolve) => {
-      if (!confirmModal) {
-        resolve(notice ? true : window.confirm(message));
-        return;
-      }
-      confirmResolver = resolve;
-      confirmCard.classList.remove("is-danger", "is-success", "is-warn", "is-notice");
-      if (tone === "danger") confirmCard.classList.add("is-danger");
-      if (tone === "success") confirmCard.classList.add("is-success");
-      if (tone === "warn") confirmCard.classList.add("is-warn");
-      if (notice) confirmCard.classList.add("is-notice");
-
-      confirmIcon.textContent = icon;
-      confirmTitle.textContent = title;
-      confirmMessage.textContent = message;
-      if (meta) {
-        confirmMeta.hidden = false;
-        confirmMeta.textContent = meta;
-      } else {
-        confirmMeta.hidden = true;
-        confirmMeta.textContent = "";
-      }
-      confirmOk.textContent = okText;
-      confirmCancel.textContent = cancelText;
-      confirmModal.hidden = false;
-      confirmOk.focus();
-    });
-  }
-
-  function askConfirm(options) {
-    return openDialog({ notice: false, ...options });
-  }
-
-  function showNotice(options) {
-    return openDialog({
-      notice: true,
-      tone: "success",
-      icon: "✓",
-      okText: "Mengerti",
-      ...options,
-    });
-  }
-
-  confirmCancel?.addEventListener("click", () => closeConfirmModal(false));
-  confirmOk?.addEventListener("click", () => closeConfirmModal(true));
-  confirmModal?.addEventListener("click", (event) => {
-    if (event.target === confirmModal) closeConfirmModal(false);
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && confirmModal && !confirmModal.hidden) {
-      closeConfirmModal(false);
-    }
-  });
+  const askConfirm = (options) =>
+    window.pmConfirm
+      ? window.pmConfirm(options)
+      : Promise.resolve(window.confirm(options?.message || "Lanjutkan?"));
+  const showNotice = (options) =>
+    window.pmNotice
+      ? window.pmNotice(options)
+      : Promise.resolve(window.alert(options?.message || "") || true);
 
   // —— Users ——
   const tbody = $("users-tbody");

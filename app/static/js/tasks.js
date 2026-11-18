@@ -558,7 +558,17 @@ async function saveTask(event) {
 async function deleteTask() {
   const id = els.fieldId.value;
   if (!id) return;
-  if (!window.confirm("Hapus task ini?")) return;
+  const ok = window.pmConfirm
+    ? await window.pmConfirm({
+        title: "Hapus task?",
+        message: "Task akan dihapus dari board. Tindakan ini tidak bisa dibatalkan.",
+        tone: "danger",
+        icon: "!",
+        okText: "Hapus",
+        cancelText: "Batal",
+      })
+    : window.confirm("Hapus task ini?");
+  if (!ok) return;
   try {
     await api(`/api/tasks/${id}`, { method: "DELETE" });
     closeModal();
@@ -579,7 +589,16 @@ async function moveTask(taskId, nextStatus) {
     });
     await loadBoard();
   } catch (err) {
-    window.alert(err.message || "Gagal memindahkan task.");
+    if (window.pmNotice) {
+      await window.pmNotice({
+        title: "Gagal memindahkan",
+        message: err.message || "Gagal memindahkan task.",
+        tone: "danger",
+        icon: "!",
+      });
+    } else {
+      window.alert(err.message || "Gagal memindahkan task.");
+    }
   }
 }
 
@@ -760,9 +779,18 @@ function wireDueDatePicker() {
 }
 
 function wireModalEvents() {
-  els.btnNew.addEventListener("click", () => {
+  els.btnNew.addEventListener("click", async () => {
     if (!state.projects.length) {
-      window.alert("Belum ada project. Buat project dulu di menu Projects.");
+      if (window.pmNotice) {
+        await window.pmNotice({
+          title: "Belum ada project",
+          message: "Buat project dulu di menu Projects sebelum menambah task.",
+          tone: "warn",
+          icon: "i",
+        });
+      } else {
+        window.alert("Belum ada project. Buat project dulu di menu Projects.");
+      }
       return;
     }
     openModal(null, "todo");

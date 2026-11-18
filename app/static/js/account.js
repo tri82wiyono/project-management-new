@@ -361,9 +361,20 @@
     if (!btn) return;
     const id = btn.getAttribute("data-revoke-device");
     if (!id) return;
-    if (!confirm("Cabut kepercayaan perangkat ini? Login berikutnya dari perangkat itu akan meminta konfirmasi email.")) {
-      return;
-    }
+    const ok = window.pmConfirm
+      ? await window.pmConfirm({
+          title: "Cabut kepercayaan perangkat?",
+          message:
+            "Login berikutnya dari perangkat ini akan meminta konfirmasi email lagi.",
+          tone: "danger",
+          icon: "!",
+          okText: "Cabut",
+          cancelText: "Batal",
+        })
+      : window.confirm(
+          "Cabut kepercayaan perangkat ini? Login berikutnya dari perangkat itu akan meminta konfirmasi email."
+        );
+    if (!ok) return;
     btn.disabled = true;
     try {
       const res = await fetch(`/api/auth/devices/${id}`, { method: "DELETE" });

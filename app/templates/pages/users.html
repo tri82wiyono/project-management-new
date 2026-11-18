@@ -3,7 +3,7 @@
 {% block title %}Users · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/users.css?v=10" />
+  <link rel="stylesheet" href="/static/css/users.css?v=11" />
 {% endblock %}
 
 {% block header %}
@@ -194,22 +194,8 @@
     </div>
   </div>
 
-  <div class="modal-backdrop confirm-backdrop" id="confirm-modal" hidden>
-    <div class="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-      <div class="confirm-icon" id="confirm-icon" aria-hidden="true">?</div>
-      <div class="confirm-body">
-        <h3 id="confirm-title">Konfirmasi</h3>
-        <p id="confirm-message">Apakah Anda yakin?</p>
-        <div class="confirm-meta" id="confirm-meta" hidden></div>
-      </div>
-      <div class="modal-actions confirm-actions">
-        <button type="button" class="btn btn-ghost" id="confirm-cancel">Batal</button>
-        <button type="button" class="btn btn-primary" id="confirm-ok">Lanjutkan</button>
-      </div>
-    </div>
-  </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/users.js?v=8" defer></script>
+  <script src="/static/js/users.js?v=9" defer></script>
 {% endblock %}
