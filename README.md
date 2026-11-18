@@ -28,6 +28,12 @@ docker compose up -d --build
 
 Buka: http://localhost:8891
 
+## CI/CD (otomatis ke VPS)
+
+Setelah secrets GitHub dipasang, setiap `git push origin main` akan deploy ke VPS.
+
+Panduan lengkap: [docs/CICD.md](docs/CICD.md)
+
 ## Deploy ke Cloud VPS
 
 ### 1. Persiapan server
