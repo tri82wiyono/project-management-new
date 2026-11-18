@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/projects.css?v=14" />
+  <link rel="stylesheet" href="/static/css/tasks.css?v=8" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Tasks</h1>
+      <p id="tasks-subtitle">Kelola task dengan Kanban board</p>
+    </div>
+    <div class="top-actions">
+      <a class="btn btn-ghost btn-sm" href="/projects">← Projects</a>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-new-task">+ New Task</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="tasks-page" id="tasks-page">
+    <section class="tasks-hero">
+      <div>
+        <h2 class="tasks-title">Tasks Board</h2>
+        <p class="tasks-desc">Tambah task, geser antar kolom (To Do → Done), dan ubah detail. Perubahan langsung masuk database & tampil di dashboard.</p>
+      </div>
+    </section>
+
+    <section class="tasks-stats" id="tasks-stats" aria-label="Task statistics"></section>
+
+    <section class="tasks-toolbar">
+      <div class="tasks-project-info" id="tasks-project-info">
+        <span class="muted">Loading...</span>
+      </div>
+      <div class="tasks-toolbar-right">
+        <label class="tasks-search">
+          <span>⌕</span>
+          <input id="tasks-search" type="search" placeholder="Search tasks..." autocomplete="off" />
+        </label>
+        <select id="tasks-project-filter" aria-label="Filter by project">
+          <option value="">All Projects</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="panel kanban-panel tasks-kanban-panel">
+      <div class="panel-head">
+        <h2>Kanban</h2>
+        <span class="muted" id="tasks-count">0 tasks</span>
+      </div>
+      <div id="kanban-board" class="kanban-board"></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="task-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="task-modal-title">New Task</h3>
+          <p id="task-modal-subtitle">Isi detail task untuk project.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-task-modal" aria-label="Close">×</button>
+      </div>
+
+      <form id="task-form" class="project-form" novalidate>
+        <input type="hidden" id="task-id" value="" />
+
+        <label class="field">
+          <span>Title <em>*</em></span>
+          <input id="field-task-title" type="text" required maxlength="200" placeholder="e.g. Setup staging environment" />
+        </label>
+
+        <label class="field">
+          <span>Description</span>
+          <textarea id="field-task-description" rows="3" placeholder="Optional details"></textarea>
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Project <em>*</em></span>
+            <select id="field-task-project" required></select>
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <select id="field-task-status">
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="review">Review</option>
+              <option value="done">Done</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Category</span>
+            <input id="field-task-category" type="text" maxlength="60" placeholder="e.g. Development" value="General" />
+          </label>
+          <label class="field">
+            <span>Priority</span>
+            <select id="field-task-priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field">
+          <span>Assignee</span>
+          <div class="assignee-tagbox" id="assignee-multiselect">
+            <div class="assignee-input-wrap" id="assignee-input-wrap">
+              <div class="assignee-chips" id="assignee-chips"></div>
+              <input
+                type="text"
+                id="assignee-search"
+                class="assignee-search"
+                placeholder="Ketik nama lalu pilih…"
+                autocomplete="off"
+              />
+            </div>
+            <div class="assignee-dropdown" id="assignee-dropdown" hidden>
+              <div class="assignee-options" id="assignee-options" role="listbox"></div>
+            </div>
+          </div>
+          <small class="field-hint">Bisa memilih lebih dari satu orang.</small>
+        </div>
+
+        <div class="field">
+          <span>Due Date</span>
+          <div class="datepicker" id="due-datepicker" data-open="false">
+            <input type="hidden" id="field-task-due" value="" />
+            <button type="button" class="datepicker-trigger" id="due-datepicker-trigger" aria-haspopup="dialog" aria-expanded="false">
+              <span class="datepicker-value is-placeholder" id="due-datepicker-value">Pilih tanggal</span>
+              <span class="datepicker-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                  <path d="M3 10h18" stroke="currentColor" stroke-width="1.8"/>
+                  <path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </span>
+            </button>
+            <div class="datepicker-panel" id="due-datepicker-panel" hidden role="dialog" aria-label="Pilih due date">
+              <div class="datepicker-nav">
+                <button type="button" class="datepicker-nav-btn" id="due-prev-month" aria-label="Bulan sebelumnya">‹</button>
+                <strong class="datepicker-month" id="due-month-label"></strong>
+                <button type="button" class="datepicker-nav-btn" id="due-next-month" aria-label="Bulan berikutnya">›</button>
+              </div>
+              <div class="datepicker-weekdays" aria-hidden="true">
+                <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span>
+              </div>
+              <div class="datepicker-grid" id="due-datepicker-grid"></div>
+              <div class="datepicker-footer">
+                <button type="button" class="btn btn-ghost btn-sm" id="due-clear">Hapus</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="due-today">Hari ini</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="form-error" id="task-form-error" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-delete-task" hidden>Delete</button>
+          <span class="modal-actions-spacer"></span>
+          <button type="button" class="btn btn-ghost" id="btn-cancel-task-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/tasks.js?v=10" defer></script>
+{% endblock %}

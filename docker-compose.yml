@@ -1,0 +1,60 @@
+name: project-management
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pm_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-project_mgmt}
+      POSTGRES_USER: ${POSTGRES_USER:-pm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pm_secret_2025}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5438}:5432"
+    volumes:
+      - pm_pgdata:/var/lib/postgresql/data
+    networks:
+      - pm_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pm_user} -d ${POSTGRES_DB:-project_mgmt}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: project-management-app:latest
+    container_name: pm_app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-pm_user}:${POSTGRES_PASSWORD:-pm_secret_2025}@db:5432/${POSTGRES_DB:-project_mgmt}
+      APP_URL: ${APP_URL:-http://localhost:8891}
+      SEED_DATA: ${SEED_DATA:-true}
+    ports:
+      - "${APP_HOST_PORT:-8891}:8000"
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - pm_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  pm_net:
+    name: pm_net
+    driver: bridge
+
+volumes:
+  pm_pgdata:
+    name: pm_pgdata

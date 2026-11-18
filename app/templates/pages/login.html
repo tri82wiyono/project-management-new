@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login · {{ brand.name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/login.css?v=7" />
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-atmosphere" aria-hidden="true">
+      <span class="login-blob login-blob-a"></span>
+      <span class="login-blob login-blob-b"></span>
+      <span class="login-grid"></span>
+    </div>
+
+    <main class="login-panel">
+      <div class="login-panel-inner">
+        <header class="login-brand">
+          <div class="brand-badge">{{ brand.mark }}</div>
+          <div class="brand-copy">
+            <p class="brand-kicker">{{ organization_name }}</p>
+            <h1>{{ brand.name }}</h1>
+          </div>
+        </header>
+
+        <form id="login-form" class="login-card" novalidate>
+          <div class="login-head">
+            <p class="login-eyebrow">Secure sign-in</p>
+            <h2>Masuk ke workspace</h2>
+            <p>Gunakan akun resmi {{ organization_name }} untuk mengakses {{ brand.name }}.</p>
+          </div>
+
+          <label class="field">
+            <span>Email</span>
+            <input
+              id="login-email"
+              type="email"
+              required
+              autocomplete="username"
+              placeholder="nama@banksumut.co.id"
+            />
+          </label>
+
+          <label class="field">
+            <span>Password</span>
+            <input
+              id="login-password"
+              type="password"
+              required
+              autocomplete="current-password"
+              placeholder="Masukkan password"
+            />
+          </label>
+
+          <div class="captcha-box">
+            <div class="captcha-head">
+              <div>
+                <span class="captcha-title">Verifikasi captcha</span>
+                <small class="hint">Offline · dibuat lokal di server</small>
+              </div>
+              <button type="button" class="link-btn" id="btn-refresh-captcha">Ganti kode</button>
+            </div>
+            <div class="captcha-row">
+              <div id="captcha-image" class="captcha-image" aria-live="polite"></div>
+              <input
+                id="login-captcha"
+                type="text"
+                required
+                maxlength="8"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Ketik kode"
+                aria-label="Kode captcha"
+              />
+            </div>
+            <input type="hidden" id="captcha-id" value="" />
+          </div>
+
+          <button type="submit" class="btn-login" id="btn-login">
+            <span>Masuk</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
+          <p class="login-status" id="login-status" aria-live="polite"></p>
+        </form>
+
+        <form id="mfa-form" class="login-card login-mfa-card" hidden novalidate>
+          <div class="login-head">
+            <p class="login-eyebrow">Verifikasi MFA</p>
+            <h2>Kode autentikator</h2>
+            <p>Masukkan kode 6 digit dari aplikasi autentikator, atau gunakan backup code.</p>
+          </div>
+
+          <label class="field">
+            <span>Kode MFA / backup code</span>
+            <input
+              id="login-mfa-code"
+              type="text"
+              required
+              maxlength="24"
+              autocomplete="one-time-code"
+              placeholder="123456 atau XXXXX-XXXXX"
+            />
+          </label>
+
+          <button type="submit" class="btn-login" id="btn-mfa-login">
+            <span>Verifikasi</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="link-btn login-mfa-back" id="btn-mfa-back">Kembali ke login</button>
+          <p class="login-status" id="mfa-login-status" aria-live="polite"></p>
+        </form>
+
+        <div id="device-confirm-card" class="login-card login-device-card" hidden>
+          <div class="login-head">
+            <p class="login-eyebrow">Keamanan perangkat</p>
+            <h2>Konfirmasi lewat email</h2>
+            <p id="device-confirm-copy">
+              Login dari perangkat baru atau setelah clear cache memerlukan konfirmasi.
+            </p>
+          </div>
+          <div class="device-confirm-box">
+            <p class="device-confirm-email" id="device-confirm-email"></p>
+            <p class="device-confirm-device" id="device-confirm-device"></p>
+          </div>
+          <button type="button" class="btn-login" id="btn-device-resend">
+            <span>Kirim ulang email</span>
+          </button>
+          <button type="button" class="link-btn login-mfa-back" id="btn-device-back">Kembali ke login</button>
+          <p class="login-status" id="device-confirm-status" aria-live="polite"></p>
+        </div>
+
+        <p class="login-foot">{{ footer_note }}</p>
+      </div>
+    </main>
+  </div>
+  <script src="/static/js/login.js?v=5" defer></script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Users · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/users.css?v=9" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>User Management</h1>
+      <p>Kelola akun pengguna, role, dan reset password.</p>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" type="button" aria-label="Notifications">●</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="users-page" id="users-page">
+    <div class="users-topbar">
+      <div class="users-tabs" role="tablist" aria-label="User sections">
+        <button type="button" class="users-tab active" role="tab" aria-selected="true" data-tab="users" id="tab-users">
+          Users
+        </button>
+        <button type="button" class="users-tab" role="tab" aria-selected="false" data-tab="roles" id="tab-roles">
+          Roles
+        </button>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-new-user">+ New User</button>
+      <button type="button" class="btn btn-primary" id="btn-new-role" hidden>+ New Role</button>
+    </div>
+
+    <!-- Tab: Users -->
+    <div class="users-tab-panel active" id="panel-users" role="tabpanel" aria-labelledby="tab-users">
+      <section class="users-stats" id="users-stats" aria-label="User statistics"></section>
+
+      <section class="users-toolbar">
+        <label class="users-search">
+          <span>⌕</span>
+          <input id="user-search" type="search" placeholder="Cari nama atau email..." autocomplete="off" />
+        </label>
+        <select id="user-role-filter" aria-label="Filter role">
+          <option value="">All Roles</option>
+        </select>
+        <select id="user-active-filter" aria-label="Filter status">
+          <option value="">All Status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </section>
+
+      <section class="users-table-wrap">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th class="col-actions">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Tab: Roles -->
+    <div class="users-tab-panel" id="panel-roles" role="tabpanel" aria-labelledby="tab-roles" hidden>
+      <section class="users-table-wrap">
+        <table class="users-table roles-table">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Permissions</th>
+              <th>Users</th>
+              <th>Status</th>
+              <th class="col-actions">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="roles-tbody"></tbody>
+        </table>
+      </section>
+      <p class="form-status" id="roles-status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="user-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="user-modal-title">New User</h3>
+          <p id="user-modal-subtitle">Buat akun baru dan kirim undangan email.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-user-modal" aria-label="Close">×</button>
+      </div>
+
+      <form id="user-form" class="user-form" novalidate>
+        <input type="hidden" id="user-id" value="" />
+
+        <label class="field">
+          <span>Nama <em>*</em></span>
+          <input id="field-name" type="text" required maxlength="120" placeholder="Budi Santoso" />
+        </label>
+
+        <label class="field">
+          <span>Email <em>*</em></span>
+          <input id="field-email" type="email" required maxlength="180" placeholder="budi@banksumut.co.id" />
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Role</span>
+            <select id="field-role">
+              <option value="Member">Member</option>
+            </select>
+          </label>
+          <label class="field field-check">
+            <span>Status</span>
+            <label class="check-line">
+              <input id="field-active" type="checkbox" checked />
+              Aktif
+            </label>
+          </label>
+        </div>
+
+        <label class="check-line" id="send-email-wrap">
+          <input id="field-send-email" type="checkbox" checked />
+          Kirim email welcome dengan password sementara
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-user">Batal</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-user">Simpan</button>
+        </div>
+        <p class="form-status" id="user-form-status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="role-modal" hidden>
+    <div class="modal-card modal-card-wide" role="dialog" aria-modal="true" aria-labelledby="role-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="role-modal-title">New Role</h3>
+          <p id="role-modal-subtitle">Tentukan kode, nama, dan permission role.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-role-modal" aria-label="Close">×</button>
+      </div>
+      <form id="role-form" class="user-form" novalidate>
+        <input type="hidden" id="role-id" value="" />
+        <div class="field-row">
+          <label class="field">
+            <span>Kode Role <em>*</em></span>
+            <input id="role-code" type="text" required maxlength="40" placeholder="Viewer" />
+            <small class="field-hint">Unik, dipakai saat assign user.</small>
+          </label>
+          <label class="field">
+            <span>Nama Role <em>*</em></span>
+            <input id="role-name" type="text" required maxlength="80" placeholder="Viewer" />
+          </label>
+        </div>
+        <label class="field">
+          <span>Deskripsi</span>
+          <input id="role-description" type="text" maxlength="255" placeholder="Akses hanya lihat laporan" />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Urutan</span>
+            <input id="role-sort" type="number" min="0" max="9999" value="100" />
+          </label>
+          <label class="field field-check">
+            <span>Status</span>
+            <label class="check-line">
+              <input id="role-active" type="checkbox" checked />
+              Aktif
+            </label>
+          </label>
+        </div>
+        <div class="field">
+          <span>Permissions</span>
+          <div class="perm-grid" id="role-permissions"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-role">Batal</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-role">Simpan Role</button>
+        </div>
+        <p class="form-status" id="role-form-status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/users.js?v=7" defer></script>
+{% endblock %}

@@ -1,0 +1,73 @@
+<nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">
+  {% for item in mobile_nav_items %}
+    {% if item.key == 'account' %}
+      <button
+        type="button"
+        class="mobile-nav-item{% if active_page in ['account', 'settings'] %} active{% endif %}"
+        id="btn-account-menu"
+        data-nav="account"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="account-sheet"
+      >
+        <span class="mobile-nav-ico" aria-hidden="true">{{ item.icon }}</span>
+        <span class="mobile-nav-label">{{ item.label }}</span>
+        <span class="mobile-nav-indicator" aria-hidden="true"></span>
+      </button>
+    {% else %}
+      <a
+        class="mobile-nav-item{% if item.key == active_page %} active{% endif %}"
+        href="{{ item.href }}"
+        data-nav="{{ item.key }}"
+      >
+        <span class="mobile-nav-ico" aria-hidden="true">{{ item.icon }}</span>
+        <span class="mobile-nav-label">{{ item.label }}</span>
+        <span class="mobile-nav-indicator" aria-hidden="true"></span>
+      </a>
+    {% endif %}
+  {% endfor %}
+</nav>
+
+<div class="account-sheet" id="account-sheet" hidden>
+  <button type="button" class="account-sheet-backdrop" data-account-close aria-label="Tutup menu"></button>
+  <div class="account-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="account-sheet-title">
+    <div class="account-sheet-handle" aria-hidden="true"></div>
+    <div class="account-sheet-head">
+      <img
+        class="account-sheet-avatar"
+        src="{{ current_user.avatar_url }}"
+        alt="{{ current_user.name }}"
+      />
+      <div class="account-sheet-user">
+        <strong id="account-sheet-title">{{ current_user.name }}</strong>
+        <span>{{ current_user.role }}{% if current_user.email %} · {{ current_user.email }}{% endif %}</span>
+      </div>
+    </div>
+
+    <div class="account-sheet-menu">
+      <a class="account-sheet-item" href="/account">
+        <span class="account-sheet-ico" aria-hidden="true">◎</span>
+        <span>
+          <strong>Profil</strong>
+          <small>Update nama & foto profil</small>
+        </span>
+      </a>
+      <a class="account-sheet-item" href="/account/security">
+        <span class="account-sheet-ico" aria-hidden="true">✎</span>
+        <span>
+          <strong>Keamanan</strong>
+          <small>Password &amp; MFA</small>
+        </span>
+      </a>
+      <a class="account-sheet-item danger" href="/logout">
+        <span class="account-sheet-ico" aria-hidden="true">⎋</span>
+        <span>
+          <strong>Logout</strong>
+          <small>Keluar dari aplikasi</small>
+        </span>
+      </a>
+    </div>
+
+    <button type="button" class="account-sheet-cancel" data-account-close>Tutup</button>
+  </div>
+</div>

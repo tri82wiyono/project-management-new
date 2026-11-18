@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Settings · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/settings.css?v=4" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Settings</h1>
+      <p>Configure identity, notifications, and system preferences.</p>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" type="button" aria-label="Notifications">●</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="settings-page" id="settings-page">
+    <section class="settings-hero">
+      <div>
+        <h2 class="settings-title">Pengaturan Sistem</h2>
+        <p class="settings-subtitle">Kelola identitas aplikasi dan notifikasi email SMTP.</p>
+      </div>
+    </section>
+
+    <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+      <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-tab="identity" id="tab-identity">
+        Identitas Aplikasi
+      </button>
+      <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab="email" id="tab-email">
+        Email (SMTP)
+      </button>
+    </div>
+
+    <!-- Tab: Identity -->
+    <div class="settings-tab-panel active" id="panel-identity" role="tabpanel" aria-labelledby="tab-identity">
+      <section class="settings-panel">
+        <h3 class="settings-panel-title">Identitas Aplikasi</h3>
+        <p class="settings-panel-desc">
+          Nama brand, organisasi, dan URL yang dipakai di sidebar, footer, serta template email.
+        </p>
+        <form id="identity-form" class="identity-form" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span>Nama Aplikasi <em>*</em></span>
+              <input id="identity-app-name" name="app_name" type="text" required maxlength="160" placeholder="Project Management System" />
+            </label>
+            <label class="field">
+              <span>Nama Brand <em>*</em></span>
+              <input id="identity-brand-name" name="brand_name" type="text" required maxlength="80" placeholder="PulseDesk" />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Brand Mark <em>*</em></span>
+              <input id="identity-brand-mark" name="brand_mark" type="text" required maxlength="8" placeholder="PM" />
+              <small class="field-hint">Inisial singkat di logo sidebar (maks. 8 karakter).</small>
+            </label>
+            <label class="field">
+              <span>Tagline Brand</span>
+              <input id="identity-brand-tagline" name="brand_tagline" type="text" maxlength="120" placeholder="Project OS" />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Label Workspace</span>
+              <input id="identity-workspace-label" name="workspace_label" type="text" maxlength="80" placeholder="Workspace" />
+            </label>
+            <label class="field">
+              <span>Nama Workspace</span>
+              <input id="identity-workspace-name" name="workspace_name" type="text" maxlength="120" placeholder="Fintech Delivery" />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Organisasi</span>
+              <input id="identity-organization" name="organization_name" type="text" maxlength="160" placeholder="Bank Sumut" />
+            </label>
+            <label class="field">
+              <span>Support Email</span>
+              <input id="identity-support-email" name="support_email" type="email" maxlength="180" placeholder="notification@banksumut.co.id" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>App URL <em>*</em></span>
+            <input id="identity-app-url" name="app_url" type="url" required maxlength="255" placeholder="http://localhost:8891" />
+            <small class="field-hint">Dipakai untuk tautan login / reset password di email.</small>
+          </label>
+
+          <label class="field">
+            <span>Footer Note</span>
+            <input id="identity-footer-note" name="footer_note" type="text" maxlength="255" placeholder="Built with FastAPI · PostgreSQL" />
+          </label>
+
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-primary" id="btn-save-identity">Simpan Identitas</button>
+            <span class="settings-status" id="identity-save-status" aria-live="polite"></span>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- Tab: Email SMTP -->
+    <div class="settings-tab-panel" id="panel-email" role="tabpanel" aria-labelledby="tab-email" hidden>
+      <section class="settings-hero settings-hero-inline">
+        <div>
+          <h3 class="settings-panel-title">Email Notifications (SMTP)</h3>
+          <p class="settings-panel-desc">Konfigurasi Zimbra untuk mengirim notifikasi kepada pengguna.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="smtp-enabled" checked />
+          <span>Aktifkan notifikasi email</span>
+        </label>
+      </section>
+
+      <section class="settings-panel">
+        <form id="smtp-form" class="smtp-form" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span>SMTP Host <em>*</em></span>
+              <input id="smtp-host" name="host" type="text" required maxlength="180" placeholder="mail.banksumut.co.id" />
+            </label>
+            <label class="field">
+              <span>Port <em>*</em></span>
+              <input id="smtp-port" name="port" type="number" required min="1" max="65535" value="587" />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Enkripsi</span>
+              <select id="smtp-encryption" name="encryption">
+                <option value="starttls">STARTTLS (587)</option>
+                <option value="ssl">SSL/TLS (465)</option>
+                <option value="none">None</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Username</span>
+              <input id="smtp-username" name="username" type="text" maxlength="180" placeholder="notification@banksumut.co.id" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Password</span>
+            <input id="smtp-password" name="password" type="password" maxlength="255" placeholder="Kosongkan jika tanpa password" autocomplete="new-password" />
+            <small class="field-hint" id="smtp-password-hint">Password saat ini kosong.</small>
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span>From Email <em>*</em></span>
+              <input id="smtp-from-email" name="from_email" type="email" required maxlength="180" placeholder="notification@banksumut.co.id" />
+            </label>
+            <label class="field">
+              <span>From Name</span>
+              <input id="smtp-from-name" name="from_name" type="text" maxlength="120" placeholder="Project Management System" />
+            </label>
+          </div>
+
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-primary" id="btn-save-smtp">Simpan Konfigurasi</button>
+            <span class="settings-status" id="smtp-save-status" aria-live="polite"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="settings-panel">
+        <h3 class="settings-panel-title">Template Email</h3>
+        <p class="settings-panel-desc">
+          Preview template HTML untuk create user &amp; reset password.
+        </p>
+        <div class="settings-actions">
+          <a class="btn btn-ghost" href="/api/settings/email-templates/welcome" target="_blank" rel="noopener">
+            Preview Welcome
+          </a>
+          <a class="btn btn-ghost" href="/api/settings/email-templates/reset_password" target="_blank" rel="noopener">
+            Preview Reset Password
+          </a>
+        </div>
+      </section>
+
+      <section class="settings-panel">
+        <h3 class="settings-panel-title">Uji Kirim Email</h3>
+        <p class="settings-panel-desc">Kirim template notifikasi melalui SMTP Zimbra.</p>
+        <form id="smtp-test-form" class="smtp-test-form" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span>Template</span>
+              <select id="smtp-test-template">
+                <option value="welcome">Create User (Welcome)</option>
+                <option value="reset_password">Reset Password</option>
+                <option value="plain">Plain SMTP Test</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Nama penerima</span>
+              <input id="smtp-test-name" type="text" placeholder="Budi Santoso" value="Budi Santoso" />
+            </label>
+          </div>
+          <label class="field">
+            <span>Kirim ke alamat</span>
+            <input id="smtp-test-to" type="email" required placeholder="nama@banksumut.co.id" />
+          </label>
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-ghost" id="btn-test-smtp">Kirim Email Uji</button>
+            <span class="settings-status" id="smtp-test-status" aria-live="polite"></span>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/settings.js?v=4" defer></script>
+{% endblock %}

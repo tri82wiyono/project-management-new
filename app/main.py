@@ -1,0 +1,251 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.config import get_settings
+from app.database import Base, SessionLocal, engine, get_db
+from app.db_migrate import ensure_schema
+from app.routers import auth as auth_router
+from app.routers import dashboard, projects, roles as roles_router
+from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
+from app.routers import users as users_router
+from app.seed import seed_database
+from app.services.auth import ensure_default_admin, get_optional_user
+from app.services.email import get_or_create_smtp_settings
+from app.services.identity import get_or_create_app_identity
+from app.services.roles import ensure_default_roles
+from app.templating import build_page_context
+
+settings = get_settings()
+BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+PUBLIC_PATHS = {
+    "/login",
+    "/logout",
+    "/api/auth/login",
+    "/api/auth/captcha",
+    "/api/auth/mfa/verify-login",
+    "/api/auth/device/confirm",
+    "/api/auth/device/resend",
+    "/api/health",
+}
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    ensure_schema()
+    db = SessionLocal()
+    try:
+        get_or_create_smtp_settings(db)
+        get_or_create_app_identity(db)
+        ensure_default_roles(db)
+        ensure_default_admin(db)
+        if settings.seed_data:
+            seed_database(db)
+    finally:
+        db.close()
+    yield
+
+
+class AuthGuardMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if (
+            path.startswith("/static/")
+            or path in PUBLIC_PATHS
+            or path.startswith("/api/settings/email-templates/")
+        ):
+            return await call_next(request)
+
+        user_id = request.session.get("user_id")
+        if not user_id:
+            if path.startswith("/api/"):
+                return JSONResponse({"detail": "Authentication required"}, status_code=401)
+            next_url = path if path != "/login" else "/"
+            return RedirectResponse(url=f"/login?next={next_url}", status_code=303)
+
+        return await call_next(request)
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
+# Order matters: last added runs first. Session must wrap AuthGuard.
+app.add_middleware(AuthGuardMiddleware)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    session_cookie="pm_session",
+    max_age=settings.session_max_age,
+    same_site="lax",
+    https_only=False,
+)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+app.include_router(auth_router.router)
+app.include_router(dashboard.router)
+app.include_router(projects.router)
+app.include_router(tasks.router)
+app.include_router(team.router)
+app.include_router(settings_router.router)
+app.include_router(users_router.router)
+app.include_router(roles_router.router)
+app.include_router(timeline_router.router)
+
+
+def _user_context(request: Request, db: Session) -> dict:
+    user = get_optional_user(request, db)
+    if not user:
+        return {
+            "name": "Guest",
+            "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=Guest&backgroundColor=453a82",
+            "role": "Guest",
+            "email": "",
+        }
+    return {
+        "id": user.id,
+        "name": user.name,
+        "avatar_url": user.avatar_url,
+        "role": user.role,
+        "email": user.email,
+    }
+
+
+@app.get("/api/health")
+def health(db: Session = Depends(get_db)) -> dict:
+    db.connection()
+    return {"status": "ok", "service": settings.app_name}
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, db: Session = Depends(get_db)):
+    if request.session.get("user_id"):
+        return RedirectResponse(url="/", status_code=303)
+    context = build_page_context(active_page="login", page_title="Login")
+    return templates.TemplateResponse(request, "pages/login.html", context)
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="dashboard",
+        page_title="Good day!",
+        page_subtitle="Plan, track, and deliver projects with your team.",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/dashboard.html", context)
+
+
+@app.get("/projects", response_class=HTMLResponse)
+def projects_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="projects",
+        page_title="Projects",
+        page_subtitle="Manage and monitor all projects in one place.",
+        current_user=_user_context(request, db),
+        extra={"search_placeholder": "Search projects, tasks, people..."},
+    )
+    return templates.TemplateResponse(request, "pages/projects.html", context)
+
+
+@app.get("/projects/{project_id}", response_class=HTMLResponse)
+def project_detail_page(
+    project_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    context = build_page_context(
+        active_page="projects",
+        page_title="Project Detail",
+        page_subtitle="Ringkasan project, PIC, progress, dan task terkait.",
+        current_user=_user_context(request, db),
+        extra={"project_id": project_id},
+    )
+    return templates.TemplateResponse(request, "pages/project_detail.html", context)
+
+
+@app.get("/timeline", response_class=HTMLResponse)
+def timeline_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="timeline",
+        page_title="Project Timeline",
+        page_subtitle="Track project schedules and upcoming milestones.",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/timeline.html", context)
+
+
+@app.get("/calendar", response_class=HTMLResponse)
+def calendar_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="calendar",
+        page_title="Calendar",
+        page_subtitle="Lihat deadline task per tanggal dan jadwal mendatang.",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/calendar.html", context)
+
+
+@app.get("/tasks", response_class=HTMLResponse)
+def tasks_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="tasks",
+        page_title="Tasks",
+        page_subtitle="Track work across projects",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/tasks.html", context)
+
+
+@app.get("/users", response_class=HTMLResponse)
+def users_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="users",
+        page_title="User Management",
+        page_subtitle="Kelola akun pengguna dan akses sistem.",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/users.html", context)
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="settings",
+        page_title="Settings",
+        page_subtitle="Configure notifications and system preferences.",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/settings.html", context)
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="account",
+        page_title="Profil",
+        page_subtitle="Update nama dan foto profil.",
+        current_user=_user_context(request, db),
+    )
+    return templates.TemplateResponse(request, "pages/account.html", context)
+
+
+@app.get("/account/security", response_class=HTMLResponse)
+def account_security_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    user = get_optional_user(request, db)
+    context = build_page_context(
+        active_page="account",
+        page_title="Keamanan",
+        page_subtitle="Password, MFA, dan perangkat tepercaya.",
+        current_user=_user_context(request, db),
+    )
+    context["mfa_enabled"] = bool(user.mfa_enabled) if user else False
+    context["mfa_backup_codes_remaining"] = (
+        len(user.mfa_backup_codes or []) if user and user.mfa_enabled else 0
+    )
+    return templates.TemplateResponse(request, "pages/account_security.html", context)

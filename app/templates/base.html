@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=20" />
+  {# Critical layout fallback — ensures no right-side clipping even if CSS cache is stale #}
+  <style>
+    html, body { margin: 0; width: 100%; }
+    body {
+      background:
+        radial-gradient(1200px 480px at 12% -8%, #e8eefc, transparent 55%),
+        linear-gradient(180deg, #f5f7fb 0%, #eef2f7 100%);
+      background-attachment: fixed;
+      overflow-x: clip;
+    }
+    .app-shell { display: flex; width: 100%; min-height: 100vh; overflow: visible; }
+    .sidebar {
+      flex: 0 0 176px;
+      width: 176px;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+      z-index: 40;
+    }
+    .app-shell.sidebar-collapsed .sidebar {
+      flex-basis: 72px !important;
+      width: 72px !important;
+    }
+    .app-main { flex: 1 1 0%; min-width: 0; overflow-x: clip; }
+    .main-content { min-width: 0; padding: 0 18px 16px; overflow-x: clip; }
+    .page-stack, .dash-row, .panel, .kpi-grid { width: 100%; min-width: 0; max-width: 100%; }
+    .dash-row { display: grid; gap: 10px; }
+    .dash-row-main { grid-template-columns: minmax(0, 280px) minmax(0, 1fr); }
+    .dash-row-side, .dash-row-bottom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .panel {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #e6ebf3;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(28, 41, 71, 0.05);
+    }
+    .mobile-nav { display: none; }
+    @media (max-width: 1100px) {
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .dash-row-main, .dash-row-side, .dash-row-bottom { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .app-shell { flex-direction: column; }
+      .sidebar { display: none !important; }
+      .main-content { padding: 0 12px 88px; }
+      .mobile-nav { display: grid !important; }
+    }
+  </style>
+  <script>
+    try {
+      var collapsed =
+        localStorage.getItem("pm_sidebar_collapsed") === "1" ||
+        (localStorage.getItem("pm_sidebar_collapsed") == null &&
+          localStorage.getItem("pm_sidebar_hidden") === "1");
+      if (collapsed) document.documentElement.classList.add("sidebar-pref-collapsed");
+    } catch (e) {}
+  </script>
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}" data-layout="v6">
+  <div class="app-shell" id="app-shell">
+    <script>
+      (function () {
+        try {
+          var collapsed =
+            localStorage.getItem("pm_sidebar_collapsed") === "1" ||
+            (localStorage.getItem("pm_sidebar_collapsed") == null &&
+              localStorage.getItem("pm_sidebar_hidden") === "1");
+          if (collapsed) {
+            var shell = document.getElementById("app-shell");
+            if (shell) shell.classList.add("sidebar-collapsed");
+            document.body.classList.add("has-sidebar-collapsed");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    {% block sidebar %}
+      {% include "partials/sidebar.html" %}
+    {% endblock %}
+
+    <div class="app-main">
+      {% block header %}
+        {% include "partials/header.html" %}
+      {% endblock %}
+
+      <main class="main-content page-enter" id="main-content">
+        {% block content %}{% endblock %}
+      </main>
+
+      {% block footer %}
+        {% include "partials/footer.html" %}
+      {% endblock %}
+    </div>
+  </div>
+
+  {% block mobile_nav %}
+    {% include "partials/mobile_nav.html" %}
+  {% endblock %}
+
+  <script src="/static/js/shell.js?v=6" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

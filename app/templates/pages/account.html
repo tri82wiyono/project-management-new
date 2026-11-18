@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Profil · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/account.css?v=6" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Profil</h1>
+      <p>Update nama dan foto profil.</p>
+    </div>
+    <div class="top-actions">
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="account-page" id="account-page">
+    <section class="panel account-profile-card" id="profile">
+      <h3>Profil</h3>
+      <p class="account-password-desc">Perbarui nama tampilan dan foto profil Anda.</p>
+
+      <form id="profile-form" class="account-profile-form" enctype="multipart/form-data" novalidate>
+        <div class="account-photo-row">
+          <img
+            id="profile-avatar-preview"
+            class="account-profile-avatar"
+            src="{{ current_user.avatar_url }}"
+            alt="{{ current_user.name }}"
+          />
+          <div class="account-photo-actions">
+            <label class="btn btn-ghost btn-sm account-photo-pick">
+              Ganti foto
+              <input id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+            </label>
+            <small class="field-hint">JPG/PNG/WEBP, maks. 2 MB</small>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Nama</span>
+          <input
+            id="profile-name"
+            name="name"
+            type="text"
+            required
+            minlength="2"
+            maxlength="120"
+            value="{{ current_user.name }}"
+            autocomplete="name"
+          />
+        </label>
+
+        <div class="account-profile-grid readonly-grid">
+          <div>
+            <span>Email</span>
+            <strong>{{ current_user.email or "—" }}</strong>
+          </div>
+          <div>
+            <span>Role</span>
+            <strong>{{ current_user.role }}</strong>
+          </div>
+        </div>
+
+        <p class="account-status" id="profile-status" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary" id="btn-save-profile">Simpan Profil</button>
+      </form>
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/account.js?v=3" defer></script>
+{% endblock %}

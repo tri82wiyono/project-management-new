@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/calendar.css?v=2" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Calendar</h1>
+      <p>Lihat deadline task per tanggal dan jadwal mendatang.</p>
+    </div>
+    <div class="top-actions">
+      <div class="cal-month-nav" aria-label="Month navigation">
+        <button type="button" class="cal-nav-btn" id="btn-prev-month" aria-label="Previous month">‹</button>
+        <span id="cal-month-label">—</span>
+        <button type="button" class="cal-nav-btn" id="btn-next-month" aria-label="Next month">›</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-today">Today</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="calendar-page" id="calendar-page">
+    <section class="cal-stats" id="cal-stats" aria-label="Calendar statistics"></section>
+
+    <div class="cal-layout">
+      <section class="panel cal-board" aria-label="Monthly calendar">
+        <div class="cal-board-head">
+          <h2 id="calendar-title">Calendar</h2>
+          <span class="muted" id="cal-month-meta">Deadlines</span>
+        </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+      </section>
+
+      <aside class="cal-side">
+        <section class="panel cal-day-panel">
+          <div class="panel-head">
+            <h2 id="cal-day-title">Selected day</h2>
+            <span class="muted" id="cal-day-count">0 deadline</span>
+          </div>
+          <div id="cal-day-list" class="cal-deadline-list"></div>
+        </section>
+
+        <section class="panel cal-upcoming-panel">
+          <div class="panel-head">
+            <h2>Upcoming</h2>
+            <span class="muted">Next deadlines</span>
+          </div>
+          <div id="upcoming-list" class="cal-deadline-list"></div>
+        </section>
+      </aside>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/calendar.js?v=2" defer></script>
+{% endblock %}

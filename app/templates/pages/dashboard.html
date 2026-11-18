@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+{% endblock %}
+
+{% block content %}
+  <div class="page-stack" id="dashboard">
+    {% include "components/kpi.html" %}
+
+    <section class="dash-grid" aria-label="Dashboard panels">
+      <div class="dash-col dash-col-left">
+        {% include "components/progress.html" %}
+        {% include "components/analytics.html" %}
+      </div>
+
+      <div class="dash-col dash-col-center">
+        {% include "components/kanban.html" %}
+        {% include "components/timeline.html" %}
+      </div>
+
+      <div class="dash-col dash-col-right">
+        {% include "components/team.html" %}
+        {% include "components/calendar.html" %}
+        {% include "components/upcoming.html" %}
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/dashboard.js?v=10" defer></script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Timeline · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/timeline.css?v=5" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Project Timeline</h1>
+      <p>Jadwal keseluruhan project & modul (Start → Target), plus progress task.</p>
+    </div>
+    <div class="top-actions">
+      <div class="tl-month-nav" aria-label="Month navigation">
+        <button type="button" class="tl-nav-btn" id="btn-prev-month" aria-label="Previous month">‹</button>
+        <span id="tl-month-label">—</span>
+        <button type="button" class="tl-nav-btn" id="btn-next-month" aria-label="Next month">›</button>
+      </div>
+      <label class="tl-project-filter">
+        <span class="tl-filter-ico" aria-hidden="true">▦</span>
+        <select id="tl-project-filter" aria-label="Filter project">
+          <option value="">All Projects</option>
+        </select>
+      </label>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="timeline-page" id="timeline-page">
+    <section class="tl-stats" id="tl-stats" aria-label="Timeline statistics"></section>
+
+    <div class="tl-main">
+      <section class="tl-card tl-schedule-card">
+        <div class="tl-card-head">
+          <h2>Project Schedule</h2>
+        </div>
+        <div class="tl-gantt-wrap" id="tl-gantt"></div>
+      </section>
+
+      <aside class="tl-card tl-deadlines-card">
+        <div class="tl-card-head">
+          <h2>Upcoming Deadlines</h2>
+        </div>
+        <div class="tl-deadlines" id="tl-deadlines"></div>
+      </aside>
+    </div>
+
+    <section class="tl-card tl-legend-card" id="tl-legend" aria-label="Timeline legend"></section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/timeline.js?v=3" defer></script>
+{% endblock %}

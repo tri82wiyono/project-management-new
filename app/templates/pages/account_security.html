@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Keamanan · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/account.css?v=7" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Keamanan</h1>
+      <p>Password, MFA, dan perangkat tepercaya.</p>
+    </div>
+    <div class="top-actions">
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="account-page account-security-layout" id="account-security-page"
+       data-mfa-enabled="{{ 'true' if mfa_enabled else 'false' }}"
+       data-mfa-backup-remaining="{{ mfa_backup_codes_remaining }}">
+    <div class="account-security-grid">
+      <section class="panel account-password-card" id="password">
+        <h3>Ubah Password</h3>
+        <p class="account-password-desc">Gunakan password baru yang kuat, minimal 8 karakter.</p>
+        <form id="change-password-form" class="account-password-form" novalidate>
+          <label class="field">
+            <span>Password saat ini</span>
+            <input id="current-password" type="password" required autocomplete="current-password" />
+          </label>
+          <label class="field">
+            <span>Password baru</span>
+            <input id="new-password" type="password" required minlength="8" autocomplete="new-password" />
+          </label>
+          <label class="field">
+            <span>Konfirmasi password baru</span>
+            <input id="confirm-password" type="password" required minlength="8" autocomplete="new-password" />
+          </label>
+          <p class="account-status" id="password-status" aria-live="polite"></p>
+          <button type="submit" class="btn btn-primary" id="btn-change-password">Simpan Password</button>
+        </form>
+      </section>
+
+      <section class="panel account-mfa-card" id="mfa">
+        <div class="account-mfa-head">
+          <div>
+            <h3>Autentikasi Multi-Faktor (MFA)</h3>
+            <p class="account-password-desc">
+              Lindungi akun dengan kode sekali pakai dari aplikasi autentikator.
+            </p>
+          </div>
+          <span class="account-mfa-badge {% if mfa_enabled %}is-on{% else %}is-off{% endif %}" id="mfa-badge">
+            {% if mfa_enabled %}Aktif{% else %}Nonaktif{% endif %}
+          </span>
+        </div>
+
+        <div id="mfa-idle" {% if mfa_enabled %}hidden{% endif %}>
+          <p class="account-mfa-note">
+            Scan QR dengan Google Authenticator, Authy, atau aplikasi sejenis, lalu konfirmasi kode 6 digit.
+          </p>
+          <button type="button" class="btn btn-primary" id="btn-mfa-start">Aktifkan MFA</button>
+          <p class="account-status" id="mfa-status" aria-live="polite"></p>
+        </div>
+
+        <div id="mfa-setup" hidden>
+          <div class="account-mfa-setup">
+            <div class="account-mfa-qr" id="mfa-qr" aria-label="QR code MFA"></div>
+            <div class="account-mfa-setup-copy">
+              <p class="account-mfa-note">Atau masukkan kunci secara manual:</p>
+              <code class="account-mfa-secret" id="mfa-secret"></code>
+              <label class="field">
+                <span>Kode dari aplikasi</span>
+                <input id="mfa-enable-code" type="text" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="123456" />
+              </label>
+              <div class="account-mfa-actions">
+                <button type="button" class="btn btn-primary" id="btn-mfa-confirm">Konfirmasi &amp; Aktifkan</button>
+                <button type="button" class="btn btn-ghost" id="btn-mfa-cancel">Batal</button>
+              </div>
+            </div>
+          </div>
+          <p class="account-status" id="mfa-setup-status" aria-live="polite"></p>
+        </div>
+
+        <div id="mfa-active" {% if not mfa_enabled %}hidden{% endif %}>
+          <p class="account-mfa-note">
+            Backup code tersisa:
+            <strong id="mfa-backup-remaining">{{ mfa_backup_codes_remaining }}</strong>
+          </p>
+          <div class="account-mfa-actions">
+            <button type="button" class="btn btn-ghost" id="btn-mfa-regen">Buat ulang backup code</button>
+            <button type="button" class="btn btn-ghost account-mfa-disable" id="btn-mfa-disable">Nonaktifkan MFA</button>
+          </div>
+          <p class="account-status" id="mfa-active-status" aria-live="polite"></p>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel account-devices-card" id="devices">
+      <div class="account-mfa-head">
+        <div>
+          <h3>Perangkat tepercaya</h3>
+          <p class="account-password-desc">
+            Browser/device yang sudah dikonfirmasi. Device baru atau clear cache akan meminta konfirmasi email.
+          </p>
+        </div>
+      </div>
+      <div class="account-device-list" id="trusted-device-list">
+        <p class="account-mfa-note">Memuat perangkat…</p>
+      </div>
+      <p class="account-status" id="devices-status" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <dialog class="account-dialog" id="mfa-backup-dialog">
+    <form method="dialog" class="account-dialog-card">
+      <h3>Simpan backup code MFA</h3>
+      <p class="account-password-desc">
+        Kode ini hanya ditampilkan sekali. Simpan di tempat aman. Tiap kode hanya bisa dipakai satu kali jika aplikasi autentikator tidak tersedia.
+      </p>
+      <ul class="account-backup-list" id="mfa-backup-list"></ul>
+      <div class="account-mfa-actions">
+        <button type="button" class="btn btn-ghost" id="btn-copy-backup">Salin semua</button>
+        <button type="submit" class="btn btn-primary" value="ok">Saya sudah menyimpan</button>
+      </div>
+      <p class="account-status" id="mfa-backup-copy-status" aria-live="polite"></p>
+    </form>
+  </dialog>
+
+  <dialog class="account-dialog" id="mfa-confirm-dialog">
+    <form method="dialog" class="account-dialog-card" id="mfa-confirm-form">
+      <h3 id="mfa-confirm-title">Konfirmasi</h3>
+      <p class="account-password-desc" id="mfa-confirm-desc"></p>
+      <label class="field">
+        <span>Password saat ini</span>
+        <input id="mfa-confirm-password" type="password" autocomplete="current-password" required />
+      </label>
+      <label class="field">
+        <span>Kode MFA / backup code</span>
+        <input id="mfa-confirm-code" type="text" maxlength="24" autocomplete="one-time-code" required />
+      </label>
+      <p class="account-status" id="mfa-confirm-status" aria-live="polite"></p>
+      <div class="account-mfa-actions">
+        <button type="submit" class="btn btn-ghost" value="cancel">Batal</button>
+        <button type="button" class="btn btn-primary" id="btn-mfa-confirm-submit">Lanjutkan</button>
+      </div>
+    </form>
+  </dialog>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/account.js?v=5" defer></script>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Project Detail · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/projects.css?v=14" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1 id="detail-page-title">Project Detail</h1>
+      <p id="detail-page-subtitle">Ringkasan project, PIC, progress, dan task terkait.</p>
+    </div>
+    <div class="top-actions">
+      <a class="btn btn-ghost btn-sm" href="/projects">← Projects</a>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-edit-project" hidden>Edit</button>
+      <a class="btn btn-primary btn-sm" id="btn-open-tasks" href="/tasks">Tasks</a>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="project-detail-page" id="project-detail-page" data-project-id="{{ project_id }}">
+    <div id="project-detail-root" class="project-detail-root">
+      <div class="details-empty">
+        <div class="details-empty-icon">▣</div>
+        Memuat detail project…
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="project-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="project-modal-title">Edit Project</h3>
+          <p id="project-modal-subtitle">Update the essential details for your project.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-modal" aria-label="Close">×</button>
+      </div>
+
+      <form id="project-form" class="project-form" novalidate>
+        <input type="hidden" id="project-id" name="id" value="" />
+
+        <label class="field">
+          <span>Project Name <em>*</em></span>
+          <input id="field-name" name="name" type="text" required maxlength="160" />
+        </label>
+
+        <label class="field">
+          <span>Description</span>
+          <textarea id="field-description" name="description" rows="3"></textarea>
+        </label>
+
+        <div class="field">
+          <span>Project Manager (PIC) <em>*</em></span>
+          <div class="pic-tagbox" id="pic-multiselect">
+            <div class="pic-input-wrap" id="pic-input-wrap">
+              <div class="pic-chips" id="pic-chips"></div>
+              <input
+                type="text"
+                id="pic-search"
+                class="pic-search"
+                placeholder="Ketik nama lalu pilih…"
+                autocomplete="off"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="pic-options"
+              />
+            </div>
+            <div class="pic-dropdown" id="pic-dropdown" hidden>
+              <div class="pic-options" id="pic-options" role="listbox"></div>
+            </div>
+          </div>
+          <input type="hidden" id="field-pic" name="pic" value="" />
+        </div>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Start Date <em>*</em></span>
+            <input id="field-start" name="start_date" type="date" required />
+          </label>
+          <label class="field">
+            <span>Target Date <em>*</em></span>
+            <input id="field-end" name="end_date" type="date" required />
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Status</span>
+            <select id="field-status" name="status">
+              <option value="backlog">Backlog</option>
+              <option value="dev">Dev</option>
+              <option value="sit">SIT</option>
+              <option value="uat">UAT</option>
+              <option value="to">TO</option>
+              <option value="izin">Izin</option>
+              <option value="release">Release</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Progress (%)</span>
+            <input id="field-progress" name="progress" type="number" min="0" max="100" step="1" value="0" readonly />
+          </label>
+        </div>
+
+        <p class="form-error" id="form-error" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-project">Save Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/project-detail.js?v=1" defer></script>
+{% endblock %}

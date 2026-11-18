@@ -1,0 +1,672 @@
+const api = async (path, options = {}) => {
+  const res = await fetch(path, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = data.detail;
+    const message = typeof detail === "string"
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
+        : `Request failed (${res.status})`;
+    throw new Error(message);
+  }
+  return data;
+};
+
+const STATUS_LABEL = {
+  backlog: "Backlog",
+  dev: "Dev",
+  sit: "SIT",
+  uat: "UAT",
+  to: "TO",
+  izin: "Izin",
+  release: "Release",
+};
+
+const STATUS_VALUES = Object.keys(STATUS_LABEL);
+
+const PAGE_SIZE = 10;
+
+const state = {
+  projects: [],
+  users: [],
+  selectedPicIds: [],
+  suggestions: [],
+  highlightIndex: -1,
+  query: "",
+  status: "",
+  picSearch: "",
+  page: 1,
+  pages: 1,
+  total: 0,
+  pageSize: PAGE_SIZE,
+};
+
+const els = {
+  stats: document.getElementById("projects-stats"),
+  list: document.getElementById("projects-list"),
+  pagination: document.getElementById("projects-pagination"),
+  search: document.getElementById("project-search"),
+  filter: document.getElementById("project-status-filter"),
+  modal: document.getElementById("project-modal"),
+  form: document.getElementById("project-form"),
+  formError: document.getElementById("form-error"),
+  modalTitle: document.getElementById("project-modal-title"),
+  modalSubtitle: document.getElementById("project-modal-subtitle"),
+  btnNew: document.getElementById("btn-new-project"),
+  btnClose: document.getElementById("btn-close-modal"),
+  btnCancel: document.getElementById("btn-cancel-modal"),
+  picWrap: document.getElementById("pic-input-wrap"),
+  picDropdown: document.getElementById("pic-dropdown"),
+  picSearch: document.getElementById("pic-search"),
+  picOptions: document.getElementById("pic-options"),
+  picChips: document.getElementById("pic-chips"),
+  fieldPic: document.getElementById("field-pic"),
+};
+
+function formatDate(value) {
+  if (!value) return "-";
+  const d = new Date(`${value}T00:00:00`);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function plusDaysISO(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function initials(name = "") {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || "")
+    .join("") || "P";
+}
+
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function selectedUsers() {
+  return state.users.filter((u) => state.selectedPicIds.includes(u.id));
+}
+
+function availableUsers(query = "") {
+  const q = query.trim().toLowerCase();
+  return state.users.filter((user) => {
+    if (state.selectedPicIds.includes(user.id)) return false;
+    if (!q) return true;
+    return (
+      user.name.toLowerCase().includes(q) ||
+      String(user.email || "").toLowerCase().includes(q) ||
+      String(user.role || "").toLowerCase().includes(q)
+    );
+  });
+}
+
+function syncPicField() {
+  els.fieldPic.value = selectedUsers().map((u) => u.name).join(", ");
+  els.picSearch.placeholder = state.selectedPicIds.length
+    ? "Tambah nama…"
+    : "Ketik nama lalu pilih…";
+  renderPicChips();
+}
+
+function renderPicChips() {
+  const users = selectedUsers();
+  els.picChips.innerHTML = users
+    .map(
+      (user) => `
+    <span class="pic-chip">
+      <span>${escapeHtml(user.name)}</span>
+      <button type="button" data-remove-pic="${user.id}" aria-label="Hapus ${escapeHtml(user.name)}">×</button>
+    </span>`
+    )
+    .join("");
+}
+
+function renderPicOptions() {
+  state.suggestions = availableUsers(state.picSearch).slice(0, 12);
+
+  if (!state.suggestions.length) {
+    state.highlightIndex = -1;
+    els.picOptions.innerHTML = `<div class="pic-empty">${
+      state.picSearch.trim()
+        ? "Tidak ada nama yang cocok."
+        : "Semua user sudah dipilih."
+    }</div>`;
+    return;
+  }
+
+  if (state.highlightIndex < 0 || state.highlightIndex >= state.suggestions.length) {
+    state.highlightIndex = 0;
+  }
+
+  els.picOptions.innerHTML = state.suggestions
+    .map((user, index) => `
+      <button
+        type="button"
+        class="pic-option${index === state.highlightIndex ? " active" : ""}"
+        role="option"
+        data-pic-id="${user.id}"
+        data-index="${index}"
+      >
+        <span>${escapeHtml(user.name)}</span>
+        <small>${escapeHtml(user.role || "")}</small>
+      </button>`)
+    .join("");
+}
+
+function openPicDropdown() {
+  els.picDropdown.hidden = false;
+  els.picWrap.classList.add("open");
+  els.picSearch.setAttribute("aria-expanded", "true");
+  renderPicOptions();
+}
+
+function closePicDropdown() {
+  els.picDropdown.hidden = true;
+  els.picWrap.classList.remove("open");
+  els.picSearch.setAttribute("aria-expanded", "false");
+  state.highlightIndex = -1;
+}
+
+function addPic(userId) {
+  const id = Number(userId);
+  if (!id || state.selectedPicIds.includes(id)) return;
+  state.selectedPicIds.push(id);
+  state.picSearch = "";
+  els.picSearch.value = "";
+  syncPicField();
+  openPicDropdown();
+  els.picSearch.focus();
+}
+
+function removePic(userId) {
+  const id = Number(userId);
+  state.selectedPicIds = state.selectedPicIds.filter((x) => x !== id);
+  syncPicField();
+  if (!els.picDropdown.hidden) renderPicOptions();
+}
+
+function setSelectedPicsFromNames(picText) {
+  const names = String(picText || "")
+    .split(",")
+    .map((n) => n.trim().toLowerCase())
+    .filter(Boolean);
+  state.selectedPicIds = state.users
+    .filter((u) => names.includes(String(u.name).trim().toLowerCase()))
+    .map((u) => u.id);
+  syncPicField();
+  if (names.length && !state.selectedPicIds.length && picText) {
+    els.fieldPic.value = picText;
+  }
+}
+
+function renderStats(stats) {
+  els.stats.innerHTML = `
+    <article class="stat-card">
+      <div>
+        <span>Total Projects</span>
+        <strong>${stats.total}</strong>
+      </div>
+      <div class="stat-icon purple">▣</div>
+    </article>
+    <article class="stat-card">
+      <div>
+        <span>In Progress</span>
+        <strong>${stats.in_progress}</strong>
+      </div>
+      <div class="stat-icon green">⏱</div>
+    </article>
+    <article class="stat-card">
+      <div>
+        <span>Release</span>
+        <strong>${stats.completed}</strong>
+      </div>
+      <div class="stat-icon blue">✓</div>
+    </article>
+  `;
+}
+
+function pageWindow(current, totalPages) {
+  const pages = [];
+  const windowSize = 5;
+  let start = Math.max(1, current - Math.floor(windowSize / 2));
+  let end = Math.min(totalPages, start + windowSize - 1);
+  start = Math.max(1, end - windowSize + 1);
+  for (let i = start; i <= end; i += 1) pages.push(i);
+  return pages;
+}
+
+function renderPagination() {
+  if (!els.pagination) return;
+  if (!state.total) {
+    els.pagination.innerHTML = "";
+    return;
+  }
+
+  const from = (state.page - 1) * state.pageSize + 1;
+  const to = Math.min(state.page * state.pageSize, state.total);
+  const pages = pageWindow(state.page, state.pages);
+
+  els.pagination.innerHTML = `
+    <div class="pagination-meta">
+      Menampilkan <strong>${from}–${to}</strong> dari <strong>${state.total}</strong> project
+    </div>
+    <div class="pagination-controls">
+      <button type="button" class="btn btn-ghost btn-sm" data-page="prev" ${state.page <= 1 ? "disabled" : ""}>‹ Prev</button>
+      ${pages
+        .map(
+          (p) => `
+        <button type="button" class="btn btn-sm ${p === state.page ? "btn-primary" : "btn-ghost"}" data-page="${p}">${p}</button>`
+        )
+        .join("")}
+      <button type="button" class="btn btn-ghost btn-sm" data-page="next" ${state.page >= state.pages ? "disabled" : ""}>Next ›</button>
+    </div>
+  `;
+}
+
+function picPeople(project) {
+  const fromMembers = (project.members || [])
+    .map((m) => m.user)
+    .filter(Boolean);
+  if (fromMembers.length) return fromMembers;
+
+  const names = String(project.pic || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!names.length) return [];
+
+  const matched = [];
+  const seen = new Set();
+  for (const name of names) {
+    const user = state.users.find((u) => u.name.toLowerCase() === name);
+    if (user && !seen.has(user.id)) {
+      seen.add(user.id);
+      matched.push(user);
+    }
+  }
+  return matched;
+}
+
+function hasPhoto(url) {
+  return Boolean(String(url || "").trim());
+}
+
+function picIcon(title = "") {
+  return `
+    <span class="pic-avatar pic-avatar-icon" title="${escapeHtml(title)}" role="img" aria-label="${escapeHtml(title || "PIC")}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-6.75 1.8-6.75 4.05V20h13.5v-1.7c0-2.25-3.15-4.05-6.75-4.05Z"/>
+      </svg>
+    </span>`;
+}
+
+function renderPicCell(project) {
+  const people = picPeople(project);
+  const label = people.map((u) => u.name).join(", ") || project.pic || "Tidak ada PIC";
+
+  if (!people.length) {
+    return `
+      <div class="pic-avatar-stack" title="${escapeHtml(label)}">
+        ${picIcon(label)}
+      </div>`;
+  }
+
+  const shown = people.slice(0, 4);
+  const extra = people.length - shown.length;
+  return `
+    <div class="pic-avatar-stack" title="${escapeHtml(label)}">
+      ${shown
+        .map((u) =>
+          hasPhoto(u.avatar_url)
+            ? `<img class="pic-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`
+            : picIcon(u.name)
+        )
+        .join("")}
+      ${extra > 0 ? `<span class="pic-avatar-extra" title="+${extra} lagi">+${extra}</span>` : ""}
+    </div>`;
+}
+
+function renderList() {
+  if (!state.projects.length) {
+    els.list.innerHTML = `
+      <tr>
+        <td colspan="8" class="list-empty">No projects found. Click <strong>+ New Project</strong> to create one.</td>
+      </tr>`;
+    renderPagination();
+    return;
+  }
+
+  els.list.innerHTML = state.projects
+    .map((p) => {
+      const pct = Math.round(p.progress || 0);
+      return `
+      <tr class="project-row" data-id="${p.id}" tabindex="0" role="link" aria-label="Open ${escapeHtml(p.name)}">
+        <td>
+          <a class="project-cell-copy project-name-link" href="/projects/${p.id}" title="${escapeHtml(p.name)}">
+            <strong>${escapeHtml(p.name)}</strong>
+            ${p.description ? `<span>${escapeHtml(p.description)}</span>` : ""}
+          </a>
+        </td>
+        <td class="col-pic">${renderPicCell(p)}</td>
+        <td><span class="status-badge ${p.status}">${STATUS_LABEL[p.status] || p.status}</span></td>
+        <td>
+          <div class="table-progress">
+            <div class="table-progress-bar"><span style="width:${Math.min(100, Math.max(0, pct))}%;background:${p.color || "#4F7CFF"}"></span></div>
+            <em>${pct}%</em>
+          </div>
+        </td>
+        <td>${formatDate(p.start_date)}</td>
+        <td>${formatDate(p.end_date)}</td>
+        <td>${Number(p.task_count || 0)}</td>
+        <td class="col-actions">
+          <div class="table-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${p.id}">Edit</button>
+            <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}" data-action="tasks">Tasks</a>
+          </div>
+        </td>
+      </tr>`;
+    })
+    .join("");
+  renderPagination();
+}
+
+function openModal(project = null) {
+  els.form.reset();
+  els.formError.hidden = true;
+  els.formError.textContent = "";
+  state.selectedPicIds = [];
+  state.picSearch = "";
+  els.picSearch.value = "";
+  closePicDropdown();
+
+  if (project) {
+    els.modalTitle.textContent = "Edit Project";
+    els.modalSubtitle.textContent = "Update the essential details for your project.";
+    document.getElementById("project-id").value = project.id;
+    document.getElementById("field-name").value = project.name || "";
+    document.getElementById("field-description").value = project.description || "";
+    document.getElementById("field-start").value = project.start_date || "";
+    document.getElementById("field-end").value = project.end_date || "";
+    document.getElementById("field-status").value = STATUS_VALUES.includes(project.status)
+      ? project.status
+      : "backlog";
+    document.getElementById("field-progress").value = Math.round(project.progress || 0);
+    setSelectedPicsFromNames(project.pic || "");
+  } else {
+    els.modalTitle.textContent = "New Project";
+    els.modalSubtitle.textContent = "Add the essential details for your project.";
+    document.getElementById("project-id").value = "";
+    document.getElementById("field-start").value = todayISO();
+    document.getElementById("field-end").value = plusDaysISO(90);
+    document.getElementById("field-status").value = "backlog";
+    document.getElementById("field-progress").value = 0;
+    syncPicField();
+  }
+
+  els.modal.hidden = false;
+  document.getElementById("field-name").focus();
+}
+
+function closeModal() {
+  closePicDropdown();
+  els.modal.hidden = true;
+}
+
+async function loadStats() {
+  const stats = await api("/api/projects/stats");
+  renderStats(stats);
+}
+
+async function loadProjects() {
+  const params = new URLSearchParams();
+  if (state.query) params.set("q", state.query);
+  if (state.status) params.set("status", state.status);
+  params.set("page", String(state.page));
+  params.set("page_size", String(state.pageSize));
+  const data = await api(`/api/projects?${params.toString()}`);
+  state.projects = data.items || [];
+  state.total = Number(data.total || 0);
+  state.page = Number(data.page || 1);
+  state.pages = Number(data.pages || 1);
+  state.pageSize = Number(data.page_size || PAGE_SIZE);
+  renderList();
+}
+
+async function goToPage(page) {
+  const next = Math.max(1, Math.min(state.pages, Number(page) || 1));
+  if (next === state.page) return;
+  state.page = next;
+  await loadProjects();
+}
+
+async function loadUsers() {
+  state.users = await api("/api/team?active_only=true");
+}
+
+async function saveProject(event) {
+  event.preventDefault();
+  els.formError.hidden = true;
+  syncPicField();
+
+  const id = document.getElementById("project-id").value;
+  const payload = {
+    name: document.getElementById("field-name").value.trim(),
+    description: document.getElementById("field-description").value.trim() || null,
+    pic: els.fieldPic.value.trim(),
+    start_date: document.getElementById("field-start").value,
+    end_date: document.getElementById("field-end").value,
+    status: document.getElementById("field-status").value,
+    progress: Number(document.getElementById("field-progress").value || 0),
+    member_ids: state.selectedPicIds.slice(),
+  };
+
+  if (!payload.name || !payload.pic || !payload.start_date || !payload.end_date) {
+    els.formError.hidden = false;
+    els.formError.textContent = "Lengkapi field wajib, termasuk minimal 1 PIC.";
+    return;
+  }
+  if (payload.end_date < payload.start_date) {
+    els.formError.hidden = false;
+    els.formError.textContent = "Target date must be on or after start date.";
+    return;
+  }
+
+  try {
+    await (id
+      ? api(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify(payload) })
+      : api("/api/projects", { method: "POST", body: JSON.stringify(payload) }));
+
+    closeModal();
+    if (!id) state.page = 1;
+    await Promise.all([loadStats(), loadProjects()]);
+  } catch (err) {
+    els.formError.hidden = false;
+    els.formError.textContent = err.message || "Failed to save project.";
+  }
+}
+
+function wirePicEvents() {
+  els.picWrap.addEventListener("click", (e) => {
+    if (e.target.closest("[data-remove-pic]")) return;
+    els.picSearch.focus();
+    openPicDropdown();
+  });
+
+  els.picSearch.addEventListener("focus", () => {
+    openPicDropdown();
+  });
+
+  els.picSearch.addEventListener("input", () => {
+    state.picSearch = els.picSearch.value;
+    state.highlightIndex = 0;
+    openPicDropdown();
+  });
+
+  els.picSearch.addEventListener("keydown", (e) => {
+    if (e.key === "Backspace" && !els.picSearch.value && state.selectedPicIds.length) {
+      e.preventDefault();
+      removePic(state.selectedPicIds[state.selectedPicIds.length - 1]);
+      openPicDropdown();
+      return;
+    }
+
+    if (els.picDropdown.hidden) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        openPicDropdown();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!state.suggestions.length) return;
+      state.highlightIndex = (state.highlightIndex + 1) % state.suggestions.length;
+      renderPicOptions();
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!state.suggestions.length) return;
+      state.highlightIndex =
+        (state.highlightIndex - 1 + state.suggestions.length) % state.suggestions.length;
+      renderPicOptions();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const pick = state.suggestions[state.highlightIndex];
+      if (pick) addPic(pick.id);
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closePicDropdown();
+    }
+  });
+
+  els.picOptions.addEventListener("mousedown", (e) => {
+    const option = e.target.closest("[data-pic-id]");
+    if (!option) return;
+    e.preventDefault();
+    addPic(option.dataset.picId);
+  });
+
+  els.picChips.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-remove-pic]");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    removePic(btn.dataset.removePic);
+    els.picSearch.focus();
+  });
+
+  document.addEventListener("click", (e) => {
+    const box = document.getElementById("pic-multiselect");
+    if (!box || els.picDropdown.hidden) return;
+    if (!box.contains(e.target)) closePicDropdown();
+  });
+}
+
+function wireEvents() {
+  els.btnNew.addEventListener("click", () => openModal());
+  els.btnClose.addEventListener("click", closeModal);
+  els.btnCancel.addEventListener("click", closeModal);
+  els.modal.addEventListener("click", (e) => {
+    if (e.target === els.modal) closeModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !els.modal.hidden && els.picDropdown.hidden) closeModal();
+  });
+  els.form.addEventListener("submit", saveProject);
+  wirePicEvents();
+
+  els.list.addEventListener("click", (e) => {
+    const editBtn = e.target.closest('[data-action="edit"]');
+    if (editBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = Number(editBtn.dataset.id);
+      const project = state.projects.find((p) => p.id === id);
+      if (project) openModal(project);
+      return;
+    }
+
+    if (e.target.closest("[data-action='tasks'], a.project-name-link")) return;
+
+    const row = e.target.closest("tr.project-row[data-id]");
+    if (!row) return;
+    window.location.href = `/projects/${row.dataset.id}`;
+  });
+
+  els.list.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const row = e.target.closest("tr.project-row[data-id]");
+    if (!row) return;
+    e.preventDefault();
+    window.location.href = `/projects/${row.dataset.id}`;
+  });
+
+  let searchTimer;
+  els.search.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+      state.query = els.search.value.trim();
+      state.page = 1;
+      await loadProjects();
+    }, 250);
+  });
+
+  els.filter.addEventListener("change", async () => {
+    state.status = els.filter.value;
+    state.page = 1;
+    await loadProjects();
+  });
+
+  els.pagination?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-page]");
+    if (!btn || btn.disabled) return;
+    const raw = btn.dataset.page;
+    if (raw === "prev") await goToPage(state.page - 1);
+    else if (raw === "next") await goToPage(state.page + 1);
+    else await goToPage(raw);
+  });
+
+  const globalSearch = document.getElementById("search-input");
+  globalSearch?.addEventListener("input", () => {
+    els.search.value = globalSearch.value;
+    els.search.dispatchEvent(new Event("input"));
+  });
+}
+
+async function boot() {
+  wireEvents();
+  try {
+    await Promise.all([loadStats(), loadProjects(), loadUsers()]);
+  } catch (err) {
+    els.list.innerHTML = `<tr><td colspan="8" class="list-empty">Failed to load projects: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", boot);

@@ -1,0 +1,36 @@
+<aside class="sidebar" id="app-sidebar" aria-label="Primary navigation">
+  <div class="brand">
+    <div class="brand-mark" title="{{ brand.name }}">{{ brand.mark }}</div>
+    <div class="brand-copy">
+      <strong>{{ brand.name }}</strong>
+      <span>{{ brand.tagline }}</span>
+    </div>
+    <button
+      type="button"
+      class="sidebar-edge-toggle"
+      data-sidebar-toggle="edge"
+      aria-label="Ciutkan sidebar"
+      title="Ciutkan sidebar (Ctrl/⌘+B)"
+    >
+      <span data-sidebar-icon aria-hidden="true">‹</span>
+    </button>
+  </div>
+
+  <nav class="nav">
+    {% for item in nav_items %}
+      <a
+        class="nav-item{% if item.key == active_page %} active{% endif %}"
+        href="{{ item.href }}"
+        data-section="{{ item.key }}"
+      >
+        <span class="icon" aria-hidden="true">{{ item.icon }}</span>
+        <span class="nav-label">{{ item.label }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <div class="sidebar-foot">
+    <p>{{ workspace.label }}</p>
+    <strong>{{ workspace.name }}</strong>
+  </div>
+</aside>
