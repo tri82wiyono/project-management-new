@@ -1,4 +1,27 @@
 (() => {
+  const busyModal = document.getElementById("pm-busy-modal");
+  const busyTitle = document.getElementById("pm-busy-title");
+  const busyMessage = document.getElementById("pm-busy-message");
+
+  function busyShow({
+    title = "Memproses…",
+    message = "Mohon tunggu sebentar.",
+  } = {}) {
+    if (!busyModal) return;
+    if (busyTitle) busyTitle.textContent = title;
+    if (busyMessage) busyMessage.textContent = message;
+    busyModal.hidden = false;
+    document.body.classList.add("pm-busy-open");
+  }
+
+  function busyHide() {
+    if (!busyModal) return;
+    busyModal.hidden = true;
+    document.body.classList.remove("pm-busy-open");
+  }
+
+  window.pmBusy = { show: busyShow, hide: busyHide };
+
   const modal = document.getElementById("pm-confirm-modal");
   if (!modal) return;
 
@@ -73,6 +96,9 @@
     if (event.target === modal) close(false);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !modal.hidden) close(false);
+    // Jangan tutup confirm saat overlay busy aktif
+    if (event.key === "Escape" && !modal.hidden && (!busyModal || busyModal.hidden)) {
+      close(false);
+    }
   });
 })();

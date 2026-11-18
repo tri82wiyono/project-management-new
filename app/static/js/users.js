@@ -238,6 +238,13 @@
       role: $("field-role").value,
       is_active: $("field-active").checked,
     };
+    const willSendEmail = !id && $("field-send-email")?.checked;
+    if (willSendEmail) {
+      window.pmBusy?.show({
+        title: "Membuat user & mengirim email…",
+        message: "Sedang menyimpan akun dan mengirim email welcome. Mohon tunggu.",
+      });
+    }
 
     try {
       let res;
@@ -277,6 +284,7 @@
     } catch (err) {
       setStatus(formStatus, err.message || "Gagal menyimpan", "err");
     } finally {
+      window.pmBusy?.hide();
       saveBtn.disabled = false;
     }
   });
@@ -319,35 +327,56 @@
       });
       if (!ok) return;
 
-      const res = await fetch(`/api/users/${id}/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ send_email: true }),
+      btn.disabled = true;
+      window.pmBusy?.show({
+        title: "Mengirim email reset…",
+        message: userEmail
+          ? `Sedang menghubungi SMTP dan mengirim password baru ke ${userEmail}. Mohon tunggu.`
+          : "Sedang menghubungi SMTP dan mengirim password baru. Mohon tunggu.",
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      try {
+        const res = await fetch(`/api/users/${id}/reset-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ send_email: true }),
+        });
+        const data = await res.json().catch(() => ({}));
+        window.pmBusy?.hide();
+        if (!res.ok) {
+          await showNotice({
+            title: "Reset gagal",
+            message: data.detail || "Gagal reset password",
+            tone: "danger",
+            icon: "!",
+          });
+          return;
+        }
+        await showNotice({
+          title: "Password berhasil direset",
+          message: data.email_sent
+            ? "Password sementara sudah dibuat dan email berhasil dikirim."
+            : "Password sementara sudah dibuat, tetapi email belum terkirim. Salin password di bawah.",
+          meta: data.temporary_password
+            ? `Password baru: ${data.temporary_password}${
+                data.email_error ? `\nCatatan: ${data.email_error}` : ""
+              }`
+            : data.email_error || "",
+          tone: data.email_sent ? "success" : "warn",
+          icon: data.email_sent ? "✓" : "!",
+        });
+        await loadUsers();
+      } catch (err) {
+        window.pmBusy?.hide();
         await showNotice({
           title: "Reset gagal",
-          message: data.detail || "Gagal reset password",
+          message: err.message || "Gagal reset password",
           tone: "danger",
           icon: "!",
         });
-        return;
+      } finally {
+        btn.disabled = false;
+        window.pmBusy?.hide();
       }
-      await showNotice({
-        title: "Password berhasil direset",
-        message: data.email_sent
-          ? "Password sementara sudah dibuat dan email berhasil dikirim."
-          : "Password sementara sudah dibuat, tetapi email belum terkirim. Salin password di bawah.",
-        meta: data.temporary_password
-          ? `Password baru: ${data.temporary_password}${
-              data.email_error ? `\nCatatan: ${data.email_error}` : ""
-            }`
-          : data.email_error || "",
-        tone: data.email_sent ? "success" : "warn",
-        icon: data.email_sent ? "✓" : "!",
-      });
-      await loadUsers();
       return;
     }
 
