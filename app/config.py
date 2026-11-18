@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     default_admin_email: str = "admin@banksumut.co.id"
     default_admin_password: str = "Admin@12345"
     default_admin_name: str = "System Admin"
-    # Set true behind HTTPS; false for plain http://IP:port on VPS
+    # true = Secure cookies + redirect HTTP→APP_URL HTTPS (production)
+    # false = allow plain HTTP (local/dev only)
     cookie_secure: bool = False
 
 

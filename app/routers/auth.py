@@ -138,28 +138,35 @@ def _require_device_confirmation(request: Request, db: Session, user) -> JSONRes
         "device_label": device.device_label,
         "expires_minutes": CONFIRM_TTL_MINUTES,
         "message": (
-            "Perangkat baru atau cookie perangkat hilang terdeteksi. "
-            f"Kami mengirim email konfirmasi ke {mask_email(user.email)}."
+            "Perangkat tidak dikenal. Login dari perangkat baru memerlukan konfirmasi email. "
+            f"Kami mengirim tautan ke {mask_email(user.email)}. "
+            "Buka tautan di browser yang sama dengan yang sedang login."
         ),
     }
     if email_error:
         payload["email_sent"] = False
         payload["email_error"] = email_error
         payload["message"] = (
-            "Perangkat belum dipercaya. Pengiriman email konfirmasi gagal. "
+            "Perangkat tidak dikenal. Pengiriman email konfirmasi gagal. "
             "Periksa konfigurasi SMTP atau coba kirim ulang."
         )
     else:
         payload["email_sent"] = True
     # Cookie must be set on this JSONResponse (not a separate Response dep).
     resp = JSONResponse(payload)
-    set_device_cookie(resp, raw_device)
+    set_device_cookie(resp, raw_device, request)
     return resp
 
 
-def _is_administrator(user) -> bool:
+def _is_administrator(user, db: Session | None = None) -> bool:
     role = (getattr(user, "role", None) or "").strip().lower()
-    return role in {"admin", "administrator"}
+    if role in {"admin", "administrator"}:
+        return True
+    if db is not None:
+        from app.services.roles import user_has_permission
+
+        return user_has_permission(db, user, "users.manage")
+    return False
 
 
 def _finalize_login(request: Request, response: Response, db: Session, user) -> dict | JSONResponse:
@@ -170,7 +177,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
         touch_device(db, trusted, request)
         register_successful_login(db, user)
         set_session_user(request, user)
-        set_device_cookie(response, cookie)
+        set_device_cookie(response, cookie, request)
         return {
             "ok": True,
             "mfa_required": False,
@@ -180,11 +187,11 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
         }
 
     # Administrator: skip email device confirmation on new/cleared devices
-    if _is_administrator(user):
+    if _is_administrator(user, db):
         device, raw_token = trust_device_now(db, user, request)
         register_successful_login(db, user)
         set_session_user(request, user)
-        set_device_cookie(response, raw_token)
+        set_device_cookie(response, raw_token, request)
         return {
             "ok": True,
             "mfa_required": False,
@@ -201,7 +208,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
         device, raw_token = trust_device_now(db, user, request)
         register_successful_login(db, user)
         set_session_user(request, user)
-        set_device_cookie(response, raw_token)
+        set_device_cookie(response, raw_token, request)
         return {
             "ok": True,
             "mfa_required": False,
@@ -295,7 +302,7 @@ def resend_device_confirmation(
         raise HTTPException(status_code=401, detail="Sesi konfirmasi perangkat tidak valid. Login ulang.")
 
     device, raw_device, raw_confirm = create_pending_device(db, user, request)
-    set_device_cookie(response, raw_device)
+    set_device_cookie(response, raw_device, request)
     confirm_url = f"{_app_url(db)}/api/auth/device/confirm?token={raw_confirm}"
     try:
         send_new_device_confirmation_email(
@@ -321,8 +328,12 @@ def resend_device_confirmation(
 
 
 @router.get("/api/auth/device/confirm")
-def confirm_device(token: str, db: Session = Depends(get_db)):
-    device = confirm_device_by_token(db, (token or "").strip())
+def confirm_device(token: str, request: Request, db: Session = Depends(get_db)):
+    device = confirm_device_by_token(
+        db,
+        (token or "").strip(),
+        raw_device_cookie=get_device_cookie(request),
+    )
     if not device:
         return RedirectResponse(url="/login?device=invalid", status_code=303)
     return RedirectResponse(url="/login?device=confirmed", status_code=303)

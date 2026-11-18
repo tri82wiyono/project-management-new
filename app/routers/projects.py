@@ -12,6 +12,7 @@ from app.schemas.schemas import (
     ProjectTaskNoteOut,
     ProjectUpdate,
 )
+from app.services.auth import require_permission
 from app.services.project_progress import recalculate_project_progress
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -57,7 +58,10 @@ def _load_project(db: Session, project_id: int) -> Project:
 
 
 @router.get("/stats", response_model=ProjectStats)
-def project_stats(db: Session = Depends(get_db)) -> ProjectStats:
+def project_stats(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.view")),
+) -> ProjectStats:
     total = db.scalar(select(func.count()).select_from(Project)) or 0
     planning = (
         db.scalar(select(func.count()).select_from(Project).where(Project.status == ProjectStatus.backlog))
@@ -100,6 +104,7 @@ def list_projects(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.view")),
 ) -> ProjectListResponse:
     filters = []
     if status_filter:
@@ -143,7 +148,11 @@ def list_projects(
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
-def get_project(project_id: int, db: Session = Depends(get_db)) -> ProjectOut:
+def get_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.view")),
+) -> ProjectOut:
     project = _load_project(db, project_id)
     counts = _task_count_map(db, [project.id])
     return _to_out(project, counts.get(project.id, 0))
@@ -154,6 +163,7 @@ def list_project_notes(
     project_id: int,
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.view")),
 ) -> list[ProjectTaskNoteOut]:
     if not db.get(Project, project_id):
         raise HTTPException(status_code=404, detail="Project not found")
@@ -187,7 +197,11 @@ def list_project_notes(
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
-def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> ProjectOut:
+def create_project(
+    payload: ProjectCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.manage")),
+) -> ProjectOut:
     project = Project(
         name=payload.name,
         description=payload.description,
@@ -208,11 +222,18 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> Pro
 
     recalculate_project_progress(db, project.id)
     db.commit()
-    return get_project(project.id, db)
+    loaded = _load_project(db, project.id)
+    counts = _task_count_map(db, [loaded.id])
+    return _to_out(loaded, counts.get(loaded.id, 0))
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)
-def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db)) -> ProjectOut:
+def update_project(
+    project_id: int,
+    payload: ProjectUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.manage")),
+) -> ProjectOut:
     project = _load_project(db, project_id)
     data = payload.model_dump(exclude_unset=True)
     member_ids = data.pop("member_ids", None)
@@ -230,11 +251,17 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
 
     recalculate_project_progress(db, project.id)
     db.commit()
-    return get_project(project.id, db)
+    loaded = _load_project(db, project.id)
+    counts = _task_count_map(db, [loaded.id])
+    return _to_out(loaded, counts.get(loaded.id, 0))
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int, db: Session = Depends(get_db)) -> None:
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.manage")),
+) -> None:
     project = _load_project(db, project_id)
     db.delete(project)
     db.commit()

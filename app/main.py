@@ -56,14 +56,44 @@ async def lifespan(_: FastAPI):
     yield
 
 
+def _forwarded_proto(request: Request) -> str:
+    raw = (
+        request.headers.get("x-forwarded-proto")
+        or request.url.scheme
+        or "http"
+    )
+    return raw.split(",")[0].strip().lower()
+
+
+class ForceHttpsMiddleware(BaseHTTPMiddleware):
+    """When COOKIE_SECURE is on, bounce plain HTTP (e.g. http://IP:8891) to APP_URL HTTPS."""
+
+    async def dispatch(self, request: Request, call_next):
+        if not settings.cookie_secure:
+            return await call_next(request)
+
+        app_url = (settings.app_url or "").rstrip("/")
+        if not app_url.lower().startswith("https://"):
+            return await call_next(request)
+
+        # Already HTTPS at the edge (WAF/nginx sets X-Forwarded-Proto).
+        if _forwarded_proto(request) == "https":
+            return await call_next(request)
+
+        path = request.url.path
+        if path == "/api/health":
+            return await call_next(request)
+
+        target = f"{app_url}{path}"
+        if request.url.query:
+            target = f"{target}?{request.url.query}"
+        return RedirectResponse(url=target, status_code=308)
+
+
 class AuthGuardMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if (
-            path.startswith("/static/")
-            or path in PUBLIC_PATHS
-            or path.startswith("/api/settings/email-templates/")
-        ):
+        if path.startswith("/static/") or path in PUBLIC_PATHS:
             return await call_next(request)
 
         user_id = request.session.get("user_id")
@@ -77,7 +107,8 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
-# Order matters: last added runs first. Session must wrap AuthGuard.
+# Order matters: last added runs first.
+# ForceHttps → Session → AuthGuard (outermost first).
 app.add_middleware(AuthGuardMiddleware)
 app.add_middleware(
     SessionMiddleware,
@@ -87,6 +118,7 @@ app.add_middleware(
     same_site="lax",
     https_only=bool(settings.cookie_secure),
 )
+app.add_middleware(ForceHttpsMiddleware)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 app.include_router(auth_router.router)

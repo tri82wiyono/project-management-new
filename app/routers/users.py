@@ -138,9 +138,11 @@ def create_user(
             email_error = str(exc)
 
     data = _serialize(user)
-    data["temporary_password"] = temp_password
     data["email_sent"] = email_sent
     data["email_error"] = email_error
+    # Only reveal temp password when email failed (admin must copy manually).
+    if not email_sent:
+        data["temporary_password"] = temp_password
     return data
 
 
@@ -225,13 +227,15 @@ def reset_user_password(
         except Exception as exc:  # noqa: BLE001
             email_error = str(exc)
 
-    return {
+    data = {
         **_serialize(user),
-        "temporary_password": temp_password,
         "email_sent": email_sent,
         "email_error": email_error,
         "message": "Password direset. User harus login dengan password sementara.",
     }
+    if not email_sent:
+        data["temporary_password"] = temp_password
+    return data
 
 
 @router.delete("/{user_id}")

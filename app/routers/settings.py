@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.models import User
+from app.services.auth import require_permission
 from app.services.email import (
     get_or_create_smtp_settings,
     send_email,
@@ -48,13 +50,20 @@ class SmtpTestRequest(BaseModel):
 
 
 @router.get("/identity")
-def get_identity_settings(db: Session = Depends(get_db)) -> dict:
+def get_identity_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
     row = get_or_create_app_identity(db)
     return identity_to_dict(row)
 
 
 @router.put("/identity")
-def update_identity_settings(payload: AppIdentityUpdate, db: Session = Depends(get_db)) -> dict:
+def update_identity_settings(
+    payload: AppIdentityUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
     row = get_or_create_app_identity(db)
     row.app_name = payload.app_name.strip()
     row.brand_name = payload.brand_name.strip()
@@ -72,13 +81,20 @@ def update_identity_settings(payload: AppIdentityUpdate, db: Session = Depends(g
 
 
 @router.get("/smtp")
-def get_smtp_settings(db: Session = Depends(get_db)) -> dict:
+def get_smtp_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
     row = get_or_create_smtp_settings(db)
     return smtp_to_public_dict(row)
 
 
 @router.put("/smtp")
-def update_smtp_settings(payload: SmtpSettingsUpdate, db: Session = Depends(get_db)) -> dict:
+def update_smtp_settings(
+    payload: SmtpSettingsUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
     encryption = payload.encryption.lower().strip()
     if encryption not in {"none", "starttls", "ssl"}:
         raise HTTPException(status_code=400, detail="encryption must be none, starttls, or ssl")
@@ -92,7 +108,6 @@ def update_smtp_settings(payload: SmtpSettingsUpdate, db: Session = Depends(get_
     row.from_email = payload.from_email.strip()
     row.from_name = payload.from_name.strip() or "Project Management System"
 
-    # password: None means keep; empty string clears (as requested by user)
     if payload.password is not None:
         row.password = payload.password
 
@@ -102,7 +117,10 @@ def update_smtp_settings(payload: SmtpSettingsUpdate, db: Session = Depends(get_
 
 
 @router.get("/email-templates/{template_key}", response_class=HTMLResponse)
-def preview_email_template(template_key: str) -> HTMLResponse:
+def preview_email_template(
+    template_key: str,
+    _: User = Depends(require_permission("settings.manage")),
+) -> HTMLResponse:
     if template_key == "welcome":
         content = welcome_user_email(
             name="Budi Santoso",
@@ -121,7 +139,11 @@ def preview_email_template(template_key: str) -> HTMLResponse:
 
 
 @router.post("/smtp/test")
-def test_smtp_settings(payload: SmtpTestRequest, db: Session = Depends(get_db)) -> dict:
+def test_smtp_settings(
+    payload: SmtpTestRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
     to_email = payload.to_email.strip()
     name = payload.name.strip() or "Pengguna Uji"
     template = payload.template.lower().strip()

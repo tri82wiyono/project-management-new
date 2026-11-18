@@ -10,6 +10,24 @@ const DEADLINE_TONES = ["tone-amber", "tone-green", "tone-violet", "tone-blue"];
 
 let analyticsChart;
 
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function safeUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^(https?:|data:image\/|\/)/i.test(raw) && !/^(javascript:|vbscript:)/i.test(raw)) {
+    return raw;
+  }
+  return "";
+}
+
 function greetingText() {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning!";
@@ -73,11 +91,11 @@ function renderProgress(items) {
   root.innerHTML = items.map((p) => `
     <div class="progress-item">
       <div class="progress-meta">
-        <strong>${p.name}</strong>
+        <strong>${escapeHtml(p.name)}</strong>
         <span>${Math.round(p.progress)}%</span>
       </div>
       <div class="progress-bar">
-        <div class="progress-fill" data-width="${p.progress}" style="background:${p.color}"></div>
+        <div class="progress-fill" data-width="${p.progress}" style="background:${escapeHtml(p.color || "#4F7CFF")}"></div>
       </div>
     </div>
   `).join("");
@@ -98,10 +116,10 @@ function renderKanban(board) {
         const showBar = col.status === "in_progress" && task.project_progress != null;
         return `
         <article class="task-card${task.notes_count > 0 ? " has-notes" : ""}${task.has_problem ? " has-problem" : ""}">
-          <h4>${task.title}</h4>
+          <h4>${escapeHtml(task.title)}</h4>
           ${showBar ? `<div class="task-progress" title="Project ${pct}%"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>` : ""}
           <div class="task-card-foot">
-            <span class="tag ${tagClass(task.category)}">${task.category}</span>
+            <span class="tag ${tagClass(task.category)}">${escapeHtml(task.category || "General")}</span>
             ${task.notes_count > 0
               ? `<span class="task-note-badge${task.has_problem ? " is-problem" : ""}" title="${task.notes_count} catatan">${task.notes_count}</span>`
               : ""}
@@ -110,9 +128,9 @@ function renderKanban(board) {
                 ? task.assignees
                 : (task.assignee ? [task.assignee] : []);
               if (!people.length) return "<span></span>";
-              return `<div class="mini-avatar-stack" title="${people.map((u) => u.name).join(", ")}">${
+              return `<div class="mini-avatar-stack" title="${escapeHtml(people.map((u) => u.name).join(", "))}">${
                 people.slice(0, 3).map((u) =>
-                  `<img class="mini-avatar" src="${u.avatar_url}" alt="${u.name}" title="${u.name}" />`
+                  `<img class="mini-avatar" src="${escapeHtml(safeUrl(u.avatar_url))}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`
                 ).join("")
               }</div>`;
             })()}
@@ -126,7 +144,7 @@ function renderKanban(board) {
 function renderTeam(team) {
   document.getElementById("team-count").textContent = `${team.total} members`;
   document.getElementById("team-avatars").innerHTML = `
-    ${team.visible.map((u) => `<img src="${u.avatar_url}" alt="${u.name}" title="${u.name}" />`).join("")}
+    ${team.visible.map((u) => `<img src="${escapeHtml(safeUrl(u.avatar_url))}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`).join("")}
     ${team.extra > 0 ? `<div class="team-extra">+${team.extra}</div>` : ""}
   `;
 }
@@ -162,7 +180,7 @@ function renderCalendar(data) {
     <div class="upcoming-item">
       <div class="upcoming-item-main">
         <span class="upcoming-dot ${tone}"></span>
-        <strong title="${item.title}">${item.title}</strong>
+        <strong title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</strong>
       </div>
       <span class="due-chip">${formatDate(item.due_date)}</span>
     </div>`;

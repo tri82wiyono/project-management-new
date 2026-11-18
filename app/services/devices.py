@@ -72,16 +72,37 @@ def get_device_cookie(request: Request) -> str | None:
     return value.strip() if value else None
 
 
-def set_device_cookie(response: Response, raw_token: str) -> None:
+def _request_is_https(request: Request | None = None) -> bool:
     from app.config import get_settings
 
+    if request is not None:
+        proto = (
+            request.headers.get("x-forwarded-proto")
+            or request.url.scheme
+            or ""
+        )
+        proto = proto.split(",")[0].strip().lower()
+        if proto in {"http", "https"}:
+            return proto == "https"
+    # Fall back to env intent (HTTPS production URL).
+    return bool(get_settings().cookie_secure) or str(
+        get_settings().app_url or ""
+    ).lower().startswith("https://")
+
+
+def set_device_cookie(
+    response: Response,
+    raw_token: str,
+    request: Request | None = None,
+) -> None:
     response.set_cookie(
         key=DEVICE_COOKIE,
         value=raw_token,
         max_age=DEVICE_COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=bool(get_settings().cookie_secure),
+        # Never mark Secure on plain HTTP — mobile IP access would drop the cookie.
+        secure=_request_is_https(request),
         path="/",
     )
 
@@ -189,9 +210,13 @@ def trust_device_now(db: Session, user: User, request: Request) -> tuple[UserDev
     return device, raw_device
 
 
-def confirm_device_by_token(db: Session, raw_confirm: str) -> UserDevice | None:
-    """Mark pending device as trusted. Cookie must already exist on the requesting browser."""
-    if not raw_confirm:
+def confirm_device_by_token(
+    db: Session,
+    raw_confirm: str,
+    raw_device_cookie: str | None = None,
+) -> UserDevice | None:
+    """Mark pending device as trusted only when email token matches this browser cookie."""
+    if not raw_confirm or not raw_device_cookie:
         return None
     token_hash = hash_token(raw_confirm)
     device = db.scalar(
@@ -200,6 +225,9 @@ def confirm_device_by_token(db: Session, raw_confirm: str) -> UserDevice | None:
     if not device:
         return None
     if not device.confirm_expires_at or device.confirm_expires_at < _now():
+        return None
+    # Bind confirmation to the browser that started the login (prevents email-link takeover).
+    if device.device_token_hash != hash_token(raw_device_cookie):
         return None
 
     device.is_trusted = True

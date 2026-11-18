@@ -338,10 +338,12 @@
         title: "Password berhasil direset",
         message: data.email_sent
           ? "Password sementara sudah dibuat dan email berhasil dikirim."
-          : "Password sementara sudah dibuat, tetapi email belum terkirim.",
-        meta: `Password baru: ${data.temporary_password}${
-          data.email_error ? `\nCatatan: ${data.email_error}` : ""
-        }`,
+          : "Password sementara sudah dibuat, tetapi email belum terkirim. Salin password di bawah.",
+        meta: data.temporary_password
+          ? `Password baru: ${data.temporary_password}${
+              data.email_error ? `\nCatatan: ${data.email_error}` : ""
+            }`
+          : data.email_error || "",
         tone: data.email_sent ? "success" : "warn",
         icon: data.email_sent ? "✓" : "!",
       });

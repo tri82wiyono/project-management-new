@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import User
 from app.schemas.schemas import UserOut
+from app.services.auth import require_permission, require_user
 
 router = APIRouter(prefix="/api/team", tags=["team"])
 
@@ -29,6 +30,7 @@ class UserUpdate(BaseModel):
 def list_team(
     active_only: bool = True,
     db: Session = Depends(get_db),
+    _: User = Depends(require_user),
 ) -> list[User]:
     stmt = select(User).order_by(User.name.asc())
     if active_only:
@@ -37,7 +39,11 @@ def list_team(
 
 
 @router.get("/{user_id}", response_model=UserOut)
-def get_member(user_id: int, db: Session = Depends(get_db)) -> User:
+def get_member(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_user),
+) -> User:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Team member not found")
@@ -45,7 +51,11 @@ def get_member(user_id: int, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def create_member(payload: UserCreate, db: Session = Depends(get_db)) -> User:
+def create_member(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("users.manage")),
+) -> User:
     exists = db.scalar(select(User).where(User.email == payload.email))
     if exists:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -57,7 +67,12 @@ def create_member(payload: UserCreate, db: Session = Depends(get_db)) -> User:
 
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_member(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)) -> User:
+def update_member(
+    user_id: int,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("users.manage")),
+) -> User:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Team member not found")

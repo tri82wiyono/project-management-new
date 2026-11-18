@@ -23,6 +23,10 @@
   const btnDeviceResend = document.getElementById("btn-device-resend");
   const btnDeviceBack = document.getElementById("btn-device-back");
 
+  const COOKIE_HELP =
+    "Login berhasil di server, tetapi sesi/cookie tidak tersimpan di browser. " +
+    "Buka lewat HTTPS: https://pm.banksumut.co.id (jangan pakai http://IP).";
+
   function setStatus(el, message, kind) {
     if (!el) return;
     el.textContent = message || "";
@@ -50,7 +54,7 @@
     if (deviceCopy) {
       deviceCopy.textContent =
         data.message ||
-        "Login dari perangkat baru atau setelah clear cache memerlukan konfirmasi email.";
+        "Perangkat tidak dikenal. Login dari perangkat baru memerlukan konfirmasi email.";
     }
     if (deviceEmail) {
       deviceEmail.textContent = data.email_masked
@@ -71,11 +75,34 @@
     );
   }
 
+  async function ensureSessionOrThrow(statusTarget) {
+    const me = await fetch("/api/auth/me", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!me.ok) {
+      setStatus(statusTarget, COOKIE_HELP, "err");
+      throw new Error(COOKIE_HELP);
+    }
+  }
+
+  async function finishLogin(statusTarget) {
+    setStatus(statusTarget, "Berhasil masuk. Memeriksa sesi…", "ok");
+    await ensureSessionOrThrow(statusTarget);
+    setStatus(statusTarget, "Berhasil masuk. Mengalihkan…", "ok");
+    const next = new URLSearchParams(window.location.search).get("next");
+    const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    window.location.href = target;
+  }
+
   async function loadCaptcha() {
     captchaImageEl.innerHTML = "<small>Memuat…</small>";
     captchaAnswerEl.value = "";
     try {
-      const res = await fetch("/api/auth/captcha", { cache: "no-store" });
+      const res = await fetch("/api/auth/captcha", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (!res.ok) throw new Error("Gagal memuat captcha");
       const data = await res.json();
       captchaIdEl.value = data.captcha_id || "";
@@ -99,6 +126,7 @@
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: emailEl.value.trim(),
@@ -126,8 +154,7 @@
         return;
       }
 
-      setStatus(statusEl, "Berhasil masuk. Mengalihkan…", "ok");
-      window.location.href = "/";
+      await finishLogin(statusEl);
     } catch (err) {
       setStatus(statusEl, typeof err.message === "string" ? err.message : "Login gagal", "err");
       await loadCaptcha();
@@ -149,6 +176,7 @@
     try {
       const res = await fetch("/api/auth/mfa/verify-login", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
@@ -160,8 +188,7 @@
         return;
       }
 
-      setStatus(mfaStatusEl, "Berhasil. Mengalihkan…", "ok");
-      window.location.href = "/";
+      await finishLogin(mfaStatusEl);
     } catch (err) {
       setStatus(mfaStatusEl, err.message || "Verifikasi MFA gagal", "err");
     } finally {
@@ -171,7 +198,7 @@
 
   btnMfaBack?.addEventListener("click", async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     } catch {
       /* ignore */
     }
@@ -184,7 +211,10 @@
     btnDeviceResend.disabled = true;
     setStatus(deviceStatus, "Mengirim ulang…");
     try {
-      const res = await fetch("/api/auth/device/resend", { method: "POST" });
+      const res = await fetch("/api/auth/device/resend", {
+        method: "POST",
+        credentials: "same-origin",
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(detailMessage(data, "Gagal mengirim ulang"));
       setStatus(deviceStatus, data.message || "Email dikirim ulang.", "ok");
@@ -197,7 +227,7 @@
 
   btnDeviceBack?.addEventListener("click", async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     } catch {
       /* ignore */
     }
@@ -219,7 +249,14 @@
     showStep("login");
     setStatus(
       statusEl,
-      "Tautan konfirmasi tidak valid atau sudah kedaluwarsa. Login ulang untuk kirim email baru.",
+      "Konfirmasi gagal. Buka tautan email di browser yang sama saat login, atau login ulang untuk kirim email baru.",
+      "err"
+    );
+  } else if (params.get("next")) {
+    // AuthGuard bounced here — usually missing/rejected session cookie.
+    setStatus(
+      statusEl,
+      "Sesi tidak aktif. Login ulang lewat https://pm.banksumut.co.id (HTTPS wajib agar cookie aman).",
       "err"
     );
   }

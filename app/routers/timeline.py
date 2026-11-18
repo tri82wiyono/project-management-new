@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.models import User
+from app.services.auth import require_permission
 from app.services.timeline import get_timeline_page
 
 router = APIRouter(prefix="/api/timeline", tags=["timeline"])
@@ -15,6 +17,7 @@ def timeline_page_data(
     month: int | None = Query(default=None, ge=1, le=12),
     project_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.view")),
 ) -> dict:
     today = date.today()
     return get_timeline_page(

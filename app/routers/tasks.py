@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.models import Project, Task, TaskAssignee, TaskNote, TaskStatus, User
 from app.schemas.schemas import TaskCreate, TaskNoteCreate, TaskNoteOut, TaskOut, TaskUpdate
+from app.services.auth import require_permission
 from app.services.dashboard import _task_out
 from app.services.project_progress import recalculate_project_progress
 
@@ -62,7 +63,6 @@ def _set_task_assignees(db: Session, task: Task, assignee_ids: list[int]) -> Non
         }
         valid_ids = [i for i in ids if i in found]
 
-    # Explicit delete keeps FK rows in sync even if collection wasn't loaded.
     db.execute(delete(TaskAssignee).where(TaskAssignee.task_id == task.id))
     db.expire(task, ["assignees"])
     db.flush()
@@ -79,6 +79,7 @@ def list_tasks(
     project_id: int | None = None,
     status_filter: TaskStatus | None = Query(default=None, alias="status"),
     db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tasks.view")),
 ) -> list[TaskOut]:
     stmt = _task_query()
     if project_id:
@@ -90,12 +91,20 @@ def list_tasks(
 
 
 @router.get("/{task_id}", response_model=TaskOut)
-def get_task(task_id: int, db: Session = Depends(get_db)) -> TaskOut:
+def get_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tasks.view")),
+) -> TaskOut:
     return _task_out(_load_task(db, task_id))
 
 
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
-def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> TaskOut:
+def create_task(
+    payload: TaskCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tasks.manage")),
+) -> TaskOut:
     if not db.get(Project, payload.project_id):
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -115,7 +124,12 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> TaskOut:
 
 
 @router.patch("/{task_id}", response_model=TaskOut)
-def update_task(task_id: int, payload: TaskUpdate, db: Session = Depends(get_db)) -> TaskOut:
+def update_task(
+    task_id: int,
+    payload: TaskUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tasks.manage")),
+) -> TaskOut:
     task = _load_task(db, task_id)
     data = payload.model_dump(exclude_unset=True)
     previous_status = task.status
@@ -153,7 +167,11 @@ def update_task(task_id: int, payload: TaskUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(task_id: int, db: Session = Depends(get_db)) -> None:
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tasks.manage")),
+) -> None:
     task = _load_task(db, task_id)
     project_id = task.project_id
     db.delete(task)
@@ -163,7 +181,11 @@ def delete_task(task_id: int, db: Session = Depends(get_db)) -> None:
 
 
 @router.get("/{task_id}/notes", response_model=list[TaskNoteOut])
-def list_task_notes(task_id: int, db: Session = Depends(get_db)) -> list[TaskNoteOut]:
+def list_task_notes(
+    task_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tasks.view")),
+) -> list[TaskNoteOut]:
     if not db.get(Task, task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     notes = db.scalars(
@@ -180,13 +202,14 @@ def create_task_note(
     task_id: int,
     payload: TaskNoteCreate,
     db: Session = Depends(get_db),
+    user: User = Depends(require_permission("tasks.manage")),
 ) -> TaskNoteOut:
     if not db.get(Task, task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     body = payload.body.strip()
     if not body:
         raise HTTPException(status_code=400, detail="Catatan tidak boleh kosong")
-    note = TaskNote(task_id=task_id, body=body, kind=payload.kind)
+    note = TaskNote(task_id=task_id, body=body, kind=payload.kind, author_id=user.id)
     db.add(note)
     db.commit()
     db.refresh(note)
@@ -197,7 +220,12 @@ def create_task_note(
 
 
 @router.delete("/{task_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task_note(task_id: int, note_id: int, db: Session = Depends(get_db)) -> None:
+def delete_task_note(
+    task_id: int,
+    note_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tasks.manage")),
+) -> None:
     note = db.scalar(
         select(TaskNote).where(TaskNote.id == note_id, TaskNote.task_id == task_id)
     )
