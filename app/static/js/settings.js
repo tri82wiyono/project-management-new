@@ -4,6 +4,7 @@
   const tabs = Array.from(document.querySelectorAll(".settings-tab"));
   const panels = {
     identity: $("panel-identity"),
+    security: $("panel-security"),
     email: $("panel-email"),
   };
 
@@ -334,6 +335,67 @@
     }
   });
 
+  // —— Security ——
+  const securityForm = $("security-form");
+  const securitySaveBtn = $("btn-save-security");
+  const securityStatus = $("security-save-status");
+  const securityFields = {
+    max_failed_logins: $("security-max-failed"),
+    lockout_minutes: $("security-lockout"),
+    session_timeout_minutes: $("security-session-timeout"),
+  };
+
+  function fillSecurity(data) {
+    Object.entries(securityFields).forEach(([key, el]) => {
+      if (!el) return;
+      if (data[key] != null) el.value = data[key];
+    });
+  }
+
+  async function loadSecurity() {
+    if (!securityForm) return;
+    setStatus(securityStatus, "Memuat keamanan…");
+    try {
+      const res = await fetch("/api/settings/security");
+      if (!res.ok) throw new Error(await res.text());
+      fillSecurity(await res.json());
+      setStatus(securityStatus, "");
+    } catch (err) {
+      setStatus(securityStatus, err.message || "Gagal memuat keamanan", "err");
+    }
+  }
+
+  securityForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    securitySaveBtn.disabled = true;
+    setStatus(securityStatus, "Menyimpan…");
+    const payload = {
+      max_failed_logins: Number(securityFields.max_failed_logins.value) || 6,
+      lockout_minutes: Number(securityFields.lockout_minutes.value) || 30,
+      session_timeout_minutes: Number(securityFields.session_timeout_minutes.value) || 480,
+    };
+    try {
+      const res = await fetch("/api/settings/security", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Gagal menyimpan keamanan");
+      fillSecurity(data);
+      setStatus(
+        securityStatus,
+        "Pengaturan keamanan tersimpan. Timeout sesi berlaku untuk login berikutnya / sisa sesi aktif.",
+        "ok"
+      );
+    } catch (err) {
+      setStatus(securityStatus, err.message || "Gagal menyimpan", "err");
+    } finally {
+      securitySaveBtn.disabled = false;
+    }
+  });
+
   loadIdentity();
+  loadSecurity();
   loadSmtp();
 })();

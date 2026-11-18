@@ -83,6 +83,23 @@ class AppIdentity(Base):
     )
 
 
+class SecuritySetting(Base):
+    """Singleton security policy (lockout + session timeout) editable by admin."""
+
+    __tablename__ = "security_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    max_failed_logins: Mapped[int] = mapped_column(Integer, default=6)
+    lockout_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    # Absolute session lifetime from login; client + AuthGuard enforce logout
+    session_timeout_minutes: Mapped[int] = mapped_column(Integer, default=480)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class Role(Base):
     __tablename__ = "roles"
 

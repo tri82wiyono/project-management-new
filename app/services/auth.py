@@ -52,21 +52,33 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(func.lower(User.email) == normalized).limit(1))
 
 
-def is_locked(user: User) -> bool:
+def lockout_remaining_minutes(user: User) -> int:
     if not user.locked_until:
-        return False
+        return 0
     now = datetime.now(timezone.utc)
     locked_until = user.locked_until
     if locked_until.tzinfo is None:
         locked_until = locked_until.replace(tzinfo=timezone.utc)
-    return locked_until > now
+    remaining = locked_until - now
+    if remaining.total_seconds() <= 0:
+        return 0
+    return max(1, int((remaining.total_seconds() + 59) // 60))
+
+
+def is_locked(user: User) -> bool:
+    return lockout_remaining_minutes(user) > 0
 
 
 def register_failed_login(db: Session, user: User) -> None:
-    settings = get_settings()
+    from app.services.security_settings import get_or_create_security_settings
+
+    policy = get_or_create_security_settings(db)
+    max_fails = max(1, int(policy.max_failed_logins or 6))
+    lock_mins = max(1, int(policy.lockout_minutes or 30))
+
     user.failed_login_count = int(user.failed_login_count or 0) + 1
-    if user.failed_login_count >= settings.max_failed_logins:
-        user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=settings.lockout_minutes)
+    if user.failed_login_count >= max_fails:
+        user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=lock_mins)
         user.failed_login_count = 0
     db.commit()
 
@@ -85,12 +97,25 @@ def authenticate_user(db: Session, email: str, password: str, *, complete_login:
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Akun nonaktif. Hubungi administrator.")
     if is_locked(user):
+        mins = lockout_remaining_minutes(user)
         raise HTTPException(
             status_code=423,
-            detail="Akun terkunci sementara karena terlalu banyak percobaan gagal.",
+            detail=(
+                f"Akun terkunci sementara karena terlalu banyak percobaan gagal. "
+                f"Coba lagi dalam {mins} menit."
+            ),
         )
     if not verify_password(password, user.password_hash):
         register_failed_login(db, user)
+        if is_locked(user):
+            mins = lockout_remaining_minutes(user)
+            raise HTTPException(
+                status_code=423,
+                detail=(
+                    f"Akun terkunci sementara karena terlalu banyak percobaan gagal. "
+                    f"Coba lagi dalam {mins} menit."
+                ),
+            )
         raise HTTPException(status_code=401, detail="Email atau password salah")
     if complete_login:
         register_successful_login(db, user)
@@ -104,6 +129,7 @@ def set_session_user(request: Request, user: User) -> None:
     request.session["user_email"] = user.email
     request.session["user_role"] = user.role
     request.session["must_change_password"] = bool(user.must_change_password)
+    request.session["authenticated_at"] = datetime.now(timezone.utc).isoformat()
 
 
 def set_pending_mfa(request: Request, user: User) -> None:

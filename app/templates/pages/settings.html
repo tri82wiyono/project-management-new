@@ -3,14 +3,14 @@
 {% block title %}Settings · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/settings.css?v=4" />
+  <link rel="stylesheet" href="/static/css/settings.css?v=5" />
 {% endblock %}
 
 {% block header %}
   <header class="topbar">
     <div class="greeting">
       <h1>Settings</h1>
-      <p>Configure identity, notifications, and system preferences.</p>
+      <p>Configure identity, security, notifications, and system preferences.</p>
     </div>
     <div class="top-actions">
       <button class="icon-btn" type="button" aria-label="Notifications">●</button>
@@ -24,13 +24,16 @@
     <section class="settings-hero">
       <div>
         <h2 class="settings-title">Pengaturan Sistem</h2>
-        <p class="settings-subtitle">Kelola identitas aplikasi dan notifikasi email SMTP.</p>
+        <p class="settings-subtitle">Kelola identitas, keamanan login/sesi, dan notifikasi email SMTP.</p>
       </div>
     </section>
 
     <div class="settings-tabs" role="tablist" aria-label="Settings sections">
       <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-tab="identity" id="tab-identity">
         Identitas Aplikasi
+      </button>
+      <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab="security" id="tab-security">
+        Keamanan
       </button>
       <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab="email" id="tab-email">
         Email (SMTP)
@@ -104,6 +107,41 @@
           <div class="settings-actions">
             <button type="submit" class="btn btn-primary" id="btn-save-identity">Simpan Identitas</button>
             <span class="settings-status" id="identity-save-status" aria-live="polite"></span>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- Tab: Keamanan -->
+    <div class="settings-tab-panel" id="panel-security" role="tabpanel" aria-labelledby="tab-security" hidden>
+      <section class="settings-panel">
+        <h3 class="settings-panel-title">Keamanan Login &amp; Sesi</h3>
+        <p class="settings-panel-desc">
+          Atur batas percobaan login gagal, durasi blokir akun, dan logout otomatis setelah waktu sesi habis.
+        </p>
+        <form id="security-form" class="identity-form" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span>Maks. login gagal <em>*</em></span>
+              <input id="security-max-failed" name="max_failed_logins" type="number" required min="1" max="50" value="6" />
+              <small class="field-hint">Setelah mencapai angka ini, akun dikunci sementara. Default: 6.</small>
+            </label>
+            <label class="field">
+              <span>Durasi blokir (menit) <em>*</em></span>
+              <input id="security-lockout" name="lockout_minutes" type="number" required min="1" max="1440" value="30" />
+              <small class="field-hint">Lama akun terkunci sebelum boleh mencoba lagi. Default: 30 menit.</small>
+            </label>
+          </div>
+          <label class="field">
+            <span>Timeout sesi / auto-logout (menit) <em>*</em></span>
+            <input id="security-session-timeout" name="session_timeout_minutes" type="number" required min="5" max="10080" value="480" />
+            <small class="field-hint">
+              Pengguna otomatis logout setelah waktu ini sejak login berhasil (min. 5 menit). Contoh: 30 = setengah jam, 480 = 8 jam.
+            </small>
+          </label>
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-primary" id="btn-save-security">Simpan Keamanan</button>
+            <span class="settings-status" id="security-save-status" aria-live="polite"></span>
           </div>
         </form>
       </section>
@@ -243,5 +281,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/settings.js?v=6" defer></script>
+  <script src="/static/js/settings.js?v=7" defer></script>
 {% endblock %}

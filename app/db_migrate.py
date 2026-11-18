@@ -172,6 +172,15 @@ def ensure_schema() -> None:
     CREATE INDEX IF NOT EXISTS ix_audit_logs_actor_user_id ON audit_logs(actor_user_id);
     CREATE INDEX IF NOT EXISTS ix_audit_logs_target_user_id ON audit_logs(target_user_id);
     """
+    security_settings_sql = """
+    CREATE TABLE IF NOT EXISTS security_settings (
+      id SERIAL PRIMARY KEY,
+      max_failed_logins INTEGER DEFAULT 6,
+      lockout_minutes INTEGER DEFAULT 30,
+      session_timeout_minutes INTEGER DEFAULT 480,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -183,3 +192,4 @@ def ensure_schema() -> None:
         conn.execute(text(task_notes_sql))
         conn.execute(text(smtp_profiles_sql))
         conn.execute(text(audit_logs_sql))
+        conn.execute(text(security_settings_sql))

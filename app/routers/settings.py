@@ -17,6 +17,7 @@ from app.services.email import (
 )
 from app.services.email_templates import reset_password_email, welcome_user_email
 from app.services.identity import get_or_create_app_identity, identity_to_dict
+from app.services.security_settings import get_or_create_security_settings, security_to_dict
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -49,6 +50,12 @@ class SmtpSettingsUpdate(BaseModel):
 
 class SmtpActivateRequest(BaseModel):
     provider: str = Field(min_length=1, max_length=40)
+
+
+class SecuritySettingsUpdate(BaseModel):
+    max_failed_logins: int = Field(default=6, ge=1, le=50)
+    lockout_minutes: int = Field(default=30, ge=1, le=1440)
+    session_timeout_minutes: int = Field(default=480, ge=5, le=10080)
 
 
 class SmtpTestRequest(BaseModel):
@@ -86,6 +93,29 @@ def update_identity_settings(
     db.commit()
     db.refresh(row)
     return identity_to_dict(row)
+
+
+@router.get("/security")
+def get_security_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
+    return security_to_dict(get_or_create_security_settings(db))
+
+
+@router.put("/security")
+def update_security_settings(
+    payload: SecuritySettingsUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
+    row = get_or_create_security_settings(db)
+    row.max_failed_logins = payload.max_failed_logins
+    row.lockout_minutes = payload.lockout_minutes
+    row.session_timeout_minutes = payload.session_timeout_minutes
+    db.commit()
+    db.refresh(row)
+    return security_to_dict(row)
 
 
 @router.get("/smtp")

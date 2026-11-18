@@ -252,9 +252,14 @@ def get_captcha() -> dict:
 
 @router.get("/api/auth/me")
 def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
+    from app.services.security_settings import get_or_create_security_settings, session_expires_at
+
     user = get_optional_user(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    policy = get_or_create_security_settings(db)
+    authenticated_at = request.session.get("authenticated_at")
+    expires = session_expires_at(authenticated_at, policy.session_timeout_minutes)
     return {
         "id": user.id,
         "name": user.name,
@@ -264,6 +269,9 @@ def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
         "must_change_password": user.must_change_password,
         "mfa_enabled": bool(user.mfa_enabled),
         "mfa_backup_codes_remaining": backup_codes_remaining(user.mfa_backup_codes),
+        "session_timeout_minutes": int(policy.session_timeout_minutes),
+        "authenticated_at": authenticated_at,
+        "session_expires_at": expires.isoformat() if expires else None,
     }
 
 

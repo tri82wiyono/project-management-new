@@ -252,6 +252,12 @@
       "Konfirmasi gagal. Buka tautan email di browser yang sama saat login, atau login ulang untuk kirim email baru.",
       "err"
     );
+  } else if (params.get("session") === "expired") {
+    setStatus(
+      statusEl,
+      "Sesi berakhir (timeout). Silakan login ulang.",
+      "err"
+    );
   } else if (params.get("next")) {
     // AuthGuard bounced here — usually missing/rejected session cookie.
     setStatus(

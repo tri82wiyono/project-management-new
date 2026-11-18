@@ -11,10 +11,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://pm_user:pm_secret_2025@localhost:5438/project_mgmt"
     seed_data: bool = True
     secret_key: str = "pm-dev-secret-change-me-banksumut-2025"
-    session_max_age: int = 60 * 60 * 8  # 8 hours
+    # Cookie ceiling; real session length comes from SecuritySetting.session_timeout_minutes
+    session_max_age: int = 60 * 60 * 24 * 7  # 7 days cookie max
     captcha_ttl_seconds: int = 300
-    max_failed_logins: int = 5
-    lockout_minutes: int = 15
+    max_failed_logins: int = 6
+    lockout_minutes: int = 30
     default_admin_email: str = "admin@banksumut.co.id"
     default_admin_password: str = "Admin@12345"
     default_admin_name: str = "System Admin"
