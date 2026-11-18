@@ -278,11 +278,13 @@
 }
 
 .tasks-page .task-card {
+  position: relative;
   background: var(--col-card);
   border: 1px solid var(--col-card-border);
   border-left: 3px solid var(--col-accent);
   border-radius: 8px;
   padding: 8px;
+  padding-right: 28px;
   cursor: grab;
   user-select: none;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
@@ -290,6 +292,30 @@
 }
 .tasks-page .task-card:hover {
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+.task-card-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.tasks-page .task-card:hover .task-card-delete,
+.task-card-delete:focus-visible {
+  opacity: 1;
+}
+.task-card-delete:hover {
+  background: #fef2f2;
+  color: #dc2626;
 }
 .tasks-page .task-card:active { cursor: grabbing; }
 .tasks-page .task-card.dragging {

@@ -69,8 +69,11 @@
     }
   }
 
+  // Jangan refetch /api/auth/me setiap kali tab fokus — cukup cek timer lokal.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") init();
+    if (document.visibilityState !== "visible") return;
+    // If timer already scheduled, nothing to do; only recover if missing.
+    if (!timerId) init();
   });
 
   init();

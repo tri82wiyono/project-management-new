@@ -17,7 +17,11 @@ from app.services.email import (
 )
 from app.services.email_templates import reset_password_email, welcome_user_email
 from app.services.identity import get_or_create_app_identity, identity_to_dict
-from app.services.security_settings import get_or_create_security_settings, security_to_dict
+from app.services.security_settings import (
+    get_or_create_security_settings,
+    invalidate_security_settings_cache,
+    security_to_dict,
+)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -115,6 +119,7 @@ def update_security_settings(
     row.session_timeout_minutes = payload.session_timeout_minutes
     db.commit()
     db.refresh(row)
+    invalidate_security_settings_cache()
     return security_to_dict(row)
 
 

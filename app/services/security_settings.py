@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -11,6 +12,14 @@ from app.models.models import SecuritySetting
 DEFAULT_MAX_FAILED_LOGINS = 6
 DEFAULT_LOCKOUT_MINUTES = 30
 DEFAULT_SESSION_TIMEOUT_MINUTES = 480  # 8 jam
+
+# Avoid hitting DB on every authenticated request (AuthGuard hot path).
+_CACHE: dict[str, object] = {"timeout": None, "expires_at": 0.0}
+
+
+def invalidate_security_settings_cache() -> None:
+    _CACHE["timeout"] = None
+    _CACHE["expires_at"] = 0.0
 
 
 def get_or_create_security_settings(db: Session) -> SecuritySetting:
@@ -29,7 +38,34 @@ def get_or_create_security_settings(db: Session) -> SecuritySetting:
     db.add(row)
     db.commit()
     db.refresh(row)
+    invalidate_security_settings_cache()
     return row
+
+
+def get_cached_session_timeout_minutes(db: Session | None = None) -> int:
+    """Fast path for login stamping / rare lookups. Cached ~60s."""
+    now = time.monotonic()
+    cached = _CACHE.get("timeout")
+    expires_at = float(_CACHE.get("expires_at") or 0.0)
+    if cached is not None and now < expires_at:
+        return int(cached)
+
+    if db is None:
+        from app.database import SessionLocal
+
+        session = SessionLocal()
+        try:
+            row = get_or_create_security_settings(session)
+            value = max(5, int(row.session_timeout_minutes or DEFAULT_SESSION_TIMEOUT_MINUTES))
+        finally:
+            session.close()
+    else:
+        row = get_or_create_security_settings(db)
+        value = max(5, int(row.session_timeout_minutes or DEFAULT_SESSION_TIMEOUT_MINUTES))
+
+    _CACHE["timeout"] = value
+    _CACHE["expires_at"] = now + 60.0
+    return value
 
 
 def security_to_dict(row: SecuritySetting) -> dict:

@@ -122,7 +122,17 @@ def authenticate_user(db: Session, email: str, password: str, *, complete_login:
     return user
 
 
-def set_session_user(request: Request, user: User) -> None:
+def set_session_user(request: Request, user: User, db: Session | None = None) -> None:
+    from app.services.security_settings import (
+        DEFAULT_SESSION_TIMEOUT_MINUTES,
+        get_cached_session_timeout_minutes,
+    )
+
+    timeout = (
+        get_cached_session_timeout_minutes(db)
+        if db is not None
+        else DEFAULT_SESSION_TIMEOUT_MINUTES
+    )
     request.session.clear()
     request.session["user_id"] = user.id
     request.session["user_name"] = user.name
@@ -130,6 +140,7 @@ def set_session_user(request: Request, user: User) -> None:
     request.session["user_role"] = user.role
     request.session["must_change_password"] = bool(user.must_change_password)
     request.session["authenticated_at"] = datetime.now(timezone.utc).isoformat()
+    request.session["session_timeout_minutes"] = int(timeout)
 
 
 def set_pending_mfa(request: Request, user: User) -> None:

@@ -191,7 +191,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
     if trusted:
         touch_device(db, trusted, request)
         register_successful_login(db, user)
-        set_session_user(request, user)
+        set_session_user(request, user, db)
         set_device_cookie(response, cookie, request)
         _audit_login_success(db, request, user, note=f"Login berhasil (perangkat terpercaya): {user.email}")
         return {
@@ -206,7 +206,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
     if _is_administrator(user, db):
         device, raw_token = trust_device_now(db, user, request)
         register_successful_login(db, user)
-        set_session_user(request, user)
+        set_session_user(request, user, db)
         set_device_cookie(response, raw_token, request)
         _audit_login_success(db, request, user, note=f"Login berhasil (admin bypass device): {user.email}")
         return {
@@ -224,7 +224,7 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
     if count_trusted_devices(db, user) == 0:
         device, raw_token = trust_device_now(db, user, request)
         register_successful_login(db, user)
-        set_session_user(request, user)
+        set_session_user(request, user, db)
         set_device_cookie(response, raw_token, request)
         _audit_login_success(db, request, user, note=f"Login berhasil (perangkat pertama): {user.email}")
         return {
@@ -546,7 +546,7 @@ def change_password(
     user.password_hash = hash_password(payload.new_password)
     user.must_change_password = False
     db.commit()
-    set_session_user(request, user)
+    set_session_user(request, user, db)
     return {"ok": True, "message": "Password berhasil diubah"}
 
 
@@ -594,7 +594,7 @@ async def update_profile(
 
     db.commit()
     db.refresh(user)
-    set_session_user(request, user)
+    set_session_user(request, user, db)
     return {
         "ok": True,
         "message": "Profil berhasil diperbarui",

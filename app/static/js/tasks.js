@@ -430,6 +430,7 @@ function renderBoard() {
             data-task-id="${task.id}"
             data-action="edit"
           >
+            <button type="button" class="task-card-delete" data-delete-task="${task.id}" title="Hapus task" aria-label="Hapus task">×</button>
             ${showProject && task.project_name
               ? `<span class="task-project">${escapeHtml(task.project_name)}</span>`
               : ""}
@@ -447,7 +448,7 @@ function renderBoard() {
                 : ""}
               ${renderAssigneeAvatars(task)}
             </div>
-            <div class="task-card-hint">Drag to move · click to edit</div>
+            <div class="task-card-hint">Drag to move · click to edit · × hapus</div>
           </article>`)
           .join("") || `<div class="kanban-empty">No tasks</div>`}
       </div>
@@ -753,27 +754,45 @@ async function saveTask(event) {
   }
 }
 
-async function deleteTask() {
-  const id = els.fieldId.value;
+async function deleteTask(taskId) {
+  const id = taskId || els.fieldId.value;
   if (!id) return;
+  const task = findTask(id);
+  const title = task?.title ? `"${task.title}"` : "task ini";
   const ok = window.pmConfirm
     ? await window.pmConfirm({
         title: "Hapus task?",
         message: "Task akan dihapus dari board. Tindakan ini tidak bisa dibatalkan.",
+        meta: title,
         tone: "danger",
         icon: "!",
         okText: "Hapus",
         cancelText: "Batal",
       })
-    : window.confirm("Hapus task ini?");
+    : window.confirm(`Hapus ${title}?`);
   if (!ok) return;
   try {
     await api(`/api/tasks/${id}`, { method: "DELETE" });
-    closeModal();
+    if (els.modal && !els.modal.hidden && String(els.fieldId.value) === String(id)) {
+      closeModal();
+    }
     await loadBoard();
   } catch (err) {
-    els.formError.hidden = false;
-    els.formError.textContent = err.message || "Gagal menghapus task.";
+    if (els.modal && !els.modal.hidden) {
+      els.formError.hidden = false;
+      els.formError.textContent = err.message || "Gagal menghapus task.";
+      return;
+    }
+    if (window.pmNotice) {
+      await window.pmNotice({
+        title: "Gagal menghapus",
+        message: err.message || "Gagal menghapus task.",
+        tone: "danger",
+        icon: "!",
+      });
+    } else {
+      window.alert(err.message || "Gagal menghapus task.");
+    }
   }
 }
 
@@ -883,6 +902,13 @@ function wireBoardEvents() {
     const addBtn = e.target.closest("[data-add-status]");
     if (addBtn) {
       openModal(null, addBtn.dataset.addStatus);
+      return;
+    }
+    const deleteBtn = e.target.closest("[data-delete-task]");
+    if (deleteBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteTask(deleteBtn.dataset.deleteTask);
       return;
     }
     const notesBtn = e.target.closest("[data-open-notes]");
@@ -1003,7 +1029,7 @@ function wireModalEvents() {
   });
   els.btnClose.addEventListener("click", closeModal);
   els.btnCancel.addEventListener("click", closeModal);
-  els.btnDelete.addEventListener("click", deleteTask);
+  els.btnDelete.addEventListener("click", () => deleteTask());
   els.form.addEventListener("submit", saveTask);
   els.tabBtnDetail?.addEventListener("click", () => setActiveTab("detail"));
   els.tabBtnNotes?.addEventListener("click", () => setActiveTab("notes"));

@@ -22,7 +22,11 @@ from app.services.auth import ensure_default_admin, get_optional_user
 from app.services.email import ensure_smtp_profiles
 from app.services.identity import get_or_create_app_identity
 from app.services.roles import ensure_default_roles
-from app.services.security_settings import get_or_create_security_settings, is_session_expired
+from app.services.security_settings import (
+    DEFAULT_SESSION_TIMEOUT_MINUTES,
+    get_or_create_security_settings,
+    is_session_expired,
+)
 from app.templating import build_page_context
 
 settings = get_settings()
@@ -106,23 +110,20 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
             next_url = path if path != "/login" else "/"
             return RedirectResponse(url=f"/login?next={next_url}", status_code=303)
 
-        # Enforce admin-configured session timeout
-        db = SessionLocal()
+        # Enforce session timeout from values stamped at login (no DB per request).
+        timeout = request.session.get("session_timeout_minutes") or DEFAULT_SESSION_TIMEOUT_MINUTES
         try:
-            policy = get_or_create_security_settings(db)
-            if is_session_expired(
-                request.session.get("authenticated_at"),
-                policy.session_timeout_minutes,
-            ):
-                request.session.clear()
-                if path.startswith("/api/"):
-                    return JSONResponse(
-                        {"detail": "Sesi berakhir. Silakan login ulang.", "session_expired": True},
-                        status_code=401,
-                    )
-                return RedirectResponse(url="/login?next=/&session=expired", status_code=303)
-        finally:
-            db.close()
+            timeout_mins = int(timeout)
+        except (TypeError, ValueError):
+            timeout_mins = DEFAULT_SESSION_TIMEOUT_MINUTES
+        if is_session_expired(request.session.get("authenticated_at"), timeout_mins):
+            request.session.clear()
+            if path.startswith("/api/"):
+                return JSONResponse(
+                    {"detail": "Sesi berakhir. Silakan login ulang.", "session_expired": True},
+                    status_code=401,
+                )
+            return RedirectResponse(url="/login?next=/&session=expired", status_code=303)
 
         return await call_next(request)
 
