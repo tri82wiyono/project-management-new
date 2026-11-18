@@ -39,6 +39,91 @@
       .replaceAll('"', "&quot;");
   }
 
+  // —— Shared confirm / notice modal ——
+  const confirmModal = $("confirm-modal");
+  const confirmCard = confirmModal?.querySelector(".confirm-card");
+  const confirmIcon = $("confirm-icon");
+  const confirmTitle = $("confirm-title");
+  const confirmMessage = $("confirm-message");
+  const confirmMeta = $("confirm-meta");
+  const confirmCancel = $("confirm-cancel");
+  const confirmOk = $("confirm-ok");
+  let confirmResolver = null;
+
+  function closeConfirmModal(result) {
+    if (!confirmModal) return;
+    confirmModal.hidden = true;
+    if (confirmResolver) {
+      const resolve = confirmResolver;
+      confirmResolver = null;
+      resolve(result);
+    }
+  }
+
+  function openDialog({
+    title = "Konfirmasi",
+    message = "Apakah Anda yakin?",
+    meta = "",
+    tone = "primary", // primary | danger | success | warn
+    icon = "?",
+    okText = "Lanjutkan",
+    cancelText = "Batal",
+    notice = false,
+  } = {}) {
+    return new Promise((resolve) => {
+      if (!confirmModal) {
+        resolve(notice ? true : window.confirm(message));
+        return;
+      }
+      confirmResolver = resolve;
+      confirmCard.classList.remove("is-danger", "is-success", "is-warn", "is-notice");
+      if (tone === "danger") confirmCard.classList.add("is-danger");
+      if (tone === "success") confirmCard.classList.add("is-success");
+      if (tone === "warn") confirmCard.classList.add("is-warn");
+      if (notice) confirmCard.classList.add("is-notice");
+
+      confirmIcon.textContent = icon;
+      confirmTitle.textContent = title;
+      confirmMessage.textContent = message;
+      if (meta) {
+        confirmMeta.hidden = false;
+        confirmMeta.textContent = meta;
+      } else {
+        confirmMeta.hidden = true;
+        confirmMeta.textContent = "";
+      }
+      confirmOk.textContent = okText;
+      confirmCancel.textContent = cancelText;
+      confirmModal.hidden = false;
+      confirmOk.focus();
+    });
+  }
+
+  function askConfirm(options) {
+    return openDialog({ notice: false, ...options });
+  }
+
+  function showNotice(options) {
+    return openDialog({
+      notice: true,
+      tone: "success",
+      icon: "✓",
+      okText: "Mengerti",
+      ...options,
+    });
+  }
+
+  confirmCancel?.addEventListener("click", () => closeConfirmModal(false));
+  confirmOk?.addEventListener("click", () => closeConfirmModal(true));
+  confirmModal?.addEventListener("click", (event) => {
+    if (event.target === confirmModal) closeConfirmModal(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && confirmModal && !confirmModal.hidden) {
+      closeConfirmModal(false);
+    }
+  });
+
   // —— Users ——
   const tbody = $("users-tbody");
   const statsEl = $("users-stats");
@@ -284,7 +369,12 @@
       const res = await fetch(`/api/users/${id}`);
       const data = await res.json();
       if (!res.ok) {
-        alert(data.detail || "Gagal memuat user");
+        await showNotice({
+          title: "Gagal memuat user",
+          message: data.detail || "User tidak dapat dimuat.",
+          tone: "danger",
+          icon: "!",
+        });
         return;
       }
       openModal("edit", data);
@@ -292,7 +382,19 @@
     }
 
     if (action === "reset") {
-      if (!confirm("Reset password user ini dan kirim email?")) return;
+      const userName = row.querySelector(".user-cell strong")?.textContent?.trim() || "user ini";
+      const userEmail = row.querySelector(".user-cell small")?.textContent?.trim() || "";
+      const ok = await askConfirm({
+        title: "Reset password?",
+        message: "Password sementara baru akan dibuat dan dikirim ke email pengguna.",
+        meta: userEmail ? `${userName}\n${userEmail}` : userName,
+        tone: "warn",
+        icon: "⌨",
+        okText: "Reset & Kirim Email",
+        cancelText: "Batal",
+      });
+      if (!ok) return;
+
       const res = await fetch(`/api/users/${id}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -300,24 +402,50 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.detail || "Gagal reset password");
+        await showNotice({
+          title: "Reset gagal",
+          message: data.detail || "Gagal reset password",
+          tone: "danger",
+          icon: "!",
+        });
         return;
       }
-      alert(
-        `Password baru: ${data.temporary_password}\n${
-          data.email_sent ? "Email terkirim." : data.email_error || "Email tidak terkirim."
-        }`
-      );
+      await showNotice({
+        title: "Password berhasil direset",
+        message: data.email_sent
+          ? "Password sementara sudah dibuat dan email berhasil dikirim."
+          : "Password sementara sudah dibuat, tetapi email belum terkirim.",
+        meta: `Password baru: ${data.temporary_password}${
+          data.email_error ? `\nCatatan: ${data.email_error}` : ""
+        }`,
+        tone: data.email_sent ? "success" : "warn",
+        icon: data.email_sent ? "✓" : "!",
+      });
       await loadUsers();
       return;
     }
 
     if (action === "delete") {
-      if (!confirm("Nonaktifkan / hapus akses user ini?")) return;
+      const userName = row.querySelector(".user-cell strong")?.textContent?.trim() || "user ini";
+      const ok = await askConfirm({
+        title: "Nonaktifkan user?",
+        message: "Akses login user ini akan dinonaktifkan. Anda bisa mengaktifkannya lagi nanti.",
+        meta: userName,
+        tone: "danger",
+        icon: "!",
+        okText: "Nonaktifkan",
+        cancelText: "Batal",
+      });
+      if (!ok) return;
       const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.detail || "Gagal menghapus user");
+        await showNotice({
+          title: "Gagal menonaktifkan",
+          message: data.detail || "Gagal menghapus user",
+          tone: "danger",
+          icon: "!",
+        });
         return;
       }
       await loadUsers();
@@ -521,7 +649,16 @@
     }
 
     if (btn.dataset.action === "delete-role") {
-      if (!confirm(`Hapus role ${role.code}?`)) return;
+      const ok = await askConfirm({
+        title: "Hapus role?",
+        message: "Role yang dihapus tidak bisa dipakai lagi untuk user baru.",
+        meta: `${role.name} (${role.code})`,
+        tone: "danger",
+        icon: "!",
+        okText: "Hapus Role",
+        cancelText: "Batal",
+      });
+      if (!ok) return;
       const res = await fetch(`/api/roles/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
