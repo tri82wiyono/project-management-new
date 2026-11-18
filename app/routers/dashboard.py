@@ -48,7 +48,7 @@ def timeline(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("dashboard.view")),
 ) -> list[TimelineItem]:
-    return svc.get_timeline(db)
+    return svc.get_timeline(db, limit=None)
 
 
 @router.get("/analytics", response_model=AnalyticsResponse)
@@ -76,3 +76,12 @@ def team(
     _: User = Depends(require_permission("dashboard.view")),
 ) -> TeamOverview:
     return svc.get_team_overview(db)
+
+
+@router.get("/summary")
+def summary(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("dashboard.view")),
+) -> dict:
+    """Bootstrap dashboard dalam 1 request."""
+    return svc.get_dashboard_summary(db)

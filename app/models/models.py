@@ -184,6 +184,27 @@ class Project(Base):
 
     tasks: Mapped[list[Task]] = relationship(back_populates="project", cascade="all, delete-orphan")
     members: Mapped[list[TeamMember]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    documents: Mapped[list["ProjectDocument"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="ProjectDocument.created_at",
+    )
+
+
+class ProjectDocument(Base):
+    __tablename__ = "project_documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    uploaded_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    project: Mapped[Project] = relationship(back_populates="documents")
+    uploaded_by: Mapped[User | None] = relationship()
 
 
 class TeamMember(Base):

@@ -90,20 +90,16 @@ def _period_bounds(days: int = 30) -> tuple[datetime, datetime, datetime]:
 
 
 def get_kpi(db: Session) -> DashboardKPI:
-    total_projects = db.scalar(select(func.count()).select_from(Project)) or 0
-    completed_tasks = (
-        db.scalar(select(func.count()).select_from(Task).where(Task.status == TaskStatus.done)) or 0
-    )
-    in_progress = (
-        db.scalar(
-            select(func.count())
-            .select_from(Task)
-            .where(Task.status.in_([TaskStatus.in_progress, TaskStatus.review]))
-        )
-        or 0
-    )
-
     prev_start, curr_start, now = _period_bounds(30)
+
+    # Aggregate counts in fewer round-trips
+    total_projects = db.scalar(select(func.count()).select_from(Project)) or 0
+    status_rows = db.execute(
+        select(Task.status, func.count()).group_by(Task.status)
+    ).all()
+    status_map = {row[0]: int(row[1]) for row in status_rows}
+    completed_tasks = status_map.get(TaskStatus.done, 0)
+    in_progress = status_map.get(TaskStatus.in_progress, 0) + status_map.get(TaskStatus.review, 0)
 
     projects_curr = (
         db.scalar(
@@ -168,25 +164,72 @@ def get_kpi(db: Session) -> DashboardKPI:
         or 0
     )
 
-    done_with_due = db.scalars(
-        select(Task).where(and_(Task.status == TaskStatus.done, Task.due_date.is_not(None)))
-    ).all()
-    on_time = 0
-    for task in done_with_due:
-        if task.completed_at and task.due_date and task.completed_at.date() <= task.due_date:
-            on_time += 1
-    on_time_delivery = round((on_time / len(done_with_due)) * 100, 1) if done_with_due else 0.0
-
-    # previous on-time: completed in previous window
-    prev_done = [
-        t
-        for t in done_with_due
-        if t.completed_at and prev_start <= t.completed_at < curr_start and t.due_date
-    ]
-    prev_on_time = sum(
-        1 for t in prev_done if t.completed_at and t.completed_at.date() <= t.due_date
+    # On-time rate via SQL (hindari load semua task done ke Python)
+    done_with_due = (
+        db.scalar(
+            select(func.count())
+            .select_from(Task)
+            .where(
+                and_(
+                    Task.status == TaskStatus.done,
+                    Task.due_date.is_not(None),
+                    Task.completed_at.is_not(None),
+                )
+            )
+        )
+        or 0
     )
-    prev_on_time_pct = round((prev_on_time / len(prev_done)) * 100, 1) if prev_done else 0.0
+    on_time = (
+        db.scalar(
+            select(func.count())
+            .select_from(Task)
+            .where(
+                and_(
+                    Task.status == TaskStatus.done,
+                    Task.due_date.is_not(None),
+                    Task.completed_at.is_not(None),
+                    func.date(Task.completed_at) <= Task.due_date,
+                )
+            )
+        )
+        or 0
+    )
+    on_time_delivery = round((on_time / done_with_due) * 100, 1) if done_with_due else 0.0
+
+    prev_done = (
+        db.scalar(
+            select(func.count())
+            .select_from(Task)
+            .where(
+                and_(
+                    Task.status == TaskStatus.done,
+                    Task.due_date.is_not(None),
+                    Task.completed_at.is_not(None),
+                    Task.completed_at >= prev_start,
+                    Task.completed_at < curr_start,
+                )
+            )
+        )
+        or 0
+    )
+    prev_on_time = (
+        db.scalar(
+            select(func.count())
+            .select_from(Task)
+            .where(
+                and_(
+                    Task.status == TaskStatus.done,
+                    Task.due_date.is_not(None),
+                    Task.completed_at.is_not(None),
+                    Task.completed_at >= prev_start,
+                    Task.completed_at < curr_start,
+                    func.date(Task.completed_at) <= Task.due_date,
+                )
+            )
+        )
+        or 0
+    )
+    prev_on_time_pct = round((prev_on_time / prev_done) * 100, 1) if prev_done else 0.0
 
     return DashboardKPI(
         total_projects=total_projects,
@@ -224,13 +267,49 @@ def get_project_progress(db: Session, limit: int = 8) -> list[ProjectProgress]:
     ]
 
 
-def get_kanban(db: Session, project_id: int | None = None) -> KanbanBoard:
-    stmt = select(Task).options(
+def get_kanban(
+    db: Session,
+    project_id: int | None = None,
+    *,
+    limit_per_column: int | None = None,
+) -> KanbanBoard:
+    load_opts = (
         joinedload(Task.assignee),
         joinedload(Task.assignees).joinedload(TaskAssignee.user),
         joinedload(Task.project),
         joinedload(Task.notes),
     )
+
+    # Mode ringan (dashboard): hitung per kolom + ambil N terbaru saja
+    if limit_per_column:
+        count_stmt = select(Task.status, func.count()).group_by(Task.status)
+        if project_id:
+            count_stmt = count_stmt.where(Task.project_id == project_id)
+        counts = {row[0]: int(row[1]) for row in db.execute(count_stmt).all()}
+
+        columns = []
+        for status in TaskStatus:
+            stmt = (
+                select(Task)
+                .options(*load_opts)
+                .where(Task.status == status)
+                .order_by(Task.created_at.desc())
+                .limit(limit_per_column)
+            )
+            if project_id:
+                stmt = stmt.where(Task.project_id == project_id)
+            tasks = db.scalars(stmt).unique().all()
+            columns.append(
+                KanbanColumn(
+                    status=status,
+                    label=STATUS_LABELS[status],
+                    count=counts.get(status, 0),
+                    tasks=[_task_out(t) for t in tasks],
+                )
+            )
+        return KanbanBoard(columns=columns)
+
+    stmt = select(Task).options(*load_opts)
     if project_id:
         stmt = stmt.where(Task.project_id == project_id)
     tasks = db.scalars(stmt.order_by(Task.created_at.desc())).unique().all()
@@ -239,22 +318,24 @@ def get_kanban(db: Session, project_id: int | None = None) -> KanbanBoard:
     for task in tasks:
         grouped[task.status].append(task)
 
-    columns = [
-        KanbanColumn(
-            status=status,
-            label=STATUS_LABELS[status],
-            count=len(grouped[status]),
-            tasks=[_task_out(t) for t in grouped[status]],
-        )
-        for status in TaskStatus
-    ]
-    return KanbanBoard(columns=columns)
+    return KanbanBoard(
+        columns=[
+            KanbanColumn(
+                status=status,
+                label=STATUS_LABELS[status],
+                count=len(grouped[status]),
+                tasks=[_task_out(t) for t in grouped[status]],
+            )
+            for status in TaskStatus
+        ]
+    )
 
 
-def get_timeline(db: Session) -> list[TimelineItem]:
-    projects = db.scalars(
-        select(Project).order_by(Project.start_date.asc(), Project.name.asc())
-    ).all()
+def get_timeline(db: Session, limit: int | None = 25) -> list[TimelineItem]:
+    stmt = select(Project).order_by(Project.start_date.asc(), Project.name.asc())
+    if limit:
+        stmt = stmt.limit(limit)
+    projects = db.scalars(stmt).all()
     return [
         TimelineItem(
             id=p.id,
@@ -267,6 +348,19 @@ def get_timeline(db: Session) -> list[TimelineItem]:
         )
         for p in projects
     ]
+
+
+def get_dashboard_summary(db: Session) -> dict:
+    """Satu payload untuk bootstrap dashboard (hindari 7 round-trip HTTP)."""
+    return {
+        "kpi": get_kpi(db),
+        "progress": get_project_progress(db),
+        "kanban": get_kanban(db, limit_per_column=6),
+        "timeline": get_timeline(db, limit=25),
+        "analytics": get_analytics(db, 30),
+        "calendar": get_calendar(db, light=True),
+        "team": get_team_overview(db),
+    }
 
 
 def get_analytics(db: Session, days: int = 30) -> AnalyticsResponse:
@@ -320,20 +414,32 @@ def get_analytics(db: Session, days: int = 30) -> AnalyticsResponse:
     )
 
 
-def get_calendar(db: Session, year: int | None = None, month: int | None = None) -> CalendarResponse:
+def get_calendar(
+    db: Session,
+    year: int | None = None,
+    month: int | None = None,
+    *,
+    light: bool = False,
+) -> CalendarResponse:
     today = date.today()
     year = year or today.year
     month = month or today.month
     start = date(year, month, 1)
     end = date(year, month, monthrange(year, month)[1])
 
-    tasks = db.scalars(
-        select(Task)
-        .options(
+    # Dashboard hanya butuh count/category; halaman Calendar butuh detail penuh
+    if light:
+        load_opts = (joinedload(Task.project),)
+    else:
+        load_opts = (
             joinedload(Task.assignee),
             joinedload(Task.assignees).joinedload(TaskAssignee.user),
             joinedload(Task.project),
         )
+
+    tasks = db.scalars(
+        select(Task)
+        .options(*load_opts)
         .where(and_(Task.due_date.is_not(None), Task.due_date >= start, Task.due_date <= end))
         .order_by(Task.due_date.asc())
     ).unique().all()
@@ -347,7 +453,7 @@ def get_calendar(db: Session, year: int | None = None, month: int | None = None)
             status=task.status,
             category=task.category,
             project_name=task.project.name if task.project else "",
-            assignee=UserOut.model_validate(task.assignee) if task.assignee else None,
+            assignee=UserOut.model_validate(task.assignee) if (not light and task.assignee) else None,
         )
         by_day[task.due_date].append(item)
 
@@ -358,11 +464,7 @@ def get_calendar(db: Session, year: int | None = None, month: int | None = None)
 
     upcoming_tasks = db.scalars(
         select(Task)
-        .options(
-            joinedload(Task.assignee),
-            joinedload(Task.assignees).joinedload(TaskAssignee.user),
-            joinedload(Task.project),
-        )
+        .options(*load_opts)
         .where(and_(Task.due_date.is_not(None), Task.due_date >= today, Task.status != TaskStatus.done))
         .order_by(Task.due_date.asc())
         .limit(8)
@@ -385,7 +487,15 @@ def get_calendar(db: Session, year: int | None = None, month: int | None = None)
 
 
 def get_team_overview(db: Session, limit: int = 5) -> TeamOverview:
-    users = db.scalars(select(User).where(User.is_active.is_(True)).order_by(User.id.asc())).all()
-    visible = [UserOut.model_validate(u) for u in users[:limit]]
-    extra = max(0, len(users) - limit)
-    return TeamOverview(total=len(users), visible=visible, extra=extra)
+    total = (
+        db.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))) or 0
+    )
+    users = db.scalars(
+        select(User)
+        .where(User.is_active.is_(True))
+        .order_by(User.id.asc())
+        .limit(limit)
+    ).all()
+    visible = [UserOut.model_validate(u) for u in users]
+    extra = max(0, int(total) - len(visible))
+    return TeamOverview(total=int(total), visible=visible, extra=extra)

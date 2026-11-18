@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import Project, ProjectStatus, Task, TaskNote, TeamMember, User
+from app.models.models import Project, ProjectDocument, ProjectStatus, Task, TaskNote, TeamMember, User
 from app.schemas.schemas import (
     ProjectCreate,
+    ProjectDocumentOut,
     ProjectListResponse,
     ProjectOut,
     ProjectStats,
@@ -13,6 +15,7 @@ from app.schemas.schemas import (
     ProjectUpdate,
 )
 from app.services.auth import require_permission, require_user
+from app.services import project_documents as docs_svc
 from app.services.project_progress import recalculate_project_progress
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -36,7 +39,12 @@ def _task_count_map(db: Session, project_ids: list[int]) -> dict[int, int]:
     return {int(pid): int(count) for pid, count in rows}
 
 
-def _to_out(project: Project, task_count: int = 0) -> ProjectOut:
+def _to_out(project: Project, task_count: int = 0, *, with_documents: bool = False) -> ProjectOut:
+    documents = (
+        [docs_svc.document_to_out(d) for d in (project.documents or [])]
+        if with_documents
+        else []
+    )
     return ProjectOut(
         id=project.id,
         name=project.name,
@@ -50,13 +58,17 @@ def _to_out(project: Project, task_count: int = 0) -> ProjectOut:
         created_at=project.created_at,
         members=project.members or [],
         task_count=task_count,
+        documents=documents,
     )
 
 
-def _load_project(db: Session, project_id: int) -> Project:
+def _load_project(db: Session, project_id: int, *, with_documents: bool = False) -> Project:
+    opts = [joinedload(Project.members).joinedload(TeamMember.user)]
+    if with_documents:
+        opts.append(joinedload(Project.documents))
     project = db.scalar(
         select(Project)
-        .options(joinedload(Project.members).joinedload(TeamMember.user))
+        .options(*opts)
         .where(Project.id == project_id)
     )
     if not project:
@@ -69,33 +81,21 @@ def project_stats(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("projects.view")),
 ) -> ProjectStats:
-    total = db.scalar(select(func.count()).select_from(Project)) or 0
-    planning = (
-        db.scalar(select(func.count()).select_from(Project).where(Project.status == ProjectStatus.backlog))
-        or 0
-    )
-    in_progress = (
-        db.scalar(
-            select(func.count())
-            .select_from(Project)
-            .where(
-                Project.status.in_(
-                    [
-                        ProjectStatus.dev,
-                        ProjectStatus.sit,
-                        ProjectStatus.uat,
-                        ProjectStatus.to,
-                        ProjectStatus.izin,
-                    ]
-                )
-            )
+    rows = db.execute(select(Project.status, func.count()).group_by(Project.status)).all()
+    by_status = {row[0]: int(row[1]) for row in rows}
+    planning = by_status.get(ProjectStatus.backlog, 0)
+    in_progress = sum(
+        by_status.get(s, 0)
+        for s in (
+            ProjectStatus.dev,
+            ProjectStatus.sit,
+            ProjectStatus.uat,
+            ProjectStatus.to,
+            ProjectStatus.izin,
         )
-        or 0
     )
-    completed = (
-        db.scalar(select(func.count()).select_from(Project).where(Project.status == ProjectStatus.release))
-        or 0
-    )
+    completed = by_status.get(ProjectStatus.release, 0)
+    total = sum(by_status.values())
     return ProjectStats(
         total=total,
         planning=planning,
@@ -160,9 +160,9 @@ def get_project(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("projects.view")),
 ) -> ProjectOut:
-    project = _load_project(db, project_id)
+    project = _load_project(db, project_id, with_documents=True)
     counts = _task_count_map(db, [project.id])
-    return _to_out(project, counts.get(project.id, 0))
+    return _to_out(project, counts.get(project.id, 0), with_documents=True)
 
 
 @router.get("/{project_id}/notes", response_model=list[ProjectTaskNoteOut])
@@ -272,3 +272,68 @@ def delete_project(
     project = _load_project(db, project_id)
     db.delete(project)
     db.commit()
+    docs_svc.delete_project_files(project_id)
+
+
+@router.get("/{project_id}/documents", response_model=list[ProjectDocumentOut])
+def list_project_documents(
+    project_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.view")),
+) -> list[ProjectDocumentOut]:
+    if not db.get(Project, project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return docs_svc.list_documents(db, project_id)
+
+
+@router.post("/{project_id}/documents", response_model=list[ProjectDocumentOut], status_code=status.HTTP_201_CREATED)
+async def upload_project_documents(
+    project_id: int,
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.manage")),
+) -> list[ProjectDocumentOut]:
+    if not db.get(Project, project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return await docs_svc.save_uploads(db, project_id=project_id, files=files, user=user)
+
+
+@router.get("/{project_id}/documents/{document_id}/download")
+def download_project_document(
+    project_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.view")),
+) -> FileResponse:
+    doc = db.scalar(
+        select(ProjectDocument).where(
+            ProjectDocument.id == document_id,
+            ProjectDocument.project_id == project_id,
+        )
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan")
+    path = docs_svc.resolve_file_path(doc)
+    return FileResponse(
+        path=path,
+        filename=doc.original_name,
+        media_type=doc.content_type or "application/octet-stream",
+    )
+
+
+@router.delete("/{project_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project_document(
+    project_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("projects.manage")),
+) -> None:
+    doc = db.scalar(
+        select(ProjectDocument).where(
+            ProjectDocument.id == document_id,
+            ProjectDocument.project_id == project_id,
+        )
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan")
+    docs_svc.delete_document(db, doc)

@@ -9,6 +9,7 @@ from app.services.auth import require_user
 from app.services.roles import (
     ensure_default_roles,
     get_role_by_code,
+    invalidate_role_permissions_cache,
     list_roles,
     permission_catalog,
     role_to_dict,
@@ -105,6 +106,7 @@ def create_role(
     db.add(row)
     db.commit()
     db.refresh(row)
+    invalidate_role_permissions_cache()
     return role_to_dict(row, user_count=0)
 
 
@@ -140,6 +142,7 @@ def update_role(
 
     db.commit()
     db.refresh(row)
+    invalidate_role_permissions_cache()
     count = db.scalar(select(func.count()).select_from(User).where(User.role == row.code)) or 0
     return role_to_dict(row, user_count=int(count))
 
@@ -166,6 +169,7 @@ def delete_role(
 
     db.delete(row)
     db.commit()
+    invalidate_role_permissions_cache()
     return {"ok": True, "message": "Role dihapus"}
 
 

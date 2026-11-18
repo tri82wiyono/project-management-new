@@ -1,0 +1,184 @@
+from __future__ import annotations
+
+import re
+import uuid
+from pathlib import Path
+
+from fastapi import HTTPException, UploadFile
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.config import get_settings
+from app.models.models import ProjectDocument, User
+from app.schemas.schemas import ProjectDocumentOut
+
+ALLOWED_EXTENSIONS = {
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".txt",
+    ".csv",
+    ".zip",
+}
+
+_SAFE_NAME = re.compile(r"[^A-Za-z0-9._\-\s()]+")
+
+
+def uploads_root() -> Path:
+    root = Path(get_settings().upload_dir).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def project_dir(project_id: int) -> Path:
+    path = uploads_root() / "projects" / str(project_id)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _safe_original_name(name: str) -> str:
+    cleaned = _SAFE_NAME.sub("_", (name or "document").strip()) or "document"
+    return cleaned[:200]
+
+
+def _extension(name: str) -> str:
+    return Path(name or "").suffix.lower()
+
+
+def document_to_out(doc: ProjectDocument) -> ProjectDocumentOut:
+    return ProjectDocumentOut(
+        id=doc.id,
+        project_id=doc.project_id,
+        original_name=doc.original_name,
+        content_type=doc.content_type or "application/octet-stream",
+        size_bytes=int(doc.size_bytes or 0),
+        created_at=doc.created_at,
+        download_url=f"/api/projects/{doc.project_id}/documents/{doc.id}/download",
+    )
+
+
+def list_documents(db: Session, project_id: int) -> list[ProjectDocumentOut]:
+    rows = db.scalars(
+        select(ProjectDocument)
+        .where(ProjectDocument.project_id == project_id)
+        .order_by(ProjectDocument.created_at.asc(), ProjectDocument.id.asc())
+    ).all()
+    return [document_to_out(row) for row in rows]
+
+
+def count_documents(db: Session, project_id: int) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(ProjectDocument)
+            .where(ProjectDocument.project_id == project_id)
+        )
+        or 0
+    )
+
+
+async def save_uploads(
+    db: Session,
+    *,
+    project_id: int,
+    files: list[UploadFile],
+    user: User | None,
+) -> list[ProjectDocumentOut]:
+    settings = get_settings()
+    max_docs = int(settings.max_project_documents)
+    max_bytes = int(settings.max_upload_bytes)
+
+    incoming = [f for f in (files or []) if f and f.filename]
+    if not incoming:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang diunggah")
+
+    existing = count_documents(db, project_id)
+    if existing + len(incoming) > max_docs:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maksimal {max_docs} dokumen per project (sudah {existing})",
+        )
+
+    saved: list[ProjectDocument] = []
+    dest_dir = project_dir(project_id)
+
+    for upload in incoming:
+        original = _safe_original_name(upload.filename or "document")
+        ext = _extension(original)
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipe file tidak diizinkan: {original}. Izinkan: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+            )
+
+        data = await upload.read()
+        size = len(data)
+        if size <= 0:
+            raise HTTPException(status_code=400, detail=f"File kosong: {original}")
+        if size > max_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File terlalu besar (maks {max_bytes // (1024 * 1024)} MB): {original}",
+            )
+
+        stored = f"{uuid.uuid4().hex}{ext}"
+        path = dest_dir / stored
+        path.write_bytes(data)
+
+        row = ProjectDocument(
+            project_id=project_id,
+            original_name=original,
+            stored_name=stored,
+            content_type=(upload.content_type or "application/octet-stream")[:120],
+            size_bytes=size,
+            uploaded_by_id=user.id if user else None,
+        )
+        db.add(row)
+        saved.append(row)
+
+    db.commit()
+    for row in saved:
+        db.refresh(row)
+    return [document_to_out(row) for row in saved]
+
+
+def resolve_file_path(doc: ProjectDocument) -> Path:
+    path = project_dir(doc.project_id) / doc.stored_name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File tidak ditemukan di storage")
+    return path
+
+
+def delete_document(db: Session, doc: ProjectDocument) -> None:
+    path = project_dir(doc.project_id) / doc.stored_name
+    db.delete(doc)
+    db.commit()
+    try:
+        if path.is_file():
+            path.unlink()
+    except OSError:
+        pass
+
+
+def delete_project_files(project_id: int) -> None:
+    folder = uploads_root() / "projects" / str(project_id)
+    if not folder.exists():
+        return
+    for child in folder.iterdir():
+        try:
+            if child.is_file():
+                child.unlink()
+        except OSError:
+            pass
+    try:
+        folder.rmdir()
+    except OSError:
+        pass

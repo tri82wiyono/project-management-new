@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -113,16 +115,33 @@ def list_roles(db: Session, *, active_only: bool = False) -> list[dict]:
     return [role_to_dict(role, user_count=int(counts.get(role.code, 0))) for role in roles]
 
 
+_ROLE_PERM_CACHE: dict[str, tuple[float, frozenset[str]]] = {}
+_ROLE_PERM_TTL = 60.0
+
+
+def invalidate_role_permissions_cache() -> None:
+    _ROLE_PERM_CACHE.clear()
+
+
 def get_role_by_code(db: Session, code: str) -> Role | None:
     ensure_default_roles(db)
     return db.scalar(select(Role).where(Role.code == code).limit(1))
 
 
 def get_role_permissions(db: Session, role_code: str) -> set[str]:
+    key = (role_code or "").strip()
+    now = time.monotonic()
+    cached = _ROLE_PERM_CACHE.get(key)
+    if cached and now < cached[0]:
+        return set(cached[1])
+
     role = get_role_by_code(db, role_code)
     if not role or not role.is_active:
-        return set()
-    return set(role.permissions or [])
+        perms: set[str] = set()
+    else:
+        perms = set(role.permissions or [])
+    _ROLE_PERM_CACHE[key] = (now + _ROLE_PERM_TTL, frozenset(perms))
+    return perms
 
 
 def user_has_permission(db: Session, user: User, permission: str) -> bool:

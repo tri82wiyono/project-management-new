@@ -54,6 +54,18 @@ class ProjectUpdate(BaseModel):
     member_ids: list[int] | None = None
 
 
+class ProjectDocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    original_name: str
+    content_type: str
+    size_bytes: int
+    created_at: datetime
+    download_url: str | None = None
+
+
 class ProjectOut(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,6 +73,7 @@ class ProjectOut(ProjectBase):
     created_at: datetime
     members: list[TeamMemberOut] = []
     task_count: int = 0
+    documents: list[ProjectDocumentOut] = []
 
 
 class ProjectStats(BaseModel):

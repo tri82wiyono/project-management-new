@@ -181,6 +181,19 @@ def ensure_schema() -> None:
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
     """
+    project_documents_sql = """
+    CREATE TABLE IF NOT EXISTS project_documents (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      original_name VARCHAR(255) NOT NULL,
+      stored_name VARCHAR(255) NOT NULL,
+      content_type VARCHAR(120) DEFAULT 'application/octet-stream',
+      size_bytes INTEGER DEFAULT 0,
+      uploaded_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_project_documents_project_id ON project_documents(project_id);
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -193,3 +206,4 @@ def ensure_schema() -> None:
         conn.execute(text(smtp_profiles_sql))
         conn.execute(text(audit_logs_sql))
         conn.execute(text(security_settings_sql))
+        conn.execute(text(project_documents_sql))

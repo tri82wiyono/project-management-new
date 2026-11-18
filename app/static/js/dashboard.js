@@ -315,22 +315,15 @@ function renderTimeline(items) {
 async function boot() {
   setGreeting();
   try {
-    const [kpi, progress, kanban, team, calendar, analytics, timeline] = await Promise.all([
-      api("/api/dashboard/kpi"),
-      api("/api/dashboard/progress"),
-      api("/api/dashboard/kanban"),
-      api("/api/dashboard/team"),
-      api("/api/dashboard/calendar"),
-      api("/api/dashboard/analytics"),
-      api("/api/dashboard/timeline"),
-    ]);
-    renderKPI(kpi);
-    renderProgress(progress);
-    renderKanban(kanban);
-    renderTeam(team);
-    renderCalendar(calendar);
-    renderAnalytics(analytics);
-    renderTimeline(timeline);
+    // Satu request bootstrap — jauh lebih cepat daripada 7 parallel round-trip
+    const data = await api("/api/dashboard/summary");
+    renderKPI(data.kpi);
+    renderProgress(data.progress);
+    renderKanban(data.kanban);
+    renderTeam(data.team);
+    renderCalendar(data.calendar);
+    renderAnalytics(data.analytics);
+    renderTimeline(data.timeline);
   } catch (err) {
     console.error(err);
     document.getElementById("kpi-grid").innerHTML = `<div class="panel">Gagal memuat dashboard. Pastikan API berjalan.</div>`;

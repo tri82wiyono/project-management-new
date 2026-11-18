@@ -37,6 +37,13 @@ const TASK_STATUS_LABEL = {
 
 const STATUS_VALUES = Object.keys(STATUS_LABEL);
 
+const MAX_DOCS = 3;
+const MAX_DOC_BYTES = 10 * 1024 * 1024;
+const DOC_EXT = new Set([
+  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+  ".png", ".jpg", ".jpeg", ".gif", ".txt", ".csv", ".zip",
+]);
+
 const state = {
   projectId: Number(document.getElementById("project-detail-page")?.dataset.projectId || 0),
   project: null,
@@ -47,6 +54,8 @@ const state = {
   suggestions: [],
   highlightIndex: -1,
   picSearch: "",
+  pendingDocs: [],
+  existingDocs: [],
 };
 
 const els = {
@@ -67,6 +76,9 @@ const els = {
   picOptions: document.getElementById("pic-options"),
   picChips: document.getElementById("pic-chips"),
   fieldPic: document.getElementById("field-pic"),
+  docDropzone: document.getElementById("doc-dropzone"),
+  docInput: document.getElementById("field-documents"),
+  docList: document.getElementById("doc-file-list"),
 };
 
 function escapeHtml(text) {
@@ -214,6 +226,23 @@ function renderDetail() {
             <span style="width:${Math.min(100, Math.max(0, pct))}%;background:${escapeHtml(p.color || "#4F7CFF")}"></span>
           </div>
         </div>
+        ${
+          Array.isArray(p.documents) && p.documents.length
+            ? `<div class="details-docs">
+                <span>Documents</span>
+                <ul class="details-doc-list">
+                  ${p.documents
+                    .map(
+                      (d) => `
+                    <li>
+                      <a href="${escapeHtml(d.download_url || `#`)}" target="_blank" rel="noopener">${escapeHtml(d.original_name)}</a>
+                    </li>`
+                    )
+                    .join("")}
+                </ul>
+              </div>`
+            : ""
+        }
       </article>
 
       <article class="panel detail-card">
@@ -394,7 +423,176 @@ function setSelectedPicsFromProject(project) {
   syncPicField();
 }
 
-function openModal(project) {
+function formatBytes(n) {
+  const size = Number(n) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileExt(name) {
+  const m = String(name || "").toLowerCase().match(/\.[a-z0-9]+$/);
+  return m ? m[0] : "";
+}
+
+function totalDocSlotsUsed() {
+  return state.existingDocs.length + state.pendingDocs.length;
+}
+
+function renderDocList() {
+  if (!els.docList) return;
+  const items = [
+    ...state.existingDocs.map((d) => ({
+      kind: "existing",
+      id: d.id,
+      name: d.original_name,
+      size: d.size_bytes,
+      url: d.download_url,
+    })),
+    ...state.pendingDocs.map((f, idx) => ({
+      kind: "pending",
+      id: idx,
+      name: f.name,
+      size: f.size,
+      url: null,
+    })),
+  ];
+
+  if (!items.length) {
+    els.docList.hidden = true;
+    els.docList.innerHTML = "";
+  } else {
+    els.docList.hidden = false;
+    els.docList.innerHTML = items.map((item) => `
+      <li class="doc-file-item" data-kind="${item.kind}" data-id="${item.id}">
+        <div class="doc-file-meta">
+          <strong title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</strong>
+          <span>${formatBytes(item.size)}${item.kind === "pending" ? " · siap diunggah" : ""}</span>
+        </div>
+        <div class="doc-file-actions">
+          ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Download</a>` : ""}
+          <button type="button" class="is-danger" data-remove-doc="${item.kind}:${item.id}">Hapus</button>
+        </div>
+      </li>
+    `).join("");
+  }
+  els.docDropzone?.classList.toggle("is-full", totalDocSlotsUsed() >= MAX_DOCS);
+}
+
+function resetDocs() {
+  state.pendingDocs = [];
+  state.existingDocs = [];
+  if (els.docInput) els.docInput.value = "";
+  renderDocList();
+}
+
+function addPendingFiles(fileList) {
+  const incoming = Array.from(fileList || []);
+  if (!incoming.length) return;
+  const remaining = MAX_DOCS - totalDocSlotsUsed();
+  if (remaining <= 0) {
+    els.formError.hidden = false;
+    els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
+    return;
+  }
+  const accepted = [];
+  for (const file of incoming.slice(0, remaining)) {
+    const ext = fileExt(file.name);
+    if (!DOC_EXT.has(ext)) {
+      els.formError.hidden = false;
+      els.formError.textContent = `Tipe file tidak diizinkan: ${file.name}`;
+      continue;
+    }
+    if (file.size > MAX_DOC_BYTES) {
+      els.formError.hidden = false;
+      els.formError.textContent = `File terlalu besar (maks 10 MB): ${file.name}`;
+      continue;
+    }
+    accepted.push(file);
+  }
+  if (accepted.length) {
+    els.formError.hidden = true;
+    state.pendingDocs.push(...accepted);
+    renderDocList();
+  }
+  if (els.docInput) els.docInput.value = "";
+}
+
+async function removeExistingDoc(docId) {
+  const projectId = document.getElementById("project-id").value;
+  if (!projectId) return;
+  await api(`/api/projects/${projectId}/documents/${docId}`, { method: "DELETE" });
+  state.existingDocs = state.existingDocs.filter((d) => d.id !== docId);
+  renderDocList();
+}
+
+async function uploadPendingDocs(projectId) {
+  if (!state.pendingDocs.length) return;
+  const body = new FormData();
+  state.pendingDocs.forEach((file) => body.append("files", file, file.name));
+  const res = await fetch(`/api/projects/${projectId}/documents`, { method: "POST", body });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = data.detail;
+    throw new Error(
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
+          : `Upload gagal (${res.status})`
+    );
+  }
+  state.pendingDocs = [];
+  if (Array.isArray(data)) state.existingDocs = [...state.existingDocs, ...data];
+}
+
+function wireDocEvents() {
+  if (!els.docDropzone || !els.docInput) return;
+  els.docDropzone.addEventListener("click", () => {
+    if (totalDocSlotsUsed() >= MAX_DOCS) {
+      els.formError.hidden = false;
+      els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
+      return;
+    }
+    els.docInput.click();
+  });
+  ["dragenter", "dragover"].forEach((evt) => {
+    els.docDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      els.docDropzone.classList.add("dragover");
+    });
+  });
+  ["dragleave", "drop"].forEach((evt) => {
+    els.docDropzone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      els.docDropzone.classList.remove("dragover");
+    });
+  });
+  els.docDropzone.addEventListener("drop", (e) => addPendingFiles(e.dataTransfer?.files));
+  els.docInput.addEventListener("change", () => addPendingFiles(els.docInput.files));
+  els.docList?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-remove-doc]");
+    if (!btn) return;
+    const [kind, idRaw] = String(btn.dataset.removeDoc || "").split(":");
+    if (kind === "pending") {
+      state.pendingDocs = state.pendingDocs.filter((_, i) => i !== Number(idRaw));
+      renderDocList();
+      return;
+    }
+    if (kind === "existing") {
+      try {
+        await removeExistingDoc(Number(idRaw));
+      } catch (err) {
+        els.formError.hidden = false;
+        els.formError.textContent = err.message || "Gagal menghapus dokumen.";
+      }
+    }
+  });
+}
+
+async function openModal(project) {
   els.form.reset();
   els.formError.hidden = true;
   els.formError.textContent = "";
@@ -402,6 +600,7 @@ function openModal(project) {
   state.picSearch = "";
   els.picSearch.value = "";
   closePicDropdown();
+  resetDocs();
 
   els.modalTitle.textContent = "Edit Project";
   document.getElementById("project-id").value = project.id;
@@ -412,14 +611,24 @@ function openModal(project) {
   document.getElementById("field-status").value = STATUS_VALUES.includes(project.status)
     ? project.status
     : "backlog";
-  document.getElementById("field-progress").value = Math.round(project.progress || 0);
   setSelectedPicsFromProject(project);
+  try {
+    const docs = project.documents?.length
+      ? project.documents
+      : await api(`/api/projects/${project.id}/documents`);
+    state.existingDocs = Array.isArray(docs) ? docs : [];
+    renderDocList();
+  } catch {
+    state.existingDocs = [];
+    renderDocList();
+  }
   els.modal.hidden = false;
   document.getElementById("field-name").focus();
 }
 
 function closeModal() {
   closePicDropdown();
+  resetDocs();
   els.modal.hidden = true;
 }
 
@@ -450,6 +659,10 @@ async function saveProject(event) {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
+    if (state.pendingDocs.length) {
+      await uploadPendingDocs(id);
+      state.project.documents = state.existingDocs.slice();
+    }
     closeModal();
     renderDetail();
   } catch (err) {
@@ -505,6 +718,7 @@ function wireEvents() {
   });
   els.form?.addEventListener("submit", saveProject);
   wirePicEvents();
+  wireDocEvents();
 }
 
 async function boot() {

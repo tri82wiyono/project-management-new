@@ -55,6 +55,25 @@
         </label>
 
         <div class="field">
+          <span>Documents</span>
+          <div
+            class="doc-dropzone"
+            id="doc-dropzone"
+            tabindex="0"
+            role="button"
+            aria-label="Upload dokumen project"
+          >
+            <input type="file" id="field-documents" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip" hidden />
+            <div class="doc-dropzone-inner">
+              <strong>Drag & drop file di sini</strong>
+              <span>atau klik untuk memilih · maks. 3 file · 10 MB/file</span>
+            </div>
+          </div>
+          <ul class="doc-file-list" id="doc-file-list" hidden></ul>
+          <small class="field-hint">PDF, Office, gambar, ZIP, TXT/CSV.</small>
+        </div>
+
+        <div class="field">
           <span>Project Manager (PIC) <em>*</em></span>
           <div class="pic-tagbox" id="pic-multiselect">
             <div class="pic-input-wrap" id="pic-input-wrap">
@@ -88,24 +107,18 @@
           </label>
         </div>
 
-        <div class="field-row">
-          <label class="field">
-            <span>Status</span>
-            <select id="field-status" name="status">
-              <option value="backlog">Backlog</option>
-              <option value="dev">Dev</option>
-              <option value="sit">SIT</option>
-              <option value="uat">UAT</option>
-              <option value="to">TO</option>
-              <option value="izin">Izin</option>
-              <option value="release">Release</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Progress (%)</span>
-            <input id="field-progress" name="progress" type="number" min="0" max="100" step="1" value="0" readonly />
-          </label>
-        </div>
+        <label class="field">
+          <span>Status</span>
+          <select id="field-status" name="status">
+            <option value="backlog">Backlog</option>
+            <option value="dev">Dev</option>
+            <option value="sit">SIT</option>
+            <option value="uat">UAT</option>
+            <option value="to">TO</option>
+            <option value="izin">Izin</option>
+            <option value="release">Release</option>
+          </select>
+        </label>
 
         <p class="form-error" id="form-error" hidden></p>
 
@@ -119,5 +132,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/project-detail.js?v=3" defer></script>
+  <script src="/static/js/project-detail.js?v=4" defer></script>
 {% endblock %}

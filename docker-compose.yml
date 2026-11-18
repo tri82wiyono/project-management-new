@@ -38,6 +38,7 @@ services:
       - "${APP_HOST_PORT:-8891}:8000"
     volumes:
       - ./app:/app/app
+      - pm_uploads:/app/app/static/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -58,3 +59,5 @@ networks:
 volumes:
   pm_pgdata:
     name: pm_pgdata
+  pm_uploads:
+    name: pm_uploads
