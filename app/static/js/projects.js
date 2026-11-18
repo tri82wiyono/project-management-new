@@ -44,6 +44,7 @@ const state = {
   pages: 1,
   total: 0,
   pageSize: PAGE_SIZE,
+  canDelete: false,
 };
 
 const els = {
@@ -380,12 +381,49 @@ function renderList() {
           <div class="table-actions">
             <button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${p.id}">Edit</button>
             <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}" data-action="tasks">Tasks</a>
+            ${state.canDelete
+              ? `<button type="button" class="btn btn-ghost btn-sm btn-danger-text" data-action="delete" data-id="${p.id}">Hapus</button>`
+              : ""}
           </div>
         </td>
       </tr>`;
     })
     .join("");
   renderPagination();
+}
+
+async function deleteProject(projectId) {
+  const project = state.projects.find((p) => p.id === Number(projectId));
+  if (!project) return;
+  const ok = window.pmConfirm
+    ? await window.pmConfirm({
+        title: "Hapus project?",
+        message:
+          "Project beserta task dan catatan terkait akan dihapus. Tindakan ini tidak bisa dibatalkan.",
+        meta: project.name,
+        tone: "danger",
+        icon: "!",
+        okText: "Hapus Project",
+        cancelText: "Batal",
+      })
+    : window.confirm(`Hapus project "${project.name}"?`);
+  if (!ok) return;
+  try {
+    await api(`/api/projects/${project.id}`, { method: "DELETE" });
+    if (state.projects.length <= 1 && state.page > 1) state.page -= 1;
+    await Promise.all([loadStats(), loadProjects()]);
+  } catch (err) {
+    if (window.pmNotice) {
+      await window.pmNotice({
+        title: "Gagal menghapus project",
+        message: err.message || "Gagal menghapus project.",
+        tone: "danger",
+        icon: "!",
+      });
+    } else {
+      window.alert(err.message || "Gagal menghapus project.");
+    }
+  }
 }
 
 function openModal(project = null) {
@@ -613,6 +651,14 @@ function wireEvents() {
       return;
     }
 
+    const deleteBtn = e.target.closest('[data-action="delete"]');
+    if (deleteBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteProject(deleteBtn.dataset.id);
+      return;
+    }
+
     if (e.target.closest("[data-action='tasks'], a.project-name-link")) return;
 
     const row = e.target.closest("tr.project-row[data-id]");
@@ -660,9 +706,20 @@ function wireEvents() {
   });
 }
 
+async function loadCurrentUser() {
+  try {
+    const me = await api("/api/auth/me");
+    const role = String(me.role || "").trim().toLowerCase();
+    state.canDelete = role === "admin" || role === "administrator";
+  } catch {
+    state.canDelete = false;
+  }
+}
+
 async function boot() {
   wireEvents();
   try {
+    await loadCurrentUser();
     await Promise.all([loadStats(), loadProjects(), loadUsers()]);
   } catch (err) {
     els.list.innerHTML = `<tr><td colspan="8" class="list-empty">Failed to load projects: ${escapeHtml(err.message)}</td></tr>`;

@@ -12,10 +12,17 @@ from app.schemas.schemas import (
     ProjectTaskNoteOut,
     ProjectUpdate,
 )
-from app.services.auth import require_permission
+from app.services.auth import require_permission, require_user
 from app.services.project_progress import recalculate_project_progress
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+
+def require_admin_role(user: User = Depends(require_user)) -> User:
+    role = (user.role or "").strip().lower()
+    if role not in {"admin", "administrator"}:
+        raise HTTPException(status_code=403, detail="Hanya Admin yang dapat menghapus project")
+    return user
 
 
 def _task_count_map(db: Session, project_ids: list[int]) -> dict[int, int]:
@@ -260,7 +267,7 @@ def update_project(
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.manage")),
+    _: User = Depends(require_admin_role),
 ) -> None:
     project = _load_project(db, project_id)
     db.delete(project)

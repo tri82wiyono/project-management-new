@@ -319,6 +319,14 @@
   align-items: center;
 }
 
+.btn-danger-text {
+  color: #b91c1c !important;
+}
+
+.btn-danger-text:hover {
+  background: #fef2f2 !important;
+}
+
 .projects-table .col-actions {
   width: 1%;
   white-space: nowrap;
