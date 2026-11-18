@@ -18,7 +18,7 @@ from app.routers import settings as settings_router, tasks, team, timeline as ti
 from app.routers import users as users_router
 from app.seed import seed_database
 from app.services.auth import ensure_default_admin, get_optional_user
-from app.services.email import get_or_create_smtp_settings
+from app.services.email import ensure_smtp_profiles
 from app.services.identity import get_or_create_app_identity
 from app.services.roles import ensure_default_roles
 from app.templating import build_page_context
@@ -45,7 +45,7 @@ async def lifespan(_: FastAPI):
     ensure_schema()
     db = SessionLocal()
     try:
-        get_or_create_smtp_settings(db)
+        ensure_smtp_profiles(db)
         get_or_create_app_identity(db)
         ensure_default_roles(db)
         ensure_default_admin(db)

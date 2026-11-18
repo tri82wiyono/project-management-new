@@ -129,6 +129,25 @@ def ensure_schema() -> None:
     );
     CREATE INDEX IF NOT EXISTS ix_task_notes_task_id ON task_notes(task_id);
     """
+    smtp_profiles_sql = """
+    ALTER TABLE smtp_settings ADD COLUMN IF NOT EXISTS provider VARCHAR(40) DEFAULT 'zimbra';
+    ALTER TABLE smtp_settings ADD COLUMN IF NOT EXISTS label VARCHAR(80) DEFAULT 'Zimbra';
+    ALTER TABLE smtp_settings ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE;
+    UPDATE smtp_settings
+    SET provider = CASE
+          WHEN lower(coalesce(host, '')) LIKE '%gmail%' THEN 'gmail'
+          ELSE 'zimbra'
+        END,
+        label = CASE
+          WHEN lower(coalesce(host, '')) LIKE '%gmail%' THEN 'Gmail'
+          ELSE 'Zimbra'
+        END
+    WHERE provider IS NULL OR provider = '';
+    UPDATE smtp_settings SET is_active = TRUE
+    WHERE id = (SELECT id FROM smtp_settings ORDER BY id ASC LIMIT 1)
+      AND NOT EXISTS (SELECT 1 FROM smtp_settings WHERE is_active = TRUE);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_smtp_settings_provider ON smtp_settings (provider);
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -138,3 +157,4 @@ def ensure_schema() -> None:
         conn.execute(text(sync_primary_assignee_sql))
         conn.execute(text(user_devices_sql))
         conn.execute(text(task_notes_sql))
+        conn.execute(text(smtp_profiles_sql))

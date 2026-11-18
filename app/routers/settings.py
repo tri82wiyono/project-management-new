@@ -7,11 +7,13 @@ from app.database import get_db
 from app.models.models import User
 from app.services.auth import require_permission
 from app.services.email import (
-    get_or_create_smtp_settings,
+    SMTP_PROVIDERS,
+    activate_smtp_provider,
+    get_smtp_profile,
     send_email,
     send_reset_password_email,
     send_welcome_user_email,
-    smtp_to_public_dict,
+    smtp_profiles_payload,
 )
 from app.services.email_templates import reset_password_email, welcome_user_email
 from app.services.identity import get_or_create_app_identity, identity_to_dict
@@ -33,6 +35,7 @@ class AppIdentityUpdate(BaseModel):
 
 
 class SmtpSettingsUpdate(BaseModel):
+    provider: str = Field(default="zimbra", max_length=40)
     enabled: bool = True
     host: str = Field(min_length=1, max_length=180)
     port: int = Field(default=587, ge=1, le=65535)
@@ -41,6 +44,11 @@ class SmtpSettingsUpdate(BaseModel):
     password: str | None = None  # None = keep existing; "" = clear
     from_email: str = Field(min_length=1, max_length=180)
     from_name: str = Field(default="Project Management System", max_length=120)
+    activate: bool = False  # true = jadikan profil ini yang aktif
+
+
+class SmtpActivateRequest(BaseModel):
+    provider: str = Field(min_length=1, max_length=40)
 
 
 class SmtpTestRequest(BaseModel):
@@ -85,8 +93,7 @@ def get_smtp_settings(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("settings.manage")),
 ) -> dict:
-    row = get_or_create_smtp_settings(db)
-    return smtp_to_public_dict(row)
+    return smtp_profiles_payload(db)
 
 
 @router.put("/smtp")
@@ -99,7 +106,14 @@ def update_smtp_settings(
     if encryption not in {"none", "starttls", "ssl"}:
         raise HTTPException(status_code=400, detail="encryption must be none, starttls, or ssl")
 
-    row = get_or_create_smtp_settings(db)
+    provider = payload.provider.lower().strip()
+    if provider not in SMTP_PROVIDERS:
+        raise HTTPException(status_code=400, detail="provider must be zimbra or gmail")
+
+    row = get_smtp_profile(db, provider)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"SMTP profile '{provider}' not found")
+
     row.enabled = payload.enabled
     row.host = payload.host.strip()
     row.port = payload.port
@@ -107,13 +121,34 @@ def update_smtp_settings(
     row.username = payload.username.strip()
     row.from_email = payload.from_email.strip()
     row.from_name = payload.from_name.strip() or "Project Management System"
+    row.label = "Gmail" if provider == "gmail" else "Zimbra"
 
     if payload.password is not None:
         row.password = payload.password
 
     db.commit()
     db.refresh(row)
-    return smtp_to_public_dict(row)
+
+    if payload.activate:
+        activate_smtp_provider(db, provider)
+
+    return smtp_profiles_payload(db)
+
+
+@router.post("/smtp/activate")
+def activate_smtp_settings(
+    payload: SmtpActivateRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("settings.manage")),
+) -> dict:
+    provider = payload.provider.lower().strip()
+    if provider not in SMTP_PROVIDERS:
+        raise HTTPException(status_code=400, detail="provider must be zimbra or gmail")
+    try:
+        activate_smtp_provider(db, provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return smtp_profiles_payload(db)
 
 
 @router.get("/email-templates/{template_key}", response_class=HTMLResponse)

@@ -104,7 +104,7 @@ Setelah HTTPS, login, MFA, dan konfirmasi device email memakai `APP_URL` yang be
 
 ### 6. SMTP
 
-Di menu **Settings** aplikasi, isi SMTP agar email (welcome, MFA device confirm, reset password) terkirim.
+Di menu **Settings → Email**, ada dua profil terpisah (**Zimbra** dan **Gmail**). Isi masing-masing, lalu pilih mana yang aktif. Profil lain tidak ditimpa.
 
 ## Perintah berguna di VPS
 

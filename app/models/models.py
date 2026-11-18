@@ -43,6 +43,10 @@ class SmtpSetting(Base):
     __tablename__ = "smtp_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # zimbra | gmail — masing-masing disimpan terpisah, tidak saling menimpa
+    provider: Mapped[str] = mapped_column(String(40), unique=True, default="zimbra")
+    label: Mapped[str] = mapped_column(String(80), default="Zimbra")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     host: Mapped[str] = mapped_column(String(180), default="mail.banksumut.co.id")
     port: Mapped[int] = mapped_column(Integer, default=587)

@@ -15,33 +15,126 @@ from app.services.email_templates import (
     welcome_user_email,
 )
 
+SMTP_PROVIDERS = ("zimbra", "gmail")
 
-DEFAULT_SMTP = {
-    "enabled": True,
-    "host": "mail.banksumut.co.id",
-    "port": 587,
-    "encryption": "starttls",
-    "username": "notification@banksumut.co.id",
-    "password": "",
-    "from_email": "notification@banksumut.co.id",
-    "from_name": "Project Management System",
+DEFAULT_SMTP_PROFILES: dict[str, dict] = {
+    "zimbra": {
+        "provider": "zimbra",
+        "label": "Zimbra",
+        "is_active": True,
+        "enabled": True,
+        "host": "mail.banksumut.co.id",
+        "port": 587,
+        "encryption": "starttls",
+        "username": "notification@banksumut.co.id",
+        "password": "",
+        "from_email": "notification@banksumut.co.id",
+        "from_name": "Project Management System",
+    },
+    "gmail": {
+        "provider": "gmail",
+        "label": "Gmail",
+        "is_active": False,
+        "enabled": True,
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "encryption": "starttls",
+        "username": "tri82.wiyono@gmail.com",
+        "password": "",
+        "from_email": "tri82.wiyono@gmail.com",
+        "from_name": "PulseDesk",
+    },
 }
 
 
+def ensure_smtp_profiles(db: Session) -> list[SmtpSetting]:
+    """Pastikan profil Zimbra + Gmail ada; row lama tidak ditimpa isinya."""
+    rows = list(db.scalars(select(SmtpSetting).order_by(SmtpSetting.id.asc())).all())
+    by_provider: dict[str, SmtpSetting] = {}
+    dirty = False
+
+    for row in rows:
+        provider = (row.provider or "").strip().lower()
+        if not provider:
+            host = (row.host or "").lower()
+            provider = "gmail" if "gmail" in host else "zimbra"
+            row.provider = provider
+            row.label = row.label or ("Gmail" if provider == "gmail" else "Zimbra")
+            dirty = True
+        if provider in by_provider:
+            # Duplikat provider — biarkan yang pertama, nonaktifkan sisanya
+            if row.is_active:
+                row.is_active = False
+                dirty = True
+            continue
+        by_provider[provider] = row
+
+    for key, defaults in DEFAULT_SMTP_PROFILES.items():
+        if key in by_provider:
+            continue
+        row = SmtpSetting(**defaults)
+        # Jika sudah ada profil lain yang aktif, jangan aktifkan default baru
+        if by_provider and any(r.is_active for r in by_provider.values()):
+            row.is_active = False
+        db.add(row)
+        by_provider[key] = row
+        dirty = True
+
+    if by_provider and not any(r.is_active for r in by_provider.values()):
+        preferred = by_provider.get("zimbra") or next(iter(by_provider.values()))
+        preferred.is_active = True
+        dirty = True
+
+    if dirty:
+        db.commit()
+        for row in by_provider.values():
+            db.refresh(row)
+
+    return [by_provider[k] for k in SMTP_PROVIDERS if k in by_provider]
+
+
 def get_or_create_smtp_settings(db: Session) -> SmtpSetting:
-    row = db.scalar(select(SmtpSetting).order_by(SmtpSetting.id.asc()).limit(1))
-    if row:
-        return row
-    row = SmtpSetting(**DEFAULT_SMTP)
-    db.add(row)
+    """Profil SMTP yang sedang aktif (dipakai pengiriman email)."""
+    ensure_smtp_profiles(db)
+    active = db.scalar(select(SmtpSetting).where(SmtpSetting.is_active.is_(True)).limit(1))
+    if active:
+        return active
+    profiles = ensure_smtp_profiles(db)
+    return profiles[0]
+
+
+def get_smtp_profile(db: Session, provider: str) -> SmtpSetting | None:
+    key = (provider or "").strip().lower()
+    ensure_smtp_profiles(db)
+    return db.scalar(select(SmtpSetting).where(SmtpSetting.provider == key).limit(1))
+
+
+def activate_smtp_provider(db: Session, provider: str) -> SmtpSetting:
+    key = (provider or "").strip().lower()
+    if key not in SMTP_PROVIDERS:
+        raise ValueError("provider must be zimbra or gmail")
+    ensure_smtp_profiles(db)
+    rows = list(db.scalars(select(SmtpSetting)).all())
+    target = None
+    for row in rows:
+        if row.provider == key:
+            row.is_active = True
+            target = row
+        else:
+            row.is_active = False
+    if not target:
+        raise ValueError(f"SMTP profile '{key}' not found")
     db.commit()
-    db.refresh(row)
-    return row
+    db.refresh(target)
+    return target
 
 
 def smtp_to_public_dict(row: SmtpSetting) -> dict:
     return {
         "id": row.id,
+        "provider": row.provider,
+        "label": row.label,
+        "is_active": bool(row.is_active),
         "enabled": row.enabled,
         "host": row.host,
         "port": row.port,
@@ -51,6 +144,15 @@ def smtp_to_public_dict(row: SmtpSetting) -> dict:
         "from_email": row.from_email,
         "from_name": row.from_name,
         "updated_at": row.updated_at,
+    }
+
+
+def smtp_profiles_payload(db: Session) -> dict:
+    profiles = ensure_smtp_profiles(db)
+    active = next((p for p in profiles if p.is_active), profiles[0] if profiles else None)
+    return {
+        "active_provider": active.provider if active else None,
+        "profiles": [smtp_to_public_dict(p) for p in profiles],
     }
 
 
@@ -103,7 +205,7 @@ def send_email(
             _maybe_login(server)
             server.send_message(message)
 
-    return {"ok": True, "to": to_email}
+    return {"ok": True, "to": to_email, "provider": cfg.provider}
 
 
 def send_templated_email(db: Session, *, to_email: str, content: EmailContent) -> dict:

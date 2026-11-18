@@ -114,16 +114,36 @@
       <section class="settings-hero settings-hero-inline">
         <div>
           <h3 class="settings-panel-title">Email Notifications (SMTP)</h3>
-          <p class="settings-panel-desc">Konfigurasi Zimbra untuk mengirim notifikasi kepada pengguna.</p>
+          <p class="settings-panel-desc">
+            Simpan Zimbra dan Gmail terpisah, lalu pilih mana yang dipakai untuk kirim email.
+          </p>
+          <p class="smtp-active-badge" id="smtp-active-badge">Provider aktif: —</p>
         </div>
         <label class="toggle">
           <input type="checkbox" id="smtp-enabled" checked />
-          <span>Aktifkan notifikasi email</span>
+          <span>Aktifkan notifikasi email (profil ini)</span>
         </label>
       </section>
 
       <section class="settings-panel">
         <form id="smtp-form" class="smtp-form" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span>Profil SMTP</span>
+              <select id="smtp-provider" name="provider">
+                <option value="zimbra">Zimbra (Bank Sumut)</option>
+                <option value="gmail">Gmail</option>
+              </select>
+            </label>
+            <label class="field field-align-end">
+              <span class="visually-hidden">Aktifkan profil</span>
+              <label class="toggle smtp-activate-toggle">
+                <input type="checkbox" id="smtp-activate" />
+                <span>Gunakan profil ini sebagai SMTP aktif</span>
+              </label>
+            </label>
+          </div>
+
           <div class="field-row">
             <label class="field">
               <span>SMTP Host <em>*</em></span>
@@ -168,7 +188,8 @@
           </div>
 
           <div class="settings-actions">
-            <button type="submit" class="btn btn-primary" id="btn-save-smtp">Simpan Konfigurasi</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-smtp">Simpan Profil</button>
+            <button type="button" class="btn btn-ghost" id="btn-activate-smtp">Jadikan Aktif</button>
             <span class="settings-status" id="smtp-save-status" aria-live="polite"></span>
           </div>
         </form>
@@ -191,7 +212,7 @@
 
       <section class="settings-panel">
         <h3 class="settings-panel-title">Uji Kirim Email</h3>
-        <p class="settings-panel-desc">Kirim template notifikasi melalui SMTP Zimbra.</p>
+        <p class="settings-panel-desc">Kirim uji memakai <strong>provider aktif</strong> saat ini (bukan hanya yang sedang diedit).</p>
         <form id="smtp-test-form" class="smtp-test-form" novalidate>
           <div class="field-row">
             <label class="field">
@@ -222,5 +243,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/settings.js?v=4" defer></script>
+  <script src="/static/js/settings.js?v=6" defer></script>
 {% endblock %}
