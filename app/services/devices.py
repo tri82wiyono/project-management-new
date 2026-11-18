@@ -73,13 +73,15 @@ def get_device_cookie(request: Request) -> str | None:
 
 
 def set_device_cookie(response: Response, raw_token: str) -> None:
+    from app.config import get_settings
+
     response.set_cookie(
         key=DEVICE_COOKIE,
         value=raw_token,
         max_age=DEVICE_COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=bool(get_settings().cookie_secure),
         path="/",
     )
 
