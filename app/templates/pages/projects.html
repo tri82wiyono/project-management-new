@@ -3,7 +3,7 @@
 {% block title %}Projects · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=17" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=18" />
 {% endblock %}
 
 {% block header %}
@@ -24,7 +24,11 @@
 {% endblock %}
 
 {% block content %}
-  <div class="projects-page" id="projects-page">
+  <div
+    class="projects-page"
+    id="projects-page"
+    data-can-delete="{% if current_user.role and current_user.role|lower in ['admin', 'administrator'] %}1{% else %}0{% endif %}"
+  >
     <section class="projects-hero">
       <div>
         <h2 class="projects-title">All Projects</h2>
@@ -65,6 +69,7 @@
               <th>Target</th>
               <th>Tasks</th>
               <th class="col-actions">Aksi</th>
+              <th class="col-delete" aria-label="Hapus"></th>
             </tr>
           </thead>
           <tbody id="projects-list"></tbody>
@@ -166,5 +171,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=17" defer></script>
+  <script src="/static/js/projects.js?v=18" defer></script>
 {% endblock %}

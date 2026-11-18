@@ -354,20 +354,41 @@
   width: 1%;
   white-space: nowrap;
   text-align: right;
-  position: sticky;
-  right: 0;
-  z-index: 2;
+}
+
+.projects-table .col-delete {
+  width: 48px;
+  min-width: 48px;
+  max-width: 56px;
+  padding-left: 4px;
+  padding-right: 10px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.projects-table .col-delete .icon-action {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: -8px 0 12px rgba(15, 23, 42, 0.06);
+  color: #b91c1c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
 }
 
-.projects-table thead .col-actions {
-  background: #f7f9fc;
-  z-index: 3;
+.projects-table .col-delete .icon-action svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
-.projects-table tbody tr:hover .col-actions {
-  background: #f5f8ff;
+.projects-table .col-delete .icon-action:hover {
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .projects-pagination {

@@ -50,6 +50,7 @@ const state = {
 };
 
 const els = {
+  page: document.getElementById("projects-page"),
   stats: document.getElementById("projects-stats"),
   list: document.getElementById("projects-list"),
   pagination: document.getElementById("projects-pagination"),
@@ -351,7 +352,7 @@ function renderList() {
   if (!state.projects.length) {
     els.list.innerHTML = `
       <tr>
-        <td colspan="8" class="list-empty">No projects found. Click <strong>+ New Project</strong> to create one.</td>
+        <td colspan="9" class="list-empty">No projects found. Click <strong>+ New Project</strong> to create one.</td>
       </tr>`;
     renderPagination();
     return;
@@ -383,10 +384,12 @@ function renderList() {
           <div class="table-actions">
             <button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${p.id}">Edit</button>
             <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}" data-action="tasks">Tasks</a>
-            ${state.canDelete
-              ? `<button type="button" class="icon-action danger" data-action="delete" data-id="${p.id}" title="Hapus project" aria-label="Hapus project">${TRASH_ICON}</button>`
-              : ""}
           </div>
+        </td>
+        <td class="col-delete">
+          ${state.canDelete
+            ? `<button type="button" class="icon-action danger" data-action="delete" data-id="${p.id}" title="Hapus project" aria-label="Hapus project">${TRASH_ICON}</button>`
+            : ""}
         </td>
       </tr>`;
     })
@@ -708,24 +711,31 @@ function wireEvents() {
   });
 }
 
+function resolveCanDelete(meRole) {
+  const fromDom = els.page?.dataset?.canDelete === "1";
+  const role = String(meRole || "").trim().toLowerCase();
+  const fromApi = role === "admin" || role === "administrator";
+  return Boolean(fromDom || fromApi);
+}
+
 async function loadCurrentUser() {
+  // Server flag dulu (paling andal), API sebagai pelengkap
+  state.canDelete = resolveCanDelete();
   try {
     const me = await api("/api/auth/me");
-    const role = String(me.role || "").trim().toLowerCase();
-    state.canDelete = role === "admin" || role === "administrator";
+    state.canDelete = resolveCanDelete(me.role);
   } catch {
-    state.canDelete = false;
+    state.canDelete = resolveCanDelete();
   }
 }
 
 async function boot() {
   wireEvents();
   try {
-    // Role Admin harus terbaca dulu agar tombol Hapus ikut ter-render
     await loadCurrentUser();
     await Promise.all([loadStats(), loadProjects(), loadUsers()]);
   } catch (err) {
-    els.list.innerHTML = `<tr><td colspan="8" class="list-empty">Failed to load projects: ${escapeHtml(err.message)}</td></tr>`;
+    els.list.innerHTML = `<tr><td colspan="9" class="list-empty">Failed to load projects: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
