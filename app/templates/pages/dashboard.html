@@ -9,6 +9,7 @@
 {% block content %}
   <div class="page-stack" id="dashboard">
     {% include "components/kpi.html" %}
+    {% include "components/overdue_alert.html" %}
 
     <section class="dash-grid" aria-label="Dashboard panels">
       <div class="dash-col dash-col-left">
@@ -31,5 +32,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/dashboard.js?v=13" defer></script>
+  <script src="/static/js/dashboard.js?v=15" defer></script>
 {% endblock %}

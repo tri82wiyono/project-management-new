@@ -82,6 +82,60 @@ function renderKPI(data) {
   `).join("");
 }
 
+function daysOverdueLabel(days) {
+  const n = Number(days) || 0;
+  if (n <= 0) return "Hari ini";
+  if (n === 1) return "1 hari terlambat";
+  return `${n} hari terlambat`;
+}
+
+function renderOverdueAlert(data) {
+  const root = document.getElementById("overdue-alert");
+  const list = document.getElementById("overdue-alert-list");
+  const heading = document.getElementById("overdue-alert-heading");
+  const sub = document.getElementById("overdue-alert-sub");
+  if (!root || !list) return;
+
+  const count = Number(data?.count || 0);
+  const items = Array.isArray(data?.items) ? data.items : [];
+  if (!count) {
+    root.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+
+  root.hidden = false;
+  if (heading) {
+    heading.textContent = count === 1
+      ? "1 pekerjaan terlambat"
+      : `${count} pekerjaan terlambat`;
+  }
+  if (sub) {
+    sub.textContent = "Tugas berikut sudah melewati due date dan belum selesai.";
+  }
+
+  list.innerHTML = items.map((item) => {
+    const project = item.project_name ? escapeHtml(item.project_name) : "Tanpa project";
+    const assignee = item.assignee?.name ? ` · ${escapeHtml(item.assignee.name)}` : "";
+    return `
+      <li class="overdue-item">
+        <div class="overdue-item-main">
+          <strong title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</strong>
+          <span>${project}${assignee} · due ${formatDate(item.due_date)}</span>
+        </div>
+        <span class="overdue-chip">${daysOverdueLabel(item.days_overdue)}</span>
+      </li>
+    `;
+  }).join("") || `<li class="muted">Tidak ada detail tugas.</li>`;
+
+  if (count > items.length) {
+    list.insertAdjacentHTML(
+      "beforeend",
+      `<li class="muted">+${count - items.length} tugas terlambat lainnya di halaman Tasks.</li>`
+    );
+  }
+}
+
 function renderProgress(items) {
   const root = document.getElementById("progress-list");
   if (!items.length) {
@@ -318,6 +372,11 @@ async function boot() {
     // Satu request bootstrap — jauh lebih cepat daripada 7 parallel round-trip
     const data = await api("/api/dashboard/summary");
     renderKPI(data.kpi);
+    // Fallback bila summary belum memuat overdue (backend lama / cache)
+    const overdue = data.overdue && typeof data.overdue.count === "number"
+      ? data.overdue
+      : await api("/api/dashboard/overdue").catch(() => ({ count: 0, items: [] }));
+    renderOverdueAlert(overdue);
     renderProgress(data.progress);
     renderKanban(data.kanban);
     renderTeam(data.team);

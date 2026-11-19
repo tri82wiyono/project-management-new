@@ -17,6 +17,8 @@ from app.schemas.schemas import (
     DeadlineItem,
     KanbanBoard,
     KanbanColumn,
+    OverdueAlert,
+    OverdueItem,
     ProjectProgress,
     TaskOut,
     TeamOverview,
@@ -350,6 +352,57 @@ def get_timeline(db: Session, limit: int | None = 25) -> list[TimelineItem]:
     ]
 
 
+def get_overdue_alert(db: Session, *, limit: int = 8) -> OverdueAlert:
+    """Tugas belum selesai yang due date-nya sudah lewat hari ini."""
+    today = date.today()
+    count = (
+        db.scalar(
+            select(func.count())
+            .select_from(Task)
+            .where(
+                and_(
+                    Task.due_date.is_not(None),
+                    Task.due_date < today,
+                    Task.status != TaskStatus.done,
+                )
+            )
+        )
+        or 0
+    )
+    tasks = db.scalars(
+        select(Task)
+        .options(
+            joinedload(Task.assignee),
+            joinedload(Task.project),
+        )
+        .where(
+            and_(
+                Task.due_date.is_not(None),
+                Task.due_date < today,
+                Task.status != TaskStatus.done,
+            )
+        )
+        .order_by(Task.due_date.asc(), Task.id.asc())
+        .limit(limit)
+    ).unique().all()
+
+    items = [
+        OverdueItem(
+            id=t.id,
+            title=t.title,
+            due_date=t.due_date,
+            status=t.status,
+            category=t.category,
+            project_name=t.project.name if t.project else "",
+            assignee=UserOut.model_validate(t.assignee) if t.assignee else None,
+            days_overdue=max(0, (today - t.due_date).days),
+        )
+        for t in tasks
+        if t.due_date is not None
+    ]
+    return OverdueAlert(count=int(count), items=items)
+
+
 def get_dashboard_summary(db: Session) -> dict:
     """Satu payload untuk bootstrap dashboard (hindari 7 round-trip HTTP)."""
     return {
@@ -360,6 +413,7 @@ def get_dashboard_summary(db: Session) -> dict:
         "analytics": get_analytics(db, 30),
         "calendar": get_calendar(db, light=True),
         "team": get_team_overview(db),
+        "overdue": get_overdue_alert(db),
     }
 
 

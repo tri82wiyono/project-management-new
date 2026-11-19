@@ -1,0 +1,6 @@
+# Overlay untuk stack mismanajemen edge/WAF.
+# Pastikan ikut saat recreate WAF agar pm.banksumut.co.id tidak jatuh ke mis2.
+services:
+  waf:
+    volumes:
+      - /opt/project-management-new/deploy/waf/pm.conf.template:/etc/nginx/templates/conf.d/pm.conf.template:ro

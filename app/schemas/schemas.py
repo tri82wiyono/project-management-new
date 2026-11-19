@@ -225,6 +225,15 @@ class DeadlineItem(BaseModel):
     assignee: UserOut | None = None
 
 
+class OverdueItem(DeadlineItem):
+    days_overdue: int = 0
+
+
+class OverdueAlert(BaseModel):
+    count: int
+    items: list[OverdueItem] = []
+
+
 class CalendarDay(BaseModel):
     date: date
     count: int

@@ -8,6 +8,7 @@ from app.schemas.schemas import (
     CalendarResponse,
     DashboardKPI,
     KanbanBoard,
+    OverdueAlert,
     ProjectProgress,
     TeamOverview,
     TimelineItem,
@@ -76,6 +77,14 @@ def team(
     _: User = Depends(require_permission("dashboard.view")),
 ) -> TeamOverview:
     return svc.get_team_overview(db)
+
+
+@router.get("/overdue", response_model=OverdueAlert)
+def overdue(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("dashboard.view")),
+) -> OverdueAlert:
+    return svc.get_overdue_alert(db)
 
 
 @router.get("/summary")
