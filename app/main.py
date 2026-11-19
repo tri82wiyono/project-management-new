@@ -16,6 +16,7 @@ from app.routers import audit as audit_router
 from app.routers import auth as auth_router
 from app.routers import dashboard, projects, roles as roles_router
 from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
+from app.routers import tickets as tickets_router
 from app.routers import users as users_router
 from app.seed import seed_database
 from app.services.auth import ensure_default_admin, get_optional_user
@@ -58,6 +59,10 @@ async def lifespan(_: FastAPI):
         ensure_default_admin(db)
         if settings.seed_data:
             seed_database(db)
+        # Keep Release aligned with task progress (demote Release if < 100%).
+        from app.services.project_progress import reconcile_all_project_progress
+
+        reconcile_all_project_progress(db)
     finally:
         db.close()
     yield
@@ -146,6 +151,7 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 app.include_router(auth_router.router)
 app.include_router(dashboard.router)
 app.include_router(projects.router)
+app.include_router(tickets_router.router)
 app.include_router(tasks.router)
 app.include_router(team.router)
 app.include_router(settings_router.router)
@@ -208,6 +214,18 @@ def projects_page(request: Request, db: Session = Depends(get_db)) -> HTMLRespon
         extra={"search_placeholder": "Search projects, tasks, people..."},
     )
     return templates.TemplateResponse(request, "pages/projects.html", context)
+
+
+@app.get("/tickets", response_class=HTMLResponse)
+def tickets_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    context = build_page_context(
+        active_page="tickets",
+        page_title="Daftar Tiket & Evaluasi",
+        page_subtitle="Kelola daftar tiket kendala/bug dan catatan evaluasi proyek secara terpusat.",
+        current_user=_user_context(request, db),
+        extra={"search_placeholder": "Cari tiket..."},
+    )
+    return templates.TemplateResponse(request, "pages/tickets.html", context)
 
 
 @app.get("/projects/{project_id}", response_class=HTMLResponse)

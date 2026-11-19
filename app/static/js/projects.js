@@ -737,6 +737,7 @@ async function openModal(project = null) {
     document.getElementById("field-status").value = STATUS_VALUES.includes(project.status)
       ? project.status
       : "backlog";
+    syncReleaseOption(project.progress);
     setSelectedPicsFromNames(project.pic || "");
     try {
       const docs = project.documents?.length
@@ -755,11 +756,26 @@ async function openModal(project = null) {
     document.getElementById("field-start").value = todayISO();
     document.getElementById("field-end").value = plusDaysISO(90);
     document.getElementById("field-status").value = "backlog";
+    syncReleaseOption(0);
     syncPicField();
   }
 
   els.modal.hidden = false;
   document.getElementById("field-name").focus();
+}
+
+function syncReleaseOption(progress) {
+  const select = document.getElementById("field-status");
+  const releaseOpt = select?.querySelector('option[value="release"]');
+  const hint = document.getElementById("status-release-hint");
+  const ready = Math.round(Number(progress) || 0) >= 100;
+  if (releaseOpt) {
+    releaseOpt.disabled = !ready;
+    if (!ready && select.value === "release") {
+      select.value = "izin";
+    }
+  }
+  if (hint) hint.hidden = ready;
 }
 
 function closeModal() {

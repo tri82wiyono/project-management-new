@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models.models import ProjectDocument, User
 from app.schemas.schemas import ProjectDocumentOut
+from app.services.upload_security import resolve_under, validate_file_content
 
 ALLOWED_EXTENSIONS = {
     ".pdf",
@@ -170,6 +171,8 @@ async def save_uploads(
                 detail=f"File terlalu besar (maks {max_bytes // (1024 * 1024)} MB): {original}",
             )
 
+        content_type = validate_file_content(data=data, ext=ext, original_name=original)
+
         stored = f"{uuid.uuid4().hex}{ext}"
         path = dest_dir / stored
         path.write_bytes(data)
@@ -180,7 +183,7 @@ async def save_uploads(
             original_name=original,
             stored_name=stored,
             external_url=None,
-            content_type=(upload.content_type or "application/octet-stream")[:120],
+            content_type=content_type[:120],
             size_bytes=size,
             uploaded_by_id=user.id if user else None,
         )
@@ -224,10 +227,7 @@ def save_url(
 def resolve_file_path(doc: ProjectDocument) -> Path:
     if (doc.kind or "file") == "url" or not doc.stored_name:
         raise HTTPException(status_code=400, detail="Dokumen ini adalah tautan URL, bukan file unggahan")
-    path = project_dir(doc.project_id) / doc.stored_name
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="File tidak ditemukan di storage")
-    return path
+    return resolve_under(project_dir(doc.project_id), doc.stored_name)
 
 
 def delete_document(db: Session, doc: ProjectDocument) -> None:
@@ -237,11 +237,10 @@ def delete_document(db: Session, doc: ProjectDocument) -> None:
     db.delete(doc)
     db.commit()
     if kind == "file" and stored:
-        path = project_dir(project_id) / stored
         try:
-            if path.is_file():
-                path.unlink()
-        except OSError:
+            path = resolve_under(project_dir(project_id), stored)
+            path.unlink()
+        except (HTTPException, OSError):
             pass
 
 

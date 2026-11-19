@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Daftar Tiket & Evaluasi · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/projects.css?v=18" />
+  <link rel="stylesheet" href="/static/css/tickets.css?v=9" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Ticket Management</h1>
+      <p>Kelola daftar tiket kendala/bug dan catatan evaluasi proyek secara terpusat.</p>
+    </div>
+    <div class="top-actions">
+      <label class="search">
+        <span>⌕</span>
+        <input id="search-input" type="search" placeholder="{{ search_placeholder }}" autocomplete="off" />
+      </label>
+      <button class="icon-btn" type="button" aria-label="Notifications">●</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="tickets-page" id="tickets-page">
+    <section class="tk-hero">
+      <div>
+        <h2 class="tk-title">Daftar Tiket &amp; Evaluasi</h2>
+        <p class="tk-subtitle">Kelola daftar tiket kendala/bug dan catatan evaluasi proyek secara terpusat.</p>
+      </div>
+      <button type="button" class="tk-btn-primary" id="btn-new-ticket">
+        <span aria-hidden="true">+</span> Tambah Tiket
+      </button>
+    </section>
+
+    <section class="tk-stats" id="tickets-stats" aria-label="Statistik tiket">
+      <article class="tk-stat tk-stat-total">
+        <div>
+          <span>Total Tiket</span>
+          <strong id="stat-total">0</strong>
+        </div>
+        <div class="tk-stat-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8"/><path d="M9 9h6M9 13h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+      </article>
+      <article class="tk-stat tk-stat-open">
+        <div>
+          <span>Open</span>
+          <strong id="stat-open">0</strong>
+        </div>
+        <div class="tk-stat-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>
+        </div>
+      </article>
+      <article class="tk-stat tk-stat-progress">
+        <div>
+          <span>In Progress</span>
+          <strong id="stat-progress">0</strong>
+        </div>
+        <div class="tk-stat-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M20 12a8 8 0 1 1-2.3-5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 5v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </article>
+      <article class="tk-stat tk-stat-resolved">
+        <div>
+          <span>Resolved</span>
+          <strong id="stat-resolved">0</strong>
+        </div>
+        <div class="tk-stat-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><path d="m8.5 12.2 2.4 2.4 4.6-4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </article>
+    </section>
+
+    <section class="tk-toolbar" aria-label="Filter tiket">
+      <label class="tk-search">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input id="ticket-search" type="search" placeholder="Cari tiket..." autocomplete="off" />
+      </label>
+      <select id="ticket-project-filter" aria-label="Filter project">
+        <option value="">Semua Project</option>
+      </select>
+      <select id="ticket-module-filter" aria-label="Filter modul">
+        <option value="">Semua Modul</option>
+      </select>
+      <select id="ticket-status-filter" aria-label="Filter status">
+        <option value="">Status</option>
+        <option value="open">Open</option>
+        <option value="in_progress">In Progress</option>
+        <option value="done">Resolved</option>
+        <option value="closed">Closed</option>
+      </select>
+    </section>
+
+    <section class="tk-table-card" aria-label="Daftar tiket">
+      <div class="tk-table-scroll">
+        <table class="tk-table">
+          <thead>
+            <tr>
+              <th>No. Tiket</th>
+              <th>Judul / Kendala</th>
+              <th>Project</th>
+              <th>Modul</th>
+              <th>Prioritas</th>
+              <th>Status</th>
+              <th>PIC</th>
+              <th>Target</th>
+              <th class="col-actions">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-list"></tbody>
+        </table>
+      </div>
+      <div class="tk-pagination" id="tickets-pagination" aria-label="Pagination"></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="ticket-modal" hidden>
+    <div class="modal-card modal-card-wide" role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="ticket-modal-title">Tambah Tiket</h3>
+          <p id="ticket-modal-subtitle">Isi detail pencatatan untuk project yang dipilih.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-modal" aria-label="Close">×</button>
+      </div>
+
+      <form id="ticket-form" class="project-form" novalidate>
+        <input type="hidden" id="ticket-id" name="id" value="" />
+
+        <label class="field" id="ticket-number-field" hidden>
+          <span>No. Ticket</span>
+          <input id="field-ticket-number" type="text" readonly />
+        </label>
+
+        <label class="field">
+          <span>Jenis Pencatatan <em>*</em></span>
+          <select id="field-record-type" name="record_type" required>
+            <option value="ticket_kendala">Ticket / Kendala</option>
+            <option value="catatan_evaluasi">Catatan Evaluasi</option>
+            <option value="meeting_notes">Meeting Notes / MoM</option>
+          </select>
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Project <em>*</em></span>
+            <select id="field-project" name="project_id" required>
+              <option value="">Pilih project…</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Modul <em>*</em></span>
+            <select id="field-module" name="module_name" required disabled>
+              <option value="">Pilih project dulu…</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Judul Kendala <em>*</em></span>
+          <input id="field-title" name="title" type="text" required maxlength="220" placeholder="Ringkas isu atau topik catatan" />
+        </label>
+
+        <label class="field">
+          <span>Deskripsi</span>
+          <textarea id="field-description" name="description" rows="2" placeholder="Detail kendala, evaluasi, atau notulen meeting"></textarea>
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Prioritas</span>
+            <select id="field-priority" name="priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Environment</span>
+            <select id="field-environment" name="environment">
+              <option value="development">Development</option>
+              <option value="sit">SIT</option>
+              <option value="uat">UAT</option>
+              <option value="production">Production</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field">
+          <span>PIC <em>*</em></span>
+          <div class="pic-tagbox" id="pic-multiselect">
+            <div class="pic-input-wrap" id="pic-input-wrap">
+              <div class="pic-chips" id="pic-chips"></div>
+              <input
+                type="text"
+                id="pic-search"
+                class="pic-search"
+                placeholder="Ketik nama lalu pilih…"
+                autocomplete="off"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="pic-options"
+              />
+            </div>
+            <div class="pic-dropdown" id="pic-dropdown" hidden>
+              <div class="pic-options" id="pic-options" role="listbox"></div>
+            </div>
+          </div>
+          <small class="field-hint">Bisa pilih lebih dari satu orang.</small>
+        </div>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Target Tindak Lanjut</span>
+            <input id="field-follow-up" name="follow_up_target" type="date" />
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <select id="field-status" name="status">
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field">
+          <span>Lampiran</span>
+          <div class="doc-dropzone" id="attach-dropzone" tabindex="0" role="button" aria-label="Upload lampiran">
+            <input
+              type="file"
+              id="field-attachments"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip"
+              hidden
+            />
+            <div class="doc-dropzone-inner">
+              <strong>Upload lampiran</strong>
+              <span>Klik / drop · maks. 5 file · 10 MB</span>
+            </div>
+          </div>
+          <ul class="doc-file-list" id="attach-file-list" hidden></ul>
+          <small class="field-hint">Opsional. PDF, Office, gambar, ZIP, TXT/CSV.</small>
+        </div>
+
+        <p class="form-error" id="form-error" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-modal">Batal</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-ticket">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/tickets.js?v=10" defer></script>
+{% endblock %}

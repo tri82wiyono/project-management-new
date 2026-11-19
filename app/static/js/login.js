@@ -253,18 +253,9 @@
       "err"
     );
   } else if (params.get("session") === "expired") {
-    setStatus(
-      statusEl,
-      "Sesi berakhir (timeout). Silakan login ulang.",
-      "err"
-    );
+    // Quiet redirect after timeout — no banner on login.
   } else if (params.get("next")) {
-    // AuthGuard bounced here — usually missing/rejected session cookie.
-    setStatus(
-      statusEl,
-      "Sesi tidak aktif. Login ulang lewat https://pm.banksumut.co.id (HTTPS wajib agar cookie aman).",
-      "err"
-    );
+    // Quiet redirect when session cookie missing/rejected — no banner on login.
   }
 
   loadCaptcha();

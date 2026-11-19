@@ -189,6 +189,11 @@ class Project(Base):
         cascade="all, delete-orphan",
         order_by="ProjectDocument.created_at",
     )
+    tickets: Mapped[list["Ticket"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="desc(Ticket.created_at)",
+    )
 
 
 class ProjectDocument(Base):
@@ -277,6 +282,109 @@ class TaskNote(Base):
 
     task: Mapped[Task] = relationship(back_populates="notes")
     author: Mapped[User | None] = relationship()
+
+
+class TicketRecordType(str, enum.Enum):
+    ticket_kendala = "ticket_kendala"
+    catatan_evaluasi = "catatan_evaluasi"
+    meeting_notes = "meeting_notes"
+
+
+class TicketPriority(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+
+class TicketEnvironment(str, enum.Enum):
+    development = "development"
+    sit = "sit"
+    uat = "uat"
+    production = "production"
+    other = "other"
+
+
+class TicketStatus(str, enum.Enum):
+    open = "open"
+    in_progress = "in_progress"
+    done = "done"
+    closed = "closed"
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticket_number: Mapped[str | None] = mapped_column(String(40), unique=True, index=True, nullable=True)
+    record_type: Mapped[TicketRecordType] = mapped_column(
+        Enum(TicketRecordType, name="ticket_record_type"),
+        default=TicketRecordType.ticket_kendala,
+        index=True,
+    )
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    module_name: Mapped[str] = mapped_column(String(200), default="")
+    title: Mapped[str] = mapped_column(String(220), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    priority: Mapped[TicketPriority] = mapped_column(
+        Enum(TicketPriority, name="ticket_priority"),
+        default=TicketPriority.medium,
+    )
+    environment: Mapped[TicketEnvironment] = mapped_column(
+        Enum(TicketEnvironment, name="ticket_environment"),
+        default=TicketEnvironment.development,
+    )
+    follow_up_target: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[TicketStatus] = mapped_column(
+        Enum(TicketStatus, name="ticket_status"),
+        default=TicketStatus.open,
+        index=True,
+    )
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    project: Mapped[Project] = relationship(back_populates="tickets")
+    created_by: Mapped[User | None] = relationship()
+    pics: Mapped[list["TicketPic"]] = relationship(
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+    )
+    attachments: Mapped[list["TicketAttachment"]] = relationship(
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="TicketAttachment.created_at",
+    )
+
+
+class TicketPic(Base):
+    __tablename__ = "ticket_pics"
+    __table_args__ = (UniqueConstraint("ticket_id", "user_id", name="uq_ticket_pics_ticket_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+    ticket: Mapped[Ticket] = relationship(back_populates="pics")
+    user: Mapped[User] = relationship()
+
+
+class TicketAttachment(Base):
+    __tablename__ = "ticket_attachments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"), index=True)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    uploaded_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    ticket: Mapped[Ticket] = relationship(back_populates="attachments")
+    uploaded_by: Mapped[User | None] = relationship()
 
 
 class AuditLog(Base):

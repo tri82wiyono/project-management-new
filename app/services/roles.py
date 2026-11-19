@@ -11,6 +11,8 @@ PERMISSION_CATALOG = [
     {"key": "dashboard.view", "label": "Lihat Dashboard"},
     {"key": "projects.view", "label": "Lihat Projects"},
     {"key": "projects.manage", "label": "Kelola Projects"},
+    {"key": "tickets.view", "label": "Lihat Ticket Management"},
+    {"key": "tickets.manage", "label": "Kelola Ticket Management"},
     {"key": "tasks.view", "label": "Lihat Tasks"},
     {"key": "tasks.manage", "label": "Kelola Tasks"},
     {"key": "users.view", "label": "Lihat Users"},
@@ -38,6 +40,8 @@ DEFAULT_ROLES = [
             "dashboard.view",
             "projects.view",
             "projects.manage",
+            "tickets.view",
+            "tickets.manage",
             "tasks.view",
             "tasks.manage",
             "users.view",
@@ -53,6 +57,8 @@ DEFAULT_ROLES = [
         "permissions": [
             "dashboard.view",
             "projects.view",
+            "tickets.view",
+            "tickets.manage",
             "tasks.view",
             "tasks.manage",
         ],
@@ -74,6 +80,14 @@ def ensure_default_roles(db: Session) -> list[Role]:
             if existing.code == "Admin" and set(existing.permissions or []) != set(catalog_keys):
                 existing.permissions = list(catalog_keys)
                 dirty = True
+            elif existing.is_system:
+                # Add newly introduced default perms without wiping custom ones
+                desired = set(item["permissions"])
+                current = set(existing.permissions or [])
+                missing = desired - current
+                if missing:
+                    existing.permissions = list(current | missing)
+                    dirty = True
             continue
         row = Role(**item)
         db.add(row)

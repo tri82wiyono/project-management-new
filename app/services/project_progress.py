@@ -12,6 +12,8 @@ STATUS_WEIGHT = {
     TaskStatus.done: 100.0,
 }
 
+RELEASE_MIN_PROGRESS = 100.0
+
 
 def calculate_progress_from_tasks(tasks: list[Task]) -> float:
     if not tasks:
@@ -20,12 +22,41 @@ def calculate_progress_from_tasks(tasks: list[Task]) -> float:
     return round(total / len(tasks), 1)
 
 
-def sync_project_status_from_tasks(project: Project, tasks: list[Task]) -> None:
-    """Promote Backlog → Dev once any module/task leaves To Do."""
-    if project.status != ProjectStatus.backlog:
-        return
-    if any(task.status != TaskStatus.todo for task in tasks):
+def status_from_progress(progress: float) -> ProjectStatus:
+    """Map task-derived progress to a pipeline stage (used when demoting invalid Release)."""
+    pct = float(progress or 0.0)
+    if pct <= 0:
+        return ProjectStatus.backlog
+    if pct < 40:
+        return ProjectStatus.dev
+    if pct < 60:
+        return ProjectStatus.sit
+    if pct < 75:
+        return ProjectStatus.uat
+    if pct < 90:
+        return ProjectStatus.to
+    if pct < RELEASE_MIN_PROGRESS:
+        return ProjectStatus.izin
+    return ProjectStatus.release
+
+
+def release_allowed(progress: float) -> bool:
+    return float(progress or 0.0) >= RELEASE_MIN_PROGRESS
+
+
+def sync_project_status_from_tasks(project: Project, tasks: list[Task], progress: float) -> None:
+    """Keep lifecycle status consistent with task progress.
+
+    - Backlog → Dev once any module leaves To Do
+    - Release is only valid at 100% progress; otherwise demote to the matching stage
+    """
+    if project.status == ProjectStatus.backlog and any(
+        task.status != TaskStatus.todo for task in tasks
+    ):
         project.status = ProjectStatus.dev
+
+    if project.status == ProjectStatus.release and not release_allowed(progress):
+        project.status = status_from_progress(progress)
 
 
 def recalculate_project_progress(db: Session, project_id: int | None) -> float | None:
@@ -37,6 +68,17 @@ def recalculate_project_progress(db: Session, project_id: int | None) -> float |
         return None
 
     tasks = list(db.scalars(select(Task).where(Task.project_id == project_id)).all())
-    project.progress = calculate_progress_from_tasks(tasks)
-    sync_project_status_from_tasks(project, tasks)
+    progress = calculate_progress_from_tasks(tasks)
+    project.progress = progress
+    sync_project_status_from_tasks(project, tasks, progress)
     return project.progress
+
+
+def reconcile_all_project_progress(db: Session) -> int:
+    """Recalc progress + demote invalid Release for every project. Returns count touched."""
+    ids = list(db.scalars(select(Project.id)).all())
+    for project_id in ids:
+        recalculate_project_progress(db, project_id)
+    if ids:
+        db.commit()
+    return len(ids)

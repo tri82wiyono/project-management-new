@@ -40,8 +40,10 @@ services:
     ports:
       - "${APP_HOST_PORT:-8891}:8000"
     volumes:
-      # Persist upload avatar/foto profil
-      - pm_uploads:/app/app/static/uploads
+      # Private ticket/project files (not under /static)
+      - pm_uploads:/app/data/uploads
+      # Public profile avatars
+      - pm_avatars:/app/app/static/uploads/avatars
     depends_on:
       db:
         condition: service_healthy
@@ -67,3 +69,5 @@ volumes:
     name: pm_pgdata
   pm_uploads:
     name: pm_uploads
+  pm_avatars:
+    name: pm_avatars

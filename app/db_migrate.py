@@ -200,6 +200,71 @@ def ensure_schema() -> None:
     ALTER TABLE project_documents ALTER COLUMN stored_name DROP NOT NULL;
     UPDATE project_documents SET kind = 'file' WHERE kind IS NULL OR kind = '';
     """
+    tickets_sql = """
+    DO $$ BEGIN
+      CREATE TYPE ticket_record_type AS ENUM (
+        'ticket_kendala', 'catatan_evaluasi', 'meeting_notes'
+      );
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    DO $$ BEGIN
+      CREATE TYPE ticket_priority AS ENUM ('low', 'medium', 'high', 'critical');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    DO $$ BEGIN
+      CREATE TYPE ticket_environment AS ENUM (
+        'development', 'sit', 'uat', 'production', 'other'
+      );
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    DO $$ BEGIN
+      CREATE TYPE ticket_status AS ENUM ('open', 'in_progress', 'done', 'closed');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+    CREATE TABLE IF NOT EXISTS tickets (
+      id SERIAL PRIMARY KEY,
+      ticket_number VARCHAR(40),
+      record_type ticket_record_type DEFAULT 'ticket_kendala',
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      module_name VARCHAR(200) DEFAULT '',
+      title VARCHAR(220) NOT NULL,
+      description TEXT,
+      priority ticket_priority DEFAULT 'medium',
+      environment ticket_environment DEFAULT 'development',
+      follow_up_target DATE,
+      status ticket_status DEFAULT 'open',
+      created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS ticket_number VARCHAR(40);
+    UPDATE tickets
+      SET ticket_number = 'TKT-' || TO_CHAR(COALESCE(created_at, NOW()), 'YYYY') || '-' || LPAD(id::text, 5, '0')
+      WHERE ticket_number IS NULL OR ticket_number = '';
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_ticket_number ON tickets(ticket_number);
+    CREATE INDEX IF NOT EXISTS ix_tickets_ticket_number ON tickets(ticket_number);
+    CREATE INDEX IF NOT EXISTS ix_tickets_project_id ON tickets(project_id);
+    CREATE INDEX IF NOT EXISTS ix_tickets_record_type ON tickets(record_type);
+    CREATE INDEX IF NOT EXISTS ix_tickets_status ON tickets(status);
+
+    CREATE TABLE IF NOT EXISTS ticket_pics (
+      id SERIAL PRIMARY KEY,
+      ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT uq_ticket_pics_ticket_user UNIQUE (ticket_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS ix_ticket_pics_ticket_id ON ticket_pics(ticket_id);
+    CREATE INDEX IF NOT EXISTS ix_ticket_pics_user_id ON ticket_pics(user_id);
+
+    CREATE TABLE IF NOT EXISTS ticket_attachments (
+      id SERIAL PRIMARY KEY,
+      ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      original_name VARCHAR(255) NOT NULL,
+      stored_name VARCHAR(255) NOT NULL,
+      content_type VARCHAR(120) DEFAULT 'application/octet-stream',
+      size_bytes INTEGER DEFAULT 0,
+      uploaded_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_ticket_attachments_ticket_id ON ticket_attachments(ticket_id);
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -213,3 +278,4 @@ def ensure_schema() -> None:
         conn.execute(text(audit_logs_sql))
         conn.execute(text(security_settings_sql))
         conn.execute(text(project_documents_sql))
+        conn.execute(text(tickets_sql))

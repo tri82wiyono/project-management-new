@@ -26,12 +26,30 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
 
 
+def _require_team_directory_access(user: User, db: Session) -> User:
+    """Team directory is for pickers; require a related module permission."""
+    from app.services.roles import user_has_permission
+
+    allowed = (
+        user.role == "Admin"
+        or user_has_permission(db, user, "projects.view")
+        or user_has_permission(db, user, "tasks.view")
+        or user_has_permission(db, user, "tickets.view")
+        or user_has_permission(db, user, "users.view")
+        or user_has_permission(db, user, "users.manage")
+    )
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Permission required to list team")
+    return user
+
+
 @router.get("", response_model=list[UserOut])
 def list_team(
     active_only: bool = True,
     db: Session = Depends(get_db),
-    _: User = Depends(require_user),
+    user: User = Depends(require_user),
 ) -> list[User]:
+    _require_team_directory_access(user, db)
     stmt = select(User).order_by(User.name.asc())
     if active_only:
         stmt = stmt.where(User.is_active.is_(True))
@@ -42,12 +60,13 @@ def list_team(
 def get_member(
     user_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_user),
+    user: User = Depends(require_user),
 ) -> User:
-    user = db.get(User, user_id)
-    if not user:
+    _require_team_directory_access(user, db)
+    member = db.get(User, user_id)
+    if not member:
         raise HTTPException(status_code=404, detail="Team member not found")
-    return user
+    return member
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)

@@ -196,7 +196,8 @@ def _derive_project_status(keadaan: str | None, module_statuses: list[str]) -> P
         if s in MODULE_STATUS_TO_PROJECT
     ]
     if mapped_modules:
-        return max(mapped_modules, key=lambda st: PROJECT_STATUS_RANK[st])
+        # Use the least-advanced module so "Release" is not set while others lag.
+        return min(mapped_modules, key=lambda st: PROJECT_STATUS_RANK[st])
 
     key = (keadaan or "").strip().lower()
     return KEADAAN_MAP.get(key, ProjectStatus.backlog)

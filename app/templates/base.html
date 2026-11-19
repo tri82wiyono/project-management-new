@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=27" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=28" />
   {# Critical layout fallback — ensures no right-side clipping even if CSS cache is stale #}
   <style>
     html, body { margin: 0; width: 100%; }
@@ -38,8 +38,10 @@
     .main-content { min-width: 0; padding: 0 18px 16px; overflow-x: clip; }
     .page-stack, .dash-layout, .dash-pair, .dash-primary, .dash-aside, .panel, .kpi-grid { width: 100%; min-width: 0; max-width: 100%; }
     .dash-layout, .dash-pair { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr); gap: 14px; }
-    .dash-layout { align-items: start; }
-    .dash-pair { align-items: stretch; }
+    .dash-layout, .dash-pair { align-items: stretch; }
+    .dash-primary { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+    .dash-layout > .dash-primary > .kanban-panel { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .dash-layout > .dash-primary > .kanban-panel .kanban-board { flex: 1 1 auto; min-height: 220px; overflow: auto; }
     .dash-pair > .panel { height: 100%; display: flex; flex-direction: column; }
     .dash-primary, .dash-aside { display: grid; gap: 14px; align-content: start; }
     .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }

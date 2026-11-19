@@ -38,7 +38,9 @@ services:
       - "${APP_HOST_PORT:-8891}:8000"
     volumes:
       - ./app:/app/app
-      - pm_uploads:/app/app/static/uploads
+      - pm_uploads:/app/data/uploads
+      # Avatars remain under static (public profile images)
+      - pm_avatars:/app/app/static/uploads/avatars
     depends_on:
       db:
         condition: service_healthy
@@ -61,3 +63,5 @@ volumes:
     name: pm_pgdata
   pm_uploads:
     name: pm_uploads
+  pm_avatars:
+    name: pm_avatars

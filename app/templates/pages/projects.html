@@ -186,6 +186,9 @@
             <option value="izin">Izin</option>
             <option value="release">Release</option>
           </select>
+          <small id="status-release-hint" class="field-hint" hidden>
+            Release hanya tersedia jika progress modul 100%.
+          </small>
         </label>
 
         <p class="form-error" id="form-error" hidden></p>
@@ -200,5 +203,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=20" defer></script>
+  <script src="/static/js/projects.js?v=21" defer></script>
 {% endblock %}

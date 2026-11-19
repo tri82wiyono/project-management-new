@@ -5,7 +5,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.models import ProjectStatus, TaskStatus
+from app.models.models import (
+    ProjectStatus,
+    TaskStatus,
+    TicketEnvironment,
+    TicketPriority,
+    TicketRecordType,
+    TicketStatus,
+)
 
 
 class UserOut(BaseModel):
@@ -262,3 +269,89 @@ class TeamOverview(BaseModel):
     total: int
     visible: list[UserOut]
     extra: int
+
+
+class TicketAttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticket_id: int
+    original_name: str
+    content_type: str
+    size_bytes: int
+    created_at: datetime
+    download_url: str | None = None
+
+
+class TicketBase(BaseModel):
+    record_type: TicketRecordType = TicketRecordType.ticket_kendala
+    project_id: int
+    module_name: str = Field(default="", max_length=200)
+    title: str = Field(min_length=1, max_length=220)
+    description: str | None = None
+    priority: TicketPriority = TicketPriority.medium
+    environment: TicketEnvironment = TicketEnvironment.development
+    follow_up_target: date | None = None
+    pic_ids: list[int] = []
+
+
+class TicketCreate(TicketBase):
+    # status is always forced to open on create (server-side)
+    pass
+
+
+class TicketUpdate(BaseModel):
+    record_type: TicketRecordType | None = None
+    project_id: int | None = None
+    module_name: str | None = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, min_length=1, max_length=220)
+    description: str | None = None
+    priority: TicketPriority | None = None
+    environment: TicketEnvironment | None = None
+    follow_up_target: date | None = None
+    status: TicketStatus | None = None
+    pic_ids: list[int] | None = None
+
+
+class TicketOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticket_number: str
+    record_type: TicketRecordType
+    project_id: int
+    project_name: str | None = None
+    module_name: str = ""
+    title: str
+    description: str | None = None
+    priority: TicketPriority
+    environment: TicketEnvironment
+    follow_up_target: date | None = None
+    status: TicketStatus
+    pic_ids: list[int] = []
+    pics: list[UserOut] = []
+    attachments: list[TicketAttachmentOut] = []
+    created_by_id: int | None = None
+    created_by_name: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TicketListResponse(BaseModel):
+    items: list[TicketOut]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
+class TicketStats(BaseModel):
+    total: int
+    open: int
+    in_progress: int
+    resolved: int
+
+
+class TicketModulesResponse(BaseModel):
+    project_id: int | None = None
+    modules: list[str]

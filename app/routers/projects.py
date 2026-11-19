@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from urllib.parse import quote
+
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -17,7 +19,11 @@ from app.schemas.schemas import (
 )
 from app.services.auth import require_permission, require_user
 from app.services import project_documents as docs_svc
-from app.services.project_progress import recalculate_project_progress
+from app.services.project_progress import (
+    calculate_progress_from_tasks,
+    recalculate_project_progress,
+    release_allowed,
+)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -204,12 +210,35 @@ def list_project_notes(
     ]
 
 
+def _reject_premature_release(db: Session, project_id: int | None, status_value) -> None:
+    """Release is only valid when task-derived progress is 100%."""
+    if status_value != ProjectStatus.release:
+        return
+    if not project_id:
+        # New project has no modules yet → progress 0
+        raise HTTPException(
+            status_code=400,
+            detail="Status Release hanya boleh jika progress modul 100%. Progress saat ini 0%.",
+        )
+    tasks = list(db.scalars(select(Task).where(Task.project_id == project_id)).all())
+    progress = calculate_progress_from_tasks(tasks)
+    if not release_allowed(progress):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Status Release hanya boleh jika progress modul 100%. "
+                f"Progress saat ini {progress:g}% — pilih Dev/SIT/UAT/TO/Izin."
+            ),
+        )
+
+
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("projects.manage")),
 ) -> ProjectOut:
+    _reject_premature_release(db, None, payload.status)
     project = Project(
         name=payload.name,
         description=payload.description,
@@ -246,6 +275,9 @@ def update_project(
     data = payload.model_dump(exclude_unset=True)
     member_ids = data.pop("member_ids", None)
     data.pop("progress", None)  # progress is derived from task statuses
+
+    if "status" in data:
+        _reject_premature_release(db, project.id, data["status"])
 
     for key, value in data.items():
         setattr(project, key, value)
@@ -339,10 +371,15 @@ def download_project_document(
     if (doc.kind or "file") == "url" and doc.external_url:
         return RedirectResponse(url=doc.external_url, status_code=302)
     path = docs_svc.resolve_file_path(doc)
+    safe_name = quote(doc.original_name or "document")
     return FileResponse(
         path=path,
         filename=doc.original_name,
         media_type=doc.content_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

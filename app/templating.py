@@ -8,6 +8,7 @@ from app.services.identity import get_identity_dict
 NAV_ITEMS = [
     {"key": "dashboard", "label": "Dashboard", "icon": "▦", "href": "/"},
     {"key": "projects", "label": "Projects", "icon": "▣", "href": "/projects"},
+    {"key": "tickets", "label": "Ticket Management", "icon": "◫", "href": "/tickets"},
     {"key": "tasks", "label": "Tasks", "icon": "☰", "href": "/tasks"},
     {"key": "users", "label": "Users", "icon": "◎", "href": "/users"},
     {"key": "audit", "label": "Log Audit", "icon": "▥", "href": "/audit"},

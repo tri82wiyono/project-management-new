@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     # true = Secure cookies + redirect HTTP→APP_URL HTTPS (production)
     # false = allow plain HTTP (local/dev only)
     cookie_secure: bool = False
-    upload_dir: str = "/app/app/static/uploads"
+    # Private storage (outside StaticFiles). Serve only via authenticated download routes.
+    upload_dir: str = "/app/data/uploads"
     max_project_documents: int = 3
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB per file
 
