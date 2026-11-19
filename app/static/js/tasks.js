@@ -673,7 +673,12 @@ function openModal(task = null, presetStatus = "todo", options = {}) {
   }
 
   closeDuePicker();
+  // Portal to <body> so position:fixed is viewport-centered (not trapped by .page-enter).
+  if (els.modal && els.modal.parentElement !== document.body) {
+    document.body.appendChild(els.modal);
+  }
   els.modal.hidden = false;
+  document.body.classList.add("modal-open");
   setActiveTab(task && startTab === "notes" ? "notes" : "detail");
 }
 
@@ -681,6 +686,7 @@ function closeModal() {
   closeAssigneeDropdown();
   closeDuePicker();
   els.modal.hidden = true;
+  document.body.classList.remove("modal-open");
 }
 
 async function loadBoard() {

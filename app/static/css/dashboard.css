@@ -548,14 +548,9 @@ body.tk-modal-open .app-shell.sidebar-collapsed > .app-main {
 }
 
 @keyframes page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  /* Opacity only — a lasting transform would trap position:fixed modals inside main-content */
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .page-stack {

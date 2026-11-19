@@ -760,6 +760,10 @@ async function openModal(project = null) {
     syncPicField();
   }
 
+  // Portal to <body> so position:fixed centers on the viewport.
+  if (els.modal && els.modal.parentElement !== document.body) {
+    document.body.appendChild(els.modal);
+  }
   els.modal.hidden = false;
   document.body.classList.add("modal-open");
   document.getElementById("field-name").focus();

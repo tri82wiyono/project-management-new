@@ -377,8 +377,26 @@
   border-color: #fecaca;
 }
 
+#task-modal.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 12px;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+#task-modal.modal-backdrop[hidden] {
+  display: none !important;
+}
+
 .task-modal-card {
   width: min(560px, 100%);
+  max-height: min(90dvh, 720px);
+  margin: 0 auto;
 }
 .task-modal-tabs {
   display: flex;
