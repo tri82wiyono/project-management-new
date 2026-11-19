@@ -23,10 +23,6 @@
   const btnDeviceResend = document.getElementById("btn-device-resend");
   const btnDeviceBack = document.getElementById("btn-device-back");
 
-  const COOKIE_HELP =
-    "Login berhasil di server, tetapi sesi/cookie tidak tersimpan di browser. " +
-    "Buka lewat HTTPS: https://pm.banksumut.co.id (jangan pakai http://IP).";
-
   function setStatus(el, message, kind) {
     if (!el) return;
     el.textContent = message || "";
@@ -75,20 +71,19 @@
     );
   }
 
-  async function ensureSessionOrThrow(statusTarget) {
+  async function ensureSessionOrThrow() {
     const me = await fetch("/api/auth/me", {
       credentials: "same-origin",
       cache: "no-store",
     });
     if (!me.ok) {
-      setStatus(statusTarget, COOKIE_HELP, "err");
-      throw new Error(COOKIE_HELP);
+      throw new Error("Login gagal menyimpan sesi. Silakan coba lagi.");
     }
   }
 
   async function finishLogin(statusTarget) {
     setStatus(statusTarget, "Berhasil masuk. Memeriksa sesi…", "ok");
-    await ensureSessionOrThrow(statusTarget);
+    await ensureSessionOrThrow();
     setStatus(statusTarget, "Berhasil masuk. Mengalihkan…", "ok");
     const next = new URLSearchParams(window.location.search).get("next");
     const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
