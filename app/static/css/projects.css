@@ -789,27 +789,31 @@
   background: rgba(15, 23, 42, 0.45);
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: 12px;
   z-index: 100;
+  overflow: hidden;
 }
 .modal-backdrop[hidden] { display: none; }
 .modal-card {
   width: min(520px, 100%);
-  max-height: calc(100vh - 32px);
-  overflow: auto;
+  max-height: min(92dvh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
-  padding: 18px;
+  padding: 14px 16px 12px;
 }
 .modal-head {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  flex: 0 0 auto;
 }
-.modal-head h3 { margin: 0 0 4px; font-size: 1.05rem; }
-.modal-head p { margin: 0; color: var(--muted); font-size: 0.74rem; }
+.modal-head h3 { margin: 0 0 4px; font-size: 1.02rem; }
+.modal-head p { margin: 0; color: var(--muted); font-size: 0.72rem; }
 .modal-close {
   width: 32px;
   height: 32px;
@@ -819,8 +823,17 @@
   cursor: pointer;
   font-size: 1.2rem;
   line-height: 1;
+  flex: 0 0 auto;
 }
-.project-form { display: grid; gap: 10px; }
+.project-form {
+  display: grid;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  overscroll-behavior: contain;
+}
 .field { display: grid; gap: 5px; min-width: 0; }
 .field span {
   font-size: 0.72rem;
@@ -1167,7 +1180,13 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 1;
 }
 
 .list-empty {

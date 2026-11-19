@@ -79,6 +79,8 @@ img { max-width: 100%; height: auto; }
   display: flex;
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
+  align-items: stretch;
   /* Don't clip sidebar edge toggle / sticky rail */
   overflow: visible;
 }
@@ -100,15 +102,46 @@ img { max-width: 100%; height: auto; }
   align-self: flex-start;
   height: 100vh;
   height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 40;
   box-shadow: 8px 0 28px rgba(23, 74, 176, 0.16);
   transition:
     width 240ms var(--ease),
     flex-basis 240ms var(--ease),
     padding 240ms var(--ease);
+}
+
+/* body.overflow:hidden breaks sticky — pin sidebar full-height while modal is open */
+body.modal-open,
+body.tk-modal-open {
+  overflow: hidden;
+}
+
+body.modal-open .sidebar,
+body.tk-modal-open .sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: none;
+}
+
+body.modal-open .app-shell:not(.sidebar-collapsed) > .app-main,
+body.tk-modal-open .app-shell:not(.sidebar-collapsed) > .app-main {
+  margin-left: var(--sidebar-width);
+}
+
+body.modal-open .app-shell.sidebar-collapsed > .app-main,
+body.tk-modal-open .app-shell.sidebar-collapsed > .app-main {
+  margin-left: var(--sidebar-collapsed-width);
 }
 
 .app-shell.sidebar-collapsed .sidebar {
@@ -1349,6 +1382,12 @@ td strong { font-size: 0.7rem; }
   .sidebar,
   .sidebar-edge-toggle {
     display: none !important;
+  }
+  body.modal-open .app-shell > .app-main,
+  body.tk-modal-open .app-shell > .app-main,
+  body.modal-open .app-shell.sidebar-collapsed > .app-main,
+  body.tk-modal-open .app-shell.sidebar-collapsed > .app-main {
+    margin-left: 0;
   }
   .app-main {
     min-height: 100vh;

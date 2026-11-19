@@ -828,10 +828,6 @@
   cursor: default;
 }
 
-body.tk-modal-open {
-  overflow: hidden;
-}
-
 @media (max-height: 760px) {
   #ticket-modal .modal-card-wide {
     max-height: calc(100vh - 12px);

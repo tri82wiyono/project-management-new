@@ -3,7 +3,7 @@
 {% block title %}Projects · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=18" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=20" />
 {% endblock %}
 
 {% block header %}
@@ -86,7 +86,6 @@
           <h3 id="project-modal-title">New Project</h3>
           <p id="project-modal-subtitle">Add the essential details for your project.</p>
         </div>
-        <button type="button" class="modal-close" id="btn-close-modal" aria-label="Close">×</button>
       </div>
 
       <form id="project-form" class="project-form" novalidate>
@@ -99,7 +98,7 @@
 
         <label class="field">
           <span>Description</span>
-          <textarea id="field-description" name="description" rows="3" placeholder="Brief project overview"></textarea>
+          <textarea id="field-description" name="description" rows="2" placeholder="Brief project overview"></textarea>
         </label>
 
         <div class="field">
@@ -203,5 +202,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=21" defer></script>
+  <script src="/static/js/projects.js?v=22" defer></script>
 {% endblock %}

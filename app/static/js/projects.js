@@ -761,6 +761,7 @@ async function openModal(project = null) {
   }
 
   els.modal.hidden = false;
+  document.body.classList.add("modal-open");
   document.getElementById("field-name").focus();
 }
 
@@ -782,6 +783,7 @@ function closeModal() {
   closePicDropdown();
   resetDocs();
   els.modal.hidden = true;
+  document.body.classList.remove("modal-open");
 }
 
 async function loadStats() {
@@ -948,14 +950,8 @@ function wirePicEvents() {
 
 function wireEvents() {
   els.btnNew.addEventListener("click", () => openModal());
-  els.btnClose.addEventListener("click", closeModal);
+  // Close only via Cancel — not backdrop, Escape, or outside click.
   els.btnCancel.addEventListener("click", closeModal);
-  els.modal.addEventListener("click", (e) => {
-    if (e.target === els.modal) closeModal();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !els.modal.hidden && els.picDropdown.hidden) closeModal();
-  });
   els.form.addEventListener("submit", saveProject);
   wirePicEvents();
   wireDocEvents();
