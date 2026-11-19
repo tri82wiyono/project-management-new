@@ -37,6 +37,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 PUBLIC_PATHS = {
     "/login",
     "/logout",
+    "/favicon.ico",
     "/api/auth/login",
     "/api/auth/captcha",
     "/api/auth/mfa/verify-login",
@@ -102,6 +103,17 @@ class ForceHttpsMiddleware(BaseHTTPMiddleware):
         return RedirectResponse(url=target, status_code=308)
 
 
+def _looks_like_asset_path(path: str) -> bool:
+    """Browser probes (favicon.ico, *.map, …) must not become login?next=…"""
+    name = path.rsplit("/", 1)[-1]
+    if not name or name.startswith("."):
+        return False
+    if "." not in name:
+        return False
+    # Allow extension-less app routes only; anything with a file suffix is an asset probe.
+    return True
+
+
 class AuthGuardMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -112,6 +124,10 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
         if not user_id:
             if path.startswith("/api/"):
                 return JSONResponse({"detail": "Authentication required"}, status_code=401)
+            # Don't bounce favicon/asset probes through login — that sets next=/favicon.ico
+            # and after login the user lands on FastAPI's JSON {"detail":"Not Found"}.
+            if _looks_like_asset_path(path):
+                return await call_next(request)
             next_url = path if path != "/login" else "/"
             return RedirectResponse(url=f"/login?next={next_url}", status_code=303)
 
@@ -183,6 +199,11 @@ def _user_context(request: Request, db: Session) -> dict:
 def health(db: Session = Depends(get_db)) -> dict:
     db.connection()
     return {"status": "ok", "service": settings.app_name}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return RedirectResponse(url="/static/favicon.svg", status_code=302)
 
 
 @app.get("/login", response_class=HTMLResponse)

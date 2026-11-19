@@ -81,13 +81,21 @@
     }
   }
 
+  function safeNextPath(raw) {
+    if (!raw || typeof raw !== "string") return "/";
+    if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+    // Reject asset probes that AuthGuard may have stuffed into ?next=
+    const leaf = raw.split("/").pop() || "";
+    if (leaf.includes(".")) return "/";
+    return raw;
+  }
+
   async function finishLogin(statusTarget) {
     setStatus(statusTarget, "Berhasil masuk. Memeriksa sesi…", "ok");
     await ensureSessionOrThrow();
     setStatus(statusTarget, "Berhasil masuk. Mengalihkan…", "ok");
     const next = new URLSearchParams(window.location.search).get("next");
-    const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
-    window.location.href = target;
+    window.location.href = safeNextPath(next);
   }
 
   async function loadCaptcha() {
