@@ -352,7 +352,7 @@ def get_timeline(db: Session, limit: int | None = 25) -> list[TimelineItem]:
     ]
 
 
-def get_overdue_alert(db: Session, *, limit: int = 8) -> OverdueAlert:
+def get_overdue_alert(db: Session, *, limit: int = 3) -> OverdueAlert:
     """Tugas belum selesai yang due date-nya sudah lewat hari ini."""
     today = date.today()
     count = (

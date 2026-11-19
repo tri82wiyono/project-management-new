@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=23" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=25" />
   {# Critical layout fallback — ensures no right-side clipping even if CSS cache is stale #}
   <style>
     html, body { margin: 0; width: 100%; }
@@ -36,11 +36,10 @@
     }
     .app-main { flex: 1 1 0%; min-width: 0; overflow-x: clip; }
     .main-content { min-width: 0; padding: 0 18px 16px; overflow-x: clip; }
-    .page-stack, .dash-row, .panel, .kpi-grid { width: 100%; min-width: 0; max-width: 100%; }
-    .dash-row { display: grid; gap: 10px; }
-    .dash-row-main { grid-template-columns: minmax(0, 280px) minmax(0, 1fr); }
-    .dash-row-side, .dash-row-bottom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .page-stack, .dash-layout, .dash-primary, .dash-aside, .panel, .kpi-grid { width: 100%; min-width: 0; max-width: 100%; }
+    .dash-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr); gap: 14px; align-items: start; }
+    .dash-primary, .dash-aside { display: grid; gap: 14px; align-content: start; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
     .panel {
       background: rgba(255,255,255,0.92);
       border: 1px solid #e6ebf3;
@@ -50,7 +49,11 @@
     .mobile-nav { display: none; }
     @media (max-width: 1100px) {
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .dash-row-main, .dash-row-side, .dash-row-bottom { grid-template-columns: 1fr; }
+      .dash-layout { grid-template-columns: 1fr; }
+      .dash-aside { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      .dash-aside { grid-template-columns: 1fr; }
     }
     @media (max-width: 768px) {
       .app-shell { flex-direction: column; }

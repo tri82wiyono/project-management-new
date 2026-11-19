@@ -1,13 +1,11 @@
-<section id="overdue-alert" class="overdue-alert" hidden aria-live="polite">
-  <div class="overdue-alert-head">
-    <div class="overdue-alert-title">
-      <span class="overdue-alert-icon" aria-hidden="true">!</span>
-      <div>
-        <strong id="overdue-alert-heading">Pekerjaan terlambat</strong>
-        <p id="overdue-alert-sub">Ada tugas yang sudah melewati due date.</p>
-      </div>
+<section id="overdue-alert" class="overdue-banner" hidden aria-live="polite">
+  <div class="overdue-banner-main">
+    <span class="overdue-banner-badge" id="overdue-alert-count">0</span>
+    <div class="overdue-banner-copy">
+      <strong id="overdue-alert-heading">Pekerjaan terlambat</strong>
+      <p id="overdue-alert-sub">Ada tugas yang sudah melewati due date.</p>
     </div>
-    <a class="panel-link" href="/tasks">Lihat Tasks →</a>
   </div>
-  <ul id="overdue-alert-list" class="overdue-alert-list"></ul>
+  <p class="overdue-banner-preview" id="overdue-alert-preview" hidden></p>
+  <a class="overdue-banner-cta" href="/tasks">Lihat Tasks →</a>
 </section>

@@ -82,57 +82,47 @@ function renderKPI(data) {
   `).join("");
 }
 
-function daysOverdueLabel(days) {
-  const n = Number(days) || 0;
-  if (n <= 0) return "Hari ini";
-  if (n === 1) return "1 hari terlambat";
-  return `${n} hari terlambat`;
-}
-
 function renderOverdueAlert(data) {
   const root = document.getElementById("overdue-alert");
-  const list = document.getElementById("overdue-alert-list");
+  const countEl = document.getElementById("overdue-alert-count");
   const heading = document.getElementById("overdue-alert-heading");
   const sub = document.getElementById("overdue-alert-sub");
-  if (!root || !list) return;
+  const preview = document.getElementById("overdue-alert-preview");
+  if (!root) return;
 
   const count = Number(data?.count || 0);
   const items = Array.isArray(data?.items) ? data.items : [];
   if (!count) {
     root.hidden = true;
-    list.innerHTML = "";
+    if (preview) {
+      preview.hidden = true;
+      preview.textContent = "";
+    }
     return;
   }
 
   root.hidden = false;
+  if (countEl) countEl.textContent = String(count);
   if (heading) {
     heading.textContent = count === 1
       ? "1 pekerjaan terlambat"
       : `${count} pekerjaan terlambat`;
   }
   if (sub) {
-    sub.textContent = "Tugas berikut sudah melewati due date dan belum selesai.";
+    sub.textContent = "Sudah melewati due date dan belum selesai.";
   }
 
-  list.innerHTML = items.map((item) => {
-    const project = item.project_name ? escapeHtml(item.project_name) : "Tanpa project";
-    const assignee = item.assignee?.name ? ` · ${escapeHtml(item.assignee.name)}` : "";
-    return `
-      <li class="overdue-item">
-        <div class="overdue-item-main">
-          <strong title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</strong>
-          <span>${project}${assignee} · due ${formatDate(item.due_date)}</span>
-        </div>
-        <span class="overdue-chip">${daysOverdueLabel(item.days_overdue)}</span>
-      </li>
-    `;
-  }).join("") || `<li class="muted">Tidak ada detail tugas.</li>`;
-
-  if (count > items.length) {
-    list.insertAdjacentHTML(
-      "beforeend",
-      `<li class="muted">+${count - items.length} tugas terlambat lainnya di halaman Tasks.</li>`
-    );
+  if (preview) {
+    const names = items.slice(0, 3).map((item) => item.title).filter(Boolean);
+    if (names.length) {
+      const more = count > names.length ? ` · +${count - names.length} lainnya` : "";
+      preview.hidden = false;
+      preview.textContent = `Teratas: ${names.join(" · ")}${more}`;
+      preview.title = items.map((i) => i.title).filter(Boolean).join(", ");
+    } else {
+      preview.hidden = true;
+      preview.textContent = "";
+    }
   }
 }
 
@@ -228,7 +218,7 @@ function renderCalendar(data) {
   }
   document.getElementById("calendar-grid").innerHTML = html;
 
-  document.getElementById("upcoming-list").innerHTML = data.upcoming.slice(0, 3).map((item) => {
+  document.getElementById("upcoming-list").innerHTML = data.upcoming.slice(0, 5).map((item) => {
     const tone = toneFor(item.category || item.title);
     return `
     <div class="upcoming-item">
