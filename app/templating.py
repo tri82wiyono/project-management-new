@@ -56,7 +56,7 @@ def build_page_context(
         "current_user": current_user
         or {
             "name": "Guest",
-            "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=Guest&backgroundColor=453a82",
+            "avatar_url": "https://api.dicebear.com/7.x/initials/svg?seed=Guest&backgroundColor=1f5fd6",
             "role": "Guest",
             "email": "",
         },

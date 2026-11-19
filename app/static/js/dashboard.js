@@ -139,7 +139,7 @@ function renderProgress(items) {
         <span>${Math.round(p.progress)}%</span>
       </div>
       <div class="progress-bar">
-        <div class="progress-fill" data-width="${p.progress}" style="background:${escapeHtml(p.color || "#4F7CFF")}"></div>
+        <div class="progress-fill" data-width="${p.progress}" style="background:${escapeHtml(p.color || "#1F5FD6")}"></div>
       </div>
     </div>
   `).join("");
@@ -259,7 +259,7 @@ function renderAnalytics(data) {
         {
           label: "Completed",
           data: completed,
-          borderColor: "#4F7CFF",
+          borderColor: "#1F5FD6",
           backgroundColor: "rgba(79,124,255,0.12)",
           fill: true,
           tension: 0.35,

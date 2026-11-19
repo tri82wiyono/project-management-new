@@ -8,6 +8,10 @@
   const formEl = document.getElementById("login-form");
   const btnLogin = document.getElementById("btn-login");
   const btnRefresh = document.getElementById("btn-refresh-captcha");
+  const btnTogglePassword = document.getElementById("btn-toggle-password");
+  const rememberEl = document.getElementById("login-remember");
+  const btnForgot = document.getElementById("btn-forgot-password");
+  const REMEMBER_KEY = "pm_login_email";
 
   const mfaForm = document.getElementById("mfa-form");
   const mfaCodeEl = document.getElementById("login-mfa-code");
@@ -121,18 +125,51 @@
     loadCaptcha();
   });
 
+  btnTogglePassword?.addEventListener("click", () => {
+    if (!passwordEl) return;
+    const show = passwordEl.type === "password";
+    passwordEl.type = show ? "text" : "password";
+    const eye = btnTogglePassword.querySelector(".ico-eye");
+    const eyeOff = btnTogglePassword.querySelector(".ico-eye-off");
+    if (eye) eye.hidden = show;
+    if (eyeOff) eyeOff.hidden = !show;
+    btnTogglePassword.setAttribute(
+      "aria-label",
+      show ? "Sembunyikan password" : "Tampilkan password"
+    );
+  });
+
+  btnForgot?.addEventListener("click", () => {
+    setStatus(
+      statusEl,
+      "Reset password dilakukan oleh admin. Hubungi administrator sistem.",
+      "err"
+    );
+  });
+
+  try {
+    const saved = localStorage.getItem(REMEMBER_KEY);
+    if (saved && emailEl) {
+      emailEl.value = saved;
+      if (rememberEl) rememberEl.checked = true;
+    }
+  } catch {
+    /* ignore */
+  }
+
   formEl?.addEventListener("submit", async (event) => {
     event.preventDefault();
     btnLogin.disabled = true;
     setStatus(statusEl, "Memverifikasi…");
 
     try {
+      const email = emailEl.value.trim();
       const res = await fetch("/api/auth/login", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: emailEl.value.trim(),
+          email,
           password: passwordEl.value,
           captcha_id: captchaIdEl.value,
           captcha_answer: captchaAnswerEl.value.trim(),
@@ -140,6 +177,13 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(detailMessage(data, "Login gagal"));
+
+      try {
+        if (rememberEl?.checked && email) localStorage.setItem(REMEMBER_KEY, email);
+        else localStorage.removeItem(REMEMBER_KEY);
+      } catch {
+        /* ignore */
+      }
 
       if (data.mfa_required) {
         setStatus(statusEl, "");
