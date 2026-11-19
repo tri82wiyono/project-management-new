@@ -11,23 +11,32 @@
     {% include "components/kpi.html" %}
     {% include "components/overdue_alert.html" %}
 
-    <section class="dash-layout" aria-label="Dashboard panels">
+    <section class="dash-layout" aria-label="Ringkasan kerja">
       <div class="dash-primary">
         {% include "components/kanban.html" %}
-        {% include "components/timeline.html" %}
+      </div>
+      <aside class="dash-aside" aria-label="Progress dan tim">
+        {% include "components/progress.html" %}
+        {% include "components/team.html" %}
+      </aside>
+    </section>
+
+    <section class="dash-pair" aria-label="Timeline dan kalender">
+      {% include "components/timeline.html" %}
+      {% include "components/calendar.html" %}
+    </section>
+
+    <section class="dash-layout dash-bottom" aria-label="Analitik dan tenggat">
+      <div class="dash-primary">
         {% include "components/analytics.html" %}
       </div>
-
-      <aside class="dash-aside" aria-label="Ringkasan samping">
-        {% include "components/progress.html" %}
-        {% include "components/calendar.html" %}
+      <aside class="dash-aside">
         {% include "components/upcoming.html" %}
-        {% include "components/team.html" %}
       </aside>
     </section>
   </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/dashboard.js?v=17" defer></script>
+  <script src="/static/js/dashboard.js?v=18" defer></script>
 {% endblock %}

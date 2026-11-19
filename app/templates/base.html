@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=25" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=27" />
   {# Critical layout fallback — ensures no right-side clipping even if CSS cache is stale #}
   <style>
     html, body { margin: 0; width: 100%; }
@@ -36,8 +36,11 @@
     }
     .app-main { flex: 1 1 0%; min-width: 0; overflow-x: clip; }
     .main-content { min-width: 0; padding: 0 18px 16px; overflow-x: clip; }
-    .page-stack, .dash-layout, .dash-primary, .dash-aside, .panel, .kpi-grid { width: 100%; min-width: 0; max-width: 100%; }
-    .dash-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr); gap: 14px; align-items: start; }
+    .page-stack, .dash-layout, .dash-pair, .dash-primary, .dash-aside, .panel, .kpi-grid { width: 100%; min-width: 0; max-width: 100%; }
+    .dash-layout, .dash-pair { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr); gap: 14px; }
+    .dash-layout { align-items: start; }
+    .dash-pair { align-items: stretch; }
+    .dash-pair > .panel { height: 100%; display: flex; flex-direction: column; }
     .dash-primary, .dash-aside { display: grid; gap: 14px; align-content: start; }
     .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
     .panel {
@@ -49,7 +52,7 @@
     .mobile-nav { display: none; }
     @media (max-width: 1100px) {
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .dash-layout { grid-template-columns: 1fr; }
+      .dash-layout, .dash-pair { grid-template-columns: 1fr; }
       .dash-aside { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 900px) {
