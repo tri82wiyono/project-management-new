@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -8,6 +8,8 @@ from app.models.models import User
 from app.services.audit import write_audit_log
 from app.services.auth import require_admin
 from app.services.email import send_welcome_user_email
+from app.services import placement as placement_svc
+from app.services.placement import PlacementConflictError, PlacementVersionError
 from app.services.roles import get_role_by_code, list_roles
 from app.services.security import default_avatar, generate_temp_password, hash_password
 
@@ -47,24 +49,44 @@ class ResetPasswordRequest(BaseModel):
     temporary_password: str | None = Field(default=None, max_length=128)
 
 
+class PlacementUpdate(BaseModel):
+    bidang_id: int | None = None
+    clear: bool = False
+    reason: str = Field(default="", max_length=500)
+    expected_version: int | None = None
+    acknowledge_leadership_conflict: bool = False
+
+
 def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def _serialize(user: User) -> dict:
-    return {
-        "id": user.id,
-        "name": user.name,
-        "email": user.email,
-        "role": user.role,
-        "avatar_url": user.avatar_url,
-        "is_active": user.is_active,
-        "must_change_password": bool(user.must_change_password),
-        "has_password": bool(user.password_hash),
-        "last_login_at": user.last_login_at,
-        "created_at": user.created_at,
-        "locked_until": user.locked_until,
-    }
+def _serialize(db, user: User) -> dict:
+    return placement_svc.serialize_user_with_placement(db, user)
+
+
+def _placement_http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, PlacementConflictError):
+        return HTTPException(
+            status_code=409,
+            detail={
+                "message": str(exc),
+                "code": "leadership_conflict",
+                "conflicts": exc.conflicts,
+            },
+        )
+    if isinstance(exc, PlacementVersionError):
+        return HTTPException(
+            status_code=409,
+            detail={
+                "message": str(exc),
+                "code": "placement_version_conflict",
+                "current_version": exc.current_version,
+            },
+        )
+    if isinstance(exc, ValueError):
+        return HTTPException(status_code=400, detail=str(exc))
+    raise exc
 
 
 @router.get("")
@@ -72,28 +94,34 @@ def list_users(
     q: str | None = None,
     role: str | None = None,
     active: bool | None = None,
+    division_id: int | None = None,
+    bidang_id: int | None = None,
+    unassigned: bool | None = None,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> dict:
-    stmt = select(User).order_by(User.name.asc())
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(User.name.ilike(like), User.email.ilike(like)))
-    if role:
-        stmt = stmt.where(User.role == role)
-    if active is not None:
-        stmt = stmt.where(User.is_active.is_(active))
-    users = db.scalars(stmt).all()
+    users = placement_svc.list_users_with_placement(
+        db,
+        q=q,
+        role=role,
+        active=active,
+        division_id=division_id,
+        bidang_id=bidang_id,
+        unassigned=unassigned,
+    )
     total = db.scalar(select(func.count()).select_from(User)) or 0
     active_count = db.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))) or 0
+    unassigned_count = placement_svc.count_unassigned_users(db)
     return {
-        "items": [_serialize(u) for u in users],
+        "items": [_serialize(db, u) for u in users],
         "roles": list_roles(db, active_only=True),
         "stats": {
             "total": total,
             "active": active_count,
             "inactive": total - active_count,
             "admins": db.scalar(select(func.count()).select_from(User).where(User.role == "Admin")) or 0,
+            "unassigned": unassigned_count,
+            "assigned": int(total) - int(unassigned_count),
         },
     }
 
@@ -120,10 +148,12 @@ def create_user(
         is_active=payload.is_active,
         password_hash=hash_password(temp_password),
         must_change_password=True,
+        primary_bidang_id=None,
+        placement_version=0,
     )
     db.add(user)
     db.commit()
-    db.refresh(user)
+    user = placement_svc.load_user_with_placement(db, user.id) or user
 
     email_sent = False
     email_error = None
@@ -157,7 +187,7 @@ def create_user(
                 request=request,
             )
 
-    data = _serialize(user)
+    data = _serialize(db, user)
     data["email_sent"] = email_sent
     data["email_error"] = email_error
     # Only reveal temp password when email failed (admin must copy manually).
@@ -172,10 +202,114 @@ def get_user(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> dict:
+    user = placement_svc.load_user_with_placement(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _serialize(db, user)
+
+
+@router.get("/{user_id}/placement-history")
+def get_placement_history(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> dict:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return _serialize(user)
+    rows = placement_svc.list_placement_history(db, user_id)
+    return {
+        "user_id": user_id,
+        "items": [placement_svc.history_to_dict(row) for row in rows],
+        "total": len(rows),
+        "placement": placement_svc.placement_summary(
+            placement_svc.load_user_with_placement(db, user_id) or user
+        ),
+        "leadership": placement_svc.leadership_roles_for_user(db, user_id),
+    }
+
+
+@router.put("/{user_id}/placement")
+def update_placement(
+    user_id: int,
+    payload: PlacementUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_admin),
+) -> dict:
+    user = placement_svc.load_user_with_placement(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # clear=True always unassigns; otherwise bidang_id=null means clear, bidang_id=N assigns/transfers.
+    target_bidang_id: int | None = None if payload.clear else payload.bidang_id
+
+    def _audit_placement(summary: dict) -> dict:
+        return {
+            "bidang_id": summary.get("bidang_id"),
+            "bidang_code": summary.get("bidang_code") or "",
+            "bidang_name": summary.get("bidang_name") or "",
+            "division_id": summary.get("division_id"),
+            "division_code": summary.get("division_code") or "",
+            "division_name": summary.get("division_name") or "",
+            "is_assigned": bool(summary.get("is_assigned")),
+            "placement_version": int(summary.get("placement_version") or 0),
+            "placement_updated_at": (
+                summary["placement_updated_at"].isoformat()
+                if summary.get("placement_updated_at") is not None
+                else None
+            ),
+        }
+
+    previous = placement_svc.placement_summary(user)
+    try:
+        user, history, unchanged = placement_svc.set_user_placement(
+            db,
+            user,
+            bidang_id=target_bidang_id,
+            actor=current,
+            reason=payload.reason,
+            expected_version=payload.expected_version,
+            acknowledge_leadership_conflict=payload.acknowledge_leadership_conflict,
+        )
+    except (PlacementConflictError, PlacementVersionError, ValueError) as exc:
+        raise _placement_http_error(exc) from exc
+
+    data = _serialize(db, user)
+    data["unchanged"] = unchanged
+    if history is not None:
+        data["history_entry"] = placement_svc.history_to_dict(history)
+        action = history.action
+        audit_action = {
+            "assign": "user_placement_assigned",
+            "transfer": "user_placement_transferred",
+            "clear": "user_placement_cleared",
+        }.get(action, "user_placement_updated")
+        write_audit_log(
+            db,
+            action=audit_action,
+            success=True,
+            actor=current,
+            target=user,
+            message={
+                "assign": f"Penempatan awal ke Bidang {history.to_bidang_code}",
+                "transfer": (
+                    f"Transfer penempatan dari {history.from_bidang_code or '—'} "
+                    f"ke {history.to_bidang_code or '—'}"
+                ),
+                "clear": f"Penempatan organisasi dihapus (sebelumnya {history.from_bidang_code or '—'})",
+            }.get(action, "Penempatan organisasi diubah"),
+            request=request,
+            meta={
+                "previous": _audit_placement(previous),
+                "new": _audit_placement(data["placement"]),
+                "reason": payload.reason or "",
+                "placement_version": history.placement_version,
+                "leadership_conflict_acknowledged": history.leadership_conflict_acknowledged,
+                "action": action,
+            },
+        )
+    return data
 
 
 @router.put("/{user_id}")
@@ -210,8 +344,8 @@ def update_user(
         user.avatar_url = payload.avatar_url.strip()
 
     db.commit()
-    db.refresh(user)
-    return _serialize(user)
+    user = placement_svc.load_user_with_placement(db, user.id) or user
+    return _serialize(db, user)
 
 
 @router.post("/{user_id}/reset-password")
@@ -232,7 +366,7 @@ def reset_user_password(
     user.failed_login_count = 0
     user.locked_until = None
     db.commit()
-    db.refresh(user)
+    user = placement_svc.load_user_with_placement(db, user.id) or user
 
     email_sent = False
     email_error = None
@@ -267,7 +401,7 @@ def reset_user_password(
             )
 
     data = {
-        **_serialize(user),
+        **_serialize(db, user),
         "email_sent": email_sent,
         "email_error": email_error,
         "message": "Password direset. User harus login dengan password sementara.",

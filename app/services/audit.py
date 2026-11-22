@@ -24,6 +24,10 @@ ACTION_LABELS = {
     "bidang_activated": "Bidang diaktifkan",
     "bidang_deactivated": "Bidang dinonaktifkan",
     "bidang_leader_changed": "Pemimpin Bidang diubah",
+    "user_placement_assigned": "Penempatan karyawan ditetapkan",
+    "user_placement_transferred": "Penempatan karyawan ditransfer",
+    "user_placement_cleared": "Penempatan karyawan dihapus",
+    "user_placement_updated": "Penempatan karyawan diubah",
 }
 
 

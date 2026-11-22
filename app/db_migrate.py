@@ -295,6 +295,49 @@ def ensure_schema() -> None:
     CREATE INDEX IF NOT EXISTS ix_bidangs_leader_user_id ON bidangs(leader_user_id);
     CREATE INDEX IF NOT EXISTS ix_bidangs_is_active ON bidangs(is_active);
     """
+    # Phase 2 — primary Bidang placement on users + immutable placement history.
+    # Division is derived from bidangs.division_id (single source of truth).
+    # Leadership (leader_user_id) remains independent of placement.
+    user_placement_sql = """
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS primary_bidang_id INTEGER;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS placement_version INTEGER DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS placement_updated_at TIMESTAMPTZ;
+    UPDATE users SET placement_version = 0 WHERE placement_version IS NULL;
+    DO $$ BEGIN
+      ALTER TABLE users
+        ADD CONSTRAINT fk_users_primary_bidang
+        FOREIGN KEY (primary_bidang_id) REFERENCES bidangs(id) ON DELETE SET NULL;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
+    CREATE INDEX IF NOT EXISTS ix_users_primary_bidang_id ON users(primary_bidang_id);
+
+    CREATE TABLE IF NOT EXISTS user_placement_history (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      action VARCHAR(40) NOT NULL,
+      from_bidang_id INTEGER REFERENCES bidangs(id) ON DELETE SET NULL,
+      to_bidang_id INTEGER REFERENCES bidangs(id) ON DELETE SET NULL,
+      from_division_id INTEGER REFERENCES divisions(id) ON DELETE SET NULL,
+      to_division_id INTEGER REFERENCES divisions(id) ON DELETE SET NULL,
+      from_bidang_code VARCHAR(40) DEFAULT '',
+      from_bidang_name VARCHAR(160) DEFAULT '',
+      from_division_code VARCHAR(40) DEFAULT '',
+      from_division_name VARCHAR(160) DEFAULT '',
+      to_bidang_code VARCHAR(40) DEFAULT '',
+      to_bidang_name VARCHAR(160) DEFAULT '',
+      to_division_code VARCHAR(40) DEFAULT '',
+      to_division_name VARCHAR(160) DEFAULT '',
+      reason VARCHAR(500) DEFAULT '',
+      actor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      placement_version INTEGER DEFAULT 0,
+      leadership_conflict_acknowledged BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_user_placement_history_user_id ON user_placement_history(user_id);
+    CREATE INDEX IF NOT EXISTS ix_user_placement_history_action ON user_placement_history(action);
+    CREATE INDEX IF NOT EXISTS ix_user_placement_history_created_at ON user_placement_history(created_at);
+    CREATE INDEX IF NOT EXISTS ix_user_placement_history_actor_user_id ON user_placement_history(actor_user_id);
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -310,3 +353,4 @@ def ensure_schema() -> None:
         conn.execute(text(project_documents_sql))
         conn.execute(text(tickets_sql))
         conn.execute(text(organization_sql))
+        conn.execute(text(user_placement_sql))

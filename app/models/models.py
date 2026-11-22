@@ -199,12 +199,78 @@ class User(Base):
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Phase 2 — primary org placement (Division derived from Bidang.parent). Leadership ≠ placement.
+    primary_bidang_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bidangs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    placement_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    placement_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tasks: Mapped[list[Task]] = relationship(back_populates="assignee")
     task_links: Mapped[list["TaskAssignee"]] = relationship(back_populates="user")
     memberships: Mapped[list[TeamMember]] = relationship(back_populates="user")
     devices: Mapped[list["UserDevice"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    primary_bidang: Mapped["Bidang | None"] = relationship(
+        "Bidang",
+        foreign_keys=[primary_bidang_id],
+    )
+    placement_history: Mapped[list["UserPlacementHistory"]] = relationship(
+        "UserPlacementHistory",
+        back_populates="user",
+        foreign_keys="UserPlacementHistory.user_id",
+        cascade="all, delete-orphan",
+        order_by="desc(UserPlacementHistory.created_at)",
+    )
+
+
+class UserPlacementHistory(Base):
+    """Immutable history of organizational placement changes. Does not grant RBAC permissions."""
+
+    __tablename__ = "user_placement_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(40), nullable=False, index=True)  # assign|transfer|clear
+    from_bidang_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bidangs.id", ondelete="SET NULL"), nullable=True
+    )
+    to_bidang_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bidangs.id", ondelete="SET NULL"), nullable=True
+    )
+    from_division_id: Mapped[int | None] = mapped_column(
+        ForeignKey("divisions.id", ondelete="SET NULL"), nullable=True
+    )
+    to_division_id: Mapped[int | None] = mapped_column(
+        ForeignKey("divisions.id", ondelete="SET NULL"), nullable=True
+    )
+    # Snapshots so history remains readable if units are later renamed.
+    from_bidang_code: Mapped[str] = mapped_column(String(40), default="")
+    from_bidang_name: Mapped[str] = mapped_column(String(160), default="")
+    from_division_code: Mapped[str] = mapped_column(String(40), default="")
+    from_division_name: Mapped[str] = mapped_column(String(160), default="")
+    to_bidang_code: Mapped[str] = mapped_column(String(40), default="")
+    to_bidang_name: Mapped[str] = mapped_column(String(160), default="")
+    to_division_code: Mapped[str] = mapped_column(String(40), default="")
+    to_division_name: Mapped[str] = mapped_column(String(160), default="")
+    reason: Mapped[str] = mapped_column(String(500), default="")
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    placement_version: Mapped[int] = mapped_column(Integer, default=0)
+    leadership_conflict_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+    user: Mapped[User] = relationship(
+        "User",
+        back_populates="placement_history",
+        foreign_keys=[user_id],
+    )
+    actor: Mapped[User | None] = relationship("User", foreign_keys=[actor_user_id])
 
 
 class UserDevice(Base):

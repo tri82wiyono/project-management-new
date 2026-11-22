@@ -150,7 +150,7 @@
       });
       fillDivisionSelect($("bidang-division"), $("bidang-division")?.value || "");
     } catch (err) {
-      divisionsTbody.innerHTML = `<tr><td colspan="6" style="color:#dc2626">${escapeHtml(
+      divisionsTbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">${escapeHtml(
         err.message
       )}</td></tr>`;
     }
@@ -158,7 +158,7 @@
 
   function renderDivisions(items) {
     if (!items.length) {
-      divisionsTbody.innerHTML = `<tr><td colspan="6" class="org-empty">Belum ada Divisi. Buat Divisi terlebih dahulu.</td></tr>`;
+      divisionsTbody.innerHTML = `<tr><td colspan="7" class="org-empty">Belum ada Divisi. Buat Divisi terlebih dahulu.</td></tr>`;
       return;
     }
     divisionsTbody.innerHTML = items
@@ -168,6 +168,7 @@
         <td>${escapeHtml(d.name)}</td>
         <td>${leaderLabel(d.leader)}</td>
         <td>${d.bidang_count ?? 0}</td>
+        <td>${d.member_count ?? 0}</td>
         <td>${statusBadge(d.is_active)}</td>
         <td class="col-actions">
           <button type="button" class="btn btn-ghost btn-sm" data-edit-division="${d.id}">Edit</button>
@@ -244,7 +245,7 @@
       const data = await api(`/api/bidang?${params.toString()}`);
       renderBidang(data.items || []);
     } catch (err) {
-      bidangTbody.innerHTML = `<tr><td colspan="6" style="color:#dc2626">${escapeHtml(
+      bidangTbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">${escapeHtml(
         err.message
       )}</td></tr>`;
     }
@@ -252,7 +253,7 @@
 
   function renderBidang(items) {
     if (!items.length) {
-      bidangTbody.innerHTML = `<tr><td colspan="6" class="org-empty">Belum ada Bidang.</td></tr>`;
+      bidangTbody.innerHTML = `<tr><td colspan="7" class="org-empty">Belum ada Bidang.</td></tr>`;
       return;
     }
     bidangTbody.innerHTML = items
@@ -262,6 +263,11 @@
         <td>${escapeHtml(b.name)}</td>
         <td>${escapeHtml(b.division_code)} — ${escapeHtml(b.division_name)}</td>
         <td>${leaderLabel(b.leader)}</td>
+        <td>
+          <button type="button" class="btn btn-ghost btn-sm" data-members-bidang="${b.id}" title="Lihat anggota">
+            ${b.member_count ?? 0}
+          </button>
+        </td>
         <td>${statusBadge(b.is_active)}</td>
         <td class="col-actions">
           <button type="button" class="btn btn-ghost btn-sm" data-edit-bidang="${b.id}">Edit</button>
@@ -321,16 +327,79 @@
   });
 
   // —— Structure ——
+  async function openMembersModal(bidangId) {
+    const modal = $("members-modal");
+    const list = $("members-list");
+    if (!modal || !list) return;
+    list.innerHTML = `<p class="org-empty">Memuat anggota…</p>`;
+    modal.hidden = false;
+    try {
+      const data = await api(`/api/bidang/${bidangId}/members`);
+      const bidang = data.bidang || {};
+      $("members-modal-title").textContent = `Anggota · ${bidang.code || ""} ${bidang.name || ""}`;
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = `<p class="org-empty">Belum ada karyawan ditempatkan pada Bidang ini.</p>`;
+        return;
+      }
+      list.innerHTML = items
+        .map(
+          (u) => `<div class="member-row">
+            <strong>${escapeHtml(u.name)}</strong>
+            <span>${escapeHtml(u.email)}</span>
+            <span class="meta">${escapeHtml(u.role)} · ${u.is_active ? "Aktif" : "Nonaktif"}</span>
+          </div>`
+        )
+        .join("");
+    } catch (err) {
+      list.innerHTML = `<p class="org-empty" style="color:#dc2626">${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function closeMembersModal() {
+    const modal = $("members-modal");
+    if (modal) modal.hidden = true;
+  }
+
   async function loadStructure() {
     const el = $("org-tree");
+    const unassignedEl = $("org-unassigned");
     if (!el) return;
     try {
       const tree = await api("/api/organization/tree");
       const divisions = tree.divisions || [];
+      if (unassignedEl) {
+        const count = tree.unassigned_count ?? tree.stats?.unassigned_users ?? 0;
+        unassignedEl.innerHTML = `<div class="org-unassigned-card">
+          <strong>${count}</strong>
+          <span>karyawan belum ditempatkan</span>
+          ${
+            count
+              ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-show-unassigned">Lihat daftar</button>`
+              : ""
+          }
+        </div>`;
+        $("btn-show-unassigned")?.addEventListener("click", async () => {
+          try {
+            const data = await api("/api/organization/unassigned-users");
+            const items = data.items || [];
+            await showNotice({
+              title: "Belum ditempatkan",
+              message: items.length
+                ? items.map((u) => `${u.name} (${u.email})`).join("\n")
+                : "Tidak ada karyawan belum ditempatkan.",
+            });
+          } catch (err) {
+            await showNotice({ title: "Gagal", message: err.message });
+          }
+        });
+      }
       el.innerHTML =
         `<div class="org-tree-root">
           <h2>${escapeHtml(tree.organization_name || "Organisasi")}</h2>
-          <p>${tree.stats?.divisions || 0} Divisi · ${tree.stats?.bidangs || 0} Bidang</p>
+          <p>${tree.stats?.divisions || 0} Divisi · ${tree.stats?.bidangs || 0} Bidang · ${
+          tree.stats?.assigned_users || 0
+        } ditempatkan</p>
         </div>` +
         (divisions.length
           ? divisions
@@ -340,7 +409,9 @@
                   <header>
                     <div>
                       <h3>${escapeHtml(d.code)} — ${escapeHtml(d.name)} ${statusBadge(d.is_active)}</h3>
-                      <p class="meta">Pemimpin: ${leaderLabel(d.leader)}</p>
+                      <p class="meta">Pemimpin: ${leaderLabel(d.leader)} · Anggota: ${
+                  d.member_count ?? 0
+                }</p>
                     </div>
                   </header>
                   ${
@@ -349,9 +420,12 @@
                           .map(
                             (b) => `<li>
                               <strong>${escapeHtml(b.code)} — ${escapeHtml(b.name)}</strong>
-                              <span class="meta">Pemimpin: ${leaderLabel(b.leader)} · ${
-                              b.is_active ? "Aktif" : "Nonaktif"
-                            }</span>
+                              <span class="meta">Pemimpin: ${leaderLabel(b.leader)} · Anggota: ${
+                              b.member_count ?? 0
+                            } · ${b.is_active ? "Aktif" : "Nonaktif"}</span>
+                              <button type="button" class="btn btn-ghost btn-sm" data-members-bidang="${
+                                b.id
+                              }">Anggota</button>
                             </li>`
                           )
                           .join("")}</ul>`
@@ -431,6 +505,11 @@
       }
       return;
     }
+    const membersBidang = e.target.closest("[data-members-bidang]");
+    if (membersBidang) {
+      await openMembersModal(Number(membersBidang.getAttribute("data-members-bidang")));
+      return;
+    }
     const editBidang = e.target.closest("[data-edit-bidang]");
     if (editBidang) {
       const id = Number(editBidang.getAttribute("data-edit-bidang"));
@@ -462,6 +541,12 @@
         await showNotice({ title: "Gagal", message: err.message });
       }
     }
+  });
+
+  $("btn-close-members-modal")?.addEventListener("click", closeMembersModal);
+  $("btn-close-members")?.addEventListener("click", closeMembersModal);
+  $("members-modal")?.addEventListener("click", (e) => {
+    if (e.target === $("members-modal")) closeMembersModal();
   });
 
   async function init() {

@@ -10,6 +10,7 @@
 - Division `code` is globally unique.
 - A Division may exist with zero Bidang (draft/setup-friendly).
 - Leadership assignment does **not** change RBAC permissions (Phase 4 will add data scope).
+- Employee placement lives on `users.primary_bidang_id` (Phase 2). See `docs/USER_PLACEMENT_SCHEMA.md`.
 
 ## Migration mechanism
 

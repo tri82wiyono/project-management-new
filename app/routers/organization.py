@@ -9,6 +9,7 @@ from app.models.models import User
 from app.services.auth import require_permission
 from app.services.audit import write_audit_log
 from app.services import organization as org_svc
+from app.services import placement as placement_svc
 
 router = APIRouter(prefix="/api", tags=["organization"])
 
@@ -81,8 +82,17 @@ def get_division(
     row = org_svc.get_division(db, division_id)
     if not row:
         raise HTTPException(status_code=404, detail="Divisi tidak ditemukan")
-    data = org_svc.division_to_dict(row, bidang_count=len(row.bidangs or []))
-    data["bidangs"] = [org_svc.bidang_to_dict(b) for b in (row.bidangs or [])]
+    bidangs = row.bidangs or []
+    member_counts = placement_svc.count_members_by_bidang(db, [b.id for b in bidangs])
+    bidang_payload = [
+        org_svc.bidang_to_dict(b, member_count=member_counts.get(b.id, 0)) for b in bidangs
+    ]
+    data = org_svc.division_to_dict(
+        row,
+        bidang_count=len(bidangs),
+        member_count=sum(b["member_count"] for b in bidang_payload),
+    )
+    data["bidangs"] = bidang_payload
     return data
 
 
@@ -220,7 +230,94 @@ def get_bidang(
     row = org_svc.get_bidang(db, bidang_id)
     if not row:
         raise HTTPException(status_code=404, detail="Bidang tidak ditemukan")
-    return org_svc.bidang_to_dict(row)
+    counts = placement_svc.count_members_by_bidang(db, [row.id])
+    return org_svc.bidang_to_dict(row, member_count=counts.get(row.id, 0))
+
+
+@router.get("/bidang/{bidang_id}/members")
+def list_bidang_members(
+    bidang_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("organization.view")),
+) -> dict:
+    row = org_svc.get_bidang(db, bidang_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Bidang tidak ditemukan")
+    members = placement_svc.list_bidang_members(db, bidang_id)
+    return {
+        "bidang": org_svc.bidang_to_dict(row, member_count=len(members)),
+        "items": [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": u.role,
+                "is_active": bool(u.is_active),
+                "avatar_url": u.avatar_url,
+            }
+            for u in members
+        ],
+        "total": len(members),
+    }
+
+
+@router.get("/organization/unassigned-users")
+def list_unassigned_users(
+    active_only: bool = False,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("organization.view")),
+) -> dict:
+    users = placement_svc.list_unassigned_users(db, active_only=active_only)
+    return {
+        "items": [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": u.role,
+                "is_active": bool(u.is_active),
+                "avatar_url": u.avatar_url,
+            }
+            for u in users
+        ],
+        "total": len(users),
+    }
+
+
+@router.get("/organization/leaders")
+def list_organization_leaders(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("organization.view")),
+) -> dict:
+    divisions = org_svc.list_divisions(db)
+    bidangs = org_svc.list_bidangs(db)
+    items = []
+    for div in divisions:
+        if div.get("leader"):
+            items.append(
+                {
+                    "unit_type": "division",
+                    "unit_id": div["id"],
+                    "code": div["code"],
+                    "name": div["name"],
+                    "leader": div["leader"],
+                }
+            )
+    for bidang in bidangs:
+        if bidang.get("leader"):
+            items.append(
+                {
+                    "unit_type": "bidang",
+                    "unit_id": bidang["id"],
+                    "code": bidang["code"],
+                    "name": bidang["name"],
+                    "division_id": bidang["division_id"],
+                    "division_code": bidang["division_code"],
+                    "division_name": bidang["division_name"],
+                    "leader": bidang["leader"],
+                }
+            )
+    return {"items": items, "total": len(items)}
 
 
 @router.post("/bidang", status_code=201)

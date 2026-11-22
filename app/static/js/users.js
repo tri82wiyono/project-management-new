@@ -54,6 +54,9 @@
   const searchEl = $("user-search");
   const roleFilterEl = $("user-role-filter");
   const activeFilterEl = $("user-active-filter");
+  const divisionFilterEl = $("user-division-filter");
+  const bidangFilterEl = $("user-bidang-filter");
+  const placementFilterEl = $("user-placement-filter");
   const modal = $("user-modal");
   const form = $("user-form");
   const formStatus = $("user-form-status");
@@ -64,6 +67,9 @@
 
   let debounceTimer = null;
   let rolesList = [];
+  let divisionsCache = [];
+  let bidangCache = [];
+  let usersCache = [];
 
   function setStatus(el, message, kind) {
     if (!el) return;
@@ -114,6 +120,7 @@
       ["Active", stats.active || 0],
       ["Inactive", stats.inactive || 0],
       ["Admin", stats.admins || 0],
+      ["Belum ditempatkan", stats.unassigned || 0],
     ];
     statsEl.innerHTML = items
       .map(
@@ -130,15 +137,88 @@
     edit: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4.5L18.5 10a1.5 1.5 0 0 0 0-2.1L16.1 5.5a1.5 1.5 0 0 0-2.1 0L4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
     reset: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="15" r="1.4" fill="currentColor"/></svg>`,
     trash: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7l1 12a2 2 0 0 0 2 1.8h2a2 2 0 0 0 2-1.8L16 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    place: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
+    history: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   };
+
+  function placementLabel(user) {
+    const p = user.placement || {};
+    if (!p.is_assigned) {
+      return {
+        division: "—",
+        bidang: `<span class="badge badge-inactive">Belum ditempatkan</span>`,
+      };
+    }
+    const leaderNote = user.is_leader ? ` <span class="badge badge-manager" title="Pemimpin unit">Pemimpin</span>` : "";
+    return {
+      division: escapeHtml(p.division_name || p.division_code || "—"),
+      bidang: `${escapeHtml(p.bidang_name || p.bidang_code || "—")}${leaderNote}`,
+    };
+  }
+
+  async function loadOrgOptions() {
+    try {
+      const [divRes, bidangRes] = await Promise.all([
+        fetch("/api/divisions?active=true"),
+        fetch("/api/bidang?active=true"),
+      ]);
+      if (divRes.ok) {
+        const data = await divRes.json();
+        divisionsCache = data.items || [];
+      }
+      if (bidangRes.ok) {
+        const data = await bidangRes.json();
+        bidangCache = data.items || [];
+      }
+    } catch {
+      divisionsCache = [];
+      bidangCache = [];
+    }
+    fillOrgFilters();
+  }
+
+  function fillOrgFilters() {
+    const prevDiv = divisionFilterEl?.value || "";
+    const prevBidang = bidangFilterEl?.value || "";
+    if (divisionFilterEl) {
+      divisionFilterEl.innerHTML =
+        `<option value="">Semua Divisi</option>` +
+        divisionsCache
+          .map(
+            (d) =>
+              `<option value="${d.id}">${escapeHtml(d.code)} — ${escapeHtml(d.name)}</option>`
+          )
+          .join("");
+      if (prevDiv) divisionFilterEl.value = prevDiv;
+    }
+    fillBidangFilter(prevBidang);
+  }
+
+  function fillBidangFilter(selectedId) {
+    if (!bidangFilterEl) return;
+    const divisionId = divisionFilterEl?.value || "";
+    const options = bidangCache.filter((b) => !divisionId || String(b.division_id) === String(divisionId));
+    bidangFilterEl.innerHTML =
+      `<option value="">Semua Bidang</option>` +
+      options
+        .map(
+          (b) =>
+            `<option value="${b.id}">${escapeHtml(b.code)} — ${escapeHtml(b.name)}</option>`
+        )
+        .join("");
+    if (selectedId && options.some((b) => String(b.id) === String(selectedId))) {
+      bidangFilterEl.value = String(selectedId);
+    }
+  }
 
   function iconBtn(action, label, icon, extraClass = "") {
     return `<button type="button" class="icon-action ${extraClass}" data-action="${action}" title="${label}" aria-label="${label}">${icon}<span class="sr-only">${label}</span></button>`;
   }
 
   function renderRows(items) {
+    usersCache = items || [];
     if (!items.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted)">Belum ada user.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="color:var(--muted)">Belum ada user.</td></tr>`;
       return;
     }
     tbody.innerHTML = items
@@ -146,6 +226,7 @@
         const activeBadge = user.is_active
           ? `<span class="badge badge-active">Active</span>`
           : `<span class="badge badge-inactive">Inactive</span>`;
+        const place = placementLabel(user);
         return `
         <tr data-id="${user.id}">
           <td>
@@ -158,11 +239,15 @@
             </div>
           </td>
           <td>${roleBadge(user.role)}</td>
+          <td>${place.division}</td>
+          <td>${place.bidang}</td>
           <td>${activeBadge}</td>
           <td>${fmtDate(user.last_login_at)}</td>
           <td class="col-actions">
             <div class="row-actions">
               ${iconBtn("edit", "Edit", ICONS.edit)}
+              ${iconBtn("place", "Penempatan", ICONS.place)}
+              ${iconBtn("history", "Riwayat Penempatan", ICONS.history)}
               ${iconBtn("reset", "Reset Password", ICONS.reset)}
               ${iconBtn("delete", "Delete", ICONS.trash, "danger")}
             </div>
@@ -177,6 +262,10 @@
     if (searchEl.value.trim()) params.set("q", searchEl.value.trim());
     if (roleFilterEl.value) params.set("role", roleFilterEl.value);
     if (activeFilterEl.value) params.set("active", activeFilterEl.value);
+    if (divisionFilterEl?.value) params.set("division_id", divisionFilterEl.value);
+    if (bidangFilterEl?.value) params.set("bidang_id", bidangFilterEl.value);
+    if (placementFilterEl?.value === "unassigned") params.set("unassigned", "true");
+    if (placementFilterEl?.value === "assigned") params.set("unassigned", "false");
 
     const res = await fetch(`/api/users?${params.toString()}`);
     if (res.status === 401) {
@@ -184,7 +273,7 @@
       return;
     }
     if (res.status === 403) {
-      tbody.innerHTML = `<tr><td colspan="5" style="color:#dc2626">Hanya Admin yang dapat mengelola user.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">Hanya Admin yang dapat mengelola user.</td></tr>`;
       return;
     }
     if (!res.ok) throw new Error("Gagal memuat users");
@@ -313,6 +402,32 @@
       return;
     }
 
+    if (action === "place") {
+      const cached = usersCache.find((u) => String(u.id) === String(id));
+      if (cached) {
+        openPlacementModal(cached);
+        return;
+      }
+      const res = await fetch(`/api/users/${id}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        await showNotice({
+          title: "Gagal memuat user",
+          message: data.detail || "User tidak dapat dimuat.",
+          tone: "danger",
+          icon: "!",
+        });
+        return;
+      }
+      openPlacementModal(data);
+      return;
+    }
+
+    if (action === "history") {
+      await openHistoryModal(id);
+      return;
+    }
+
     if (action === "reset") {
       const userName = row.querySelector(".user-cell strong")?.textContent?.trim() || "user ini";
       const userEmail = row.querySelector(".user-cell small")?.textContent?.trim() || "";
@@ -411,7 +526,7 @@
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       loadUsers().catch((err) => {
-        tbody.innerHTML = `<tr><td colspan="5" style="color:#dc2626">${escapeHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">${escapeHtml(err.message)}</td></tr>`;
       });
     }, 250);
   }
@@ -419,6 +534,212 @@
   searchEl.addEventListener("input", scheduleReload);
   roleFilterEl.addEventListener("change", scheduleReload);
   activeFilterEl.addEventListener("change", scheduleReload);
+  placementFilterEl?.addEventListener("change", scheduleReload);
+  divisionFilterEl?.addEventListener("change", () => {
+    fillBidangFilter("");
+    scheduleReload();
+  });
+  bidangFilterEl?.addEventListener("change", scheduleReload);
+
+  // —— Placement ——
+  const placementModal = $("placement-modal");
+  const placementForm = $("placement-form");
+  const placementFormStatus = $("placement-form-status");
+  const historyModal = $("history-modal");
+
+  function fillPlacementBidangSelect(divisionId, selectedBidangId) {
+    const select = $("placement-bidang");
+    if (!select) return;
+    const options = bidangCache.filter(
+      (b) => !divisionId || String(b.division_id) === String(divisionId)
+    );
+    select.innerHTML =
+      `<option value="">— Pilih Bidang —</option>` +
+      options
+        .map(
+          (b) =>
+            `<option value="${b.id}" ${
+              String(b.id) === String(selectedBidangId || "") ? "selected" : ""
+            }>${escapeHtml(b.code)} — ${escapeHtml(b.name)}</option>`
+        )
+        .join("");
+  }
+
+  function openPlacementModal(user) {
+    const placement = user.placement || {};
+    $("placement-user-id").value = user.id;
+    $("placement-version").value = placement.placement_version || 0;
+    $("placement-user-meta").textContent = `${user.name} · ${user.email}`;
+    $("placement-current").innerHTML = placement.is_assigned
+      ? `Saat ini: <strong>${escapeHtml(placement.division_name || "—")}</strong> / <strong>${escapeHtml(
+          placement.bidang_name || "—"
+        )}</strong>`
+      : `Saat ini: <strong>Belum ditempatkan</strong>`;
+    const leadership = user.leadership || [];
+    const leadEl = $("placement-leadership");
+    const ackWrap = $("placement-ack-wrap");
+    if (leadership.length) {
+      leadEl.hidden = false;
+      leadEl.innerHTML =
+        "Pemimpin unit: " +
+        leadership
+          .map((l) => `${escapeHtml(l.unit_type)} ${escapeHtml(l.code)} — ${escapeHtml(l.name)}`)
+          .join("; ");
+      ackWrap.hidden = false;
+    } else {
+      leadEl.hidden = true;
+      leadEl.textContent = "";
+      ackWrap.hidden = true;
+    }
+    $("placement-ack-leadership").checked = false;
+    $("placement-reason").value = "";
+    const divSelect = $("placement-division");
+    divSelect.innerHTML =
+      `<option value="">— Pilih Divisi —</option>` +
+      divisionsCache
+        .map(
+          (d) =>
+            `<option value="${d.id}" ${
+              String(d.id) === String(placement.division_id || "") ? "selected" : ""
+            }>${escapeHtml(d.code)} — ${escapeHtml(d.name)}</option>`
+        )
+        .join("");
+    fillPlacementBidangSelect(divSelect.value || placement.division_id, placement.bidang_id);
+    setStatus(placementFormStatus, "");
+    placementModal.hidden = false;
+  }
+
+  function closePlacementModal() {
+    placementModal.hidden = true;
+  }
+
+  $("placement-division")?.addEventListener("change", () => {
+    fillPlacementBidangSelect($("placement-division").value, "");
+  });
+
+  async function submitPlacement({ clear = false } = {}) {
+    const userId = $("placement-user-id").value;
+    const bidangId = $("placement-bidang").value;
+    if (!clear && !bidangId) {
+      setStatus(placementFormStatus, "Pilih Bidang tujuan.", "err");
+      return;
+    }
+    const payload = {
+      clear: Boolean(clear),
+      bidang_id: clear ? null : Number(bidangId),
+      reason: $("placement-reason").value.trim(),
+      expected_version: Number($("placement-version").value) || 0,
+      acknowledge_leadership_conflict: Boolean($("placement-ack-leadership")?.checked),
+    };
+    setStatus(placementFormStatus, "Menyimpan penempatan…");
+    try {
+      const res = await fetch(`/api/users/${userId}/placement`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data.detail?.code === "leadership_conflict") {
+        $("placement-ack-wrap").hidden = false;
+        const conflicts = (data.detail.conflicts || [])
+          .map((c) => `${c.unit_type} ${c.code}`)
+          .join(", ");
+        setStatus(
+          placementFormStatus,
+          `${data.detail.message || "Konflik kepemimpinan."}${conflicts ? ` (${conflicts})` : ""} Centang konfirmasi lalu simpan lagi.`,
+          "err"
+        );
+        return;
+      }
+      if (!res.ok) {
+        const detail =
+          typeof data.detail === "string"
+            ? data.detail
+            : data.detail?.message || "Gagal menyimpan penempatan";
+        throw new Error(detail);
+      }
+      closePlacementModal();
+      await loadUsers();
+      await showNotice({
+        title: data.unchanged ? "Tidak ada perubahan" : "Penempatan disimpan",
+        message: data.unchanged
+          ? "Penempatan sudah sama dengan sebelumnya."
+          : "Divisi mengikuti Bidang induk. Role dan permission tidak berubah.",
+        tone: "success",
+        icon: "✓",
+      });
+    } catch (err) {
+      setStatus(placementFormStatus, err.message || "Gagal menyimpan", "err");
+    }
+  }
+
+  placementForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitPlacement({ clear: false });
+  });
+  $("btn-clear-placement")?.addEventListener("click", async () => {
+    const ok = await askConfirm({
+      title: "Hapus penempatan?",
+      message: "Pengguna akan menjadi belum ditempatkan. Kepemimpinan unit tidak dihapus otomatis.",
+      tone: "warn",
+      okText: "Hapus Penempatan",
+      cancelText: "Batal",
+    });
+    if (!ok) return;
+    await submitPlacement({ clear: true });
+  });
+  $("btn-close-placement-modal")?.addEventListener("click", closePlacementModal);
+  $("btn-cancel-placement")?.addEventListener("click", closePlacementModal);
+  placementModal?.addEventListener("click", (event) => {
+    if (event.target === placementModal) closePlacementModal();
+  });
+
+  async function openHistoryModal(userId) {
+    const list = $("history-list");
+    list.innerHTML = `<p class="org-empty">Memuat riwayat…</p>`;
+    historyModal.hidden = false;
+    try {
+      const res = await fetch(`/api/users/${userId}/placement-history`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Gagal memuat riwayat");
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = `<p class="org-empty">Belum ada riwayat penempatan.</p>`;
+        return;
+      }
+      list.innerHTML = items
+        .map((row) => {
+          const fromLabel = row.from_bidang_code
+            ? `${escapeHtml(row.from_division_code)} / ${escapeHtml(row.from_bidang_code)}`
+            : "—";
+          const toLabel = row.to_bidang_code
+            ? `${escapeHtml(row.to_division_code)} / ${escapeHtml(row.to_bidang_code)}`
+            : "Belum ditempatkan";
+          return `<article class="history-item">
+            <header>
+              <strong>${escapeHtml(row.action)}</strong>
+              <span>${fmtDate(row.created_at)}</span>
+            </header>
+            <p>${fromLabel} → ${toLabel}</p>
+            <p class="meta">Oleh: ${escapeHtml(row.actor_name || "—")}${
+            row.reason ? ` · ${escapeHtml(row.reason)}` : ""
+          }</p>
+          </article>`;
+        })
+        .join("");
+    } catch (err) {
+      list.innerHTML = `<p class="org-empty" style="color:#dc2626">${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function closeHistoryModal() {
+    historyModal.hidden = true;
+  }
+  $("btn-close-history-modal")?.addEventListener("click", closeHistoryModal);
+  $("btn-close-history")?.addEventListener("click", closeHistoryModal);
+  historyModal?.addEventListener("click", (event) => {
+    if (event.target === historyModal) closeHistoryModal();
+  });
 
   // —— Roles ——
   const rolesTbody = $("roles-tbody");
@@ -626,8 +947,10 @@
     }
   });
 
-  loadUsers().catch((err) => {
-    tbody.innerHTML = `<tr><td colspan="5" style="color:#dc2626">${escapeHtml(err.message)}</td></tr>`;
-  });
+  loadOrgOptions()
+    .then(() => loadUsers())
+    .catch((err) => {
+      tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">${escapeHtml(err.message)}</td></tr>`;
+    });
   loadRoles();
 })();

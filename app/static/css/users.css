@@ -530,6 +530,62 @@
 .form-status.ok { color: #16a34a; }
 .form-status.err { color: #dc2626; }
 
+.placement-user-meta,
+.placement-current,
+.placement-leadership {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.placement-current strong,
+.placement-user-meta {
+  color: var(--ink);
+}
+
+.placement-leadership {
+  padding: 8px 10px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  border-radius: 10px;
+  color: #92400e;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(60vh, 420px);
+  overflow: auto;
+  padding: 4px 2px 12px;
+}
+
+.history-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+
+.history-item header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.78rem;
+}
+
+.history-item p {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.history-item .meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
 @media (max-width: 900px) {
   .users-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

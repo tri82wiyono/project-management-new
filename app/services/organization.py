@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.models import Bidang, Division, User
+from app.services import placement as placement_svc
 
 
 def _norm_code(code: str) -> str:
@@ -39,7 +40,12 @@ def require_active_leader(db: Session, user_id: int | None) -> User | None:
     return user
 
 
-def division_to_dict(row: Division, *, bidang_count: int | None = None) -> dict:
+def division_to_dict(
+    row: Division,
+    *,
+    bidang_count: int | None = None,
+    member_count: int | None = None,
+) -> dict:
     count = bidang_count
     if count is None:
         count = len(row.bidangs) if row.bidangs is not None else 0
@@ -52,12 +58,13 @@ def division_to_dict(row: Division, *, bidang_count: int | None = None) -> dict:
         "leader_user_id": row.leader_user_id,
         "leader": leader_summary(row.leader),
         "bidang_count": int(count),
+        "member_count": int(member_count or 0),
         "created_at": row.created_at,
         "updated_at": row.updated_at,
     }
 
 
-def bidang_to_dict(row: Bidang) -> dict:
+def bidang_to_dict(row: Bidang, *, member_count: int | None = None) -> dict:
     return {
         "id": row.id,
         "division_id": row.division_id,
@@ -69,6 +76,7 @@ def bidang_to_dict(row: Bidang) -> dict:
         "is_active": bool(row.is_active),
         "leader_user_id": row.leader_user_id,
         "leader": leader_summary(row.leader),
+        "member_count": int(member_count or 0),
         "created_at": row.created_at,
         "updated_at": row.updated_at,
     }
@@ -91,7 +99,15 @@ def list_divisions(
     if active is not None:
         stmt = stmt.where(Division.is_active.is_(active))
     rows = db.scalars(stmt).unique().all()
-    return [division_to_dict(row, bidang_count=len(row.bidangs or [])) for row in rows]
+    member_counts = placement_svc.count_members_by_bidang(db)
+    result = []
+    for row in rows:
+        bidangs = row.bidangs or []
+        members = sum(member_counts.get(b.id, 0) for b in bidangs)
+        result.append(
+            division_to_dict(row, bidang_count=len(bidangs), member_count=members)
+        )
+    return result
 
 
 def get_division(db: Session, division_id: int) -> Division | None:
@@ -197,7 +213,8 @@ def list_bidangs(
     if active is not None:
         stmt = stmt.where(Bidang.is_active.is_(active))
     rows = db.scalars(stmt).unique().all()
-    return [bidang_to_dict(row) for row in rows]
+    member_counts = placement_svc.count_members_by_bidang(db, [row.id for row in rows])
+    return [bidang_to_dict(row, member_count=member_counts.get(row.id, 0)) for row in rows]
 
 
 def get_bidang(db: Session, bidang_id: int) -> Bidang | None:
@@ -328,15 +345,25 @@ def organization_tree(db: Session) -> dict:
         .unique()
         .all()
     )
+    member_counts = placement_svc.count_members_by_bidang(db)
+    unassigned = placement_svc.count_unassigned_users(db)
+    tree_divisions = []
+    for div in divisions:
+        bidangs = div.bidangs or []
+        bidang_payload = [
+            bidang_to_dict(b, member_count=member_counts.get(b.id, 0)) for b in bidangs
+        ]
+        members = sum(b["member_count"] for b in bidang_payload)
+        tree_divisions.append(
+            {
+                **division_to_dict(div, bidang_count=len(bidangs), member_count=members),
+                "bidangs": bidang_payload,
+            }
+        )
     return {
         "organization_name": identity.get("organization_name") or "Bank Sumut",
-        "divisions": [
-            {
-                **division_to_dict(div, bidang_count=len(div.bidangs or [])),
-                "bidangs": [bidang_to_dict(b) for b in (div.bidangs or [])],
-            }
-            for div in divisions
-        ],
+        "divisions": tree_divisions,
+        "unassigned_count": unassigned,
         "stats": {
             "divisions": len(divisions),
             "bidangs": int(db.scalar(select(func.count()).select_from(Bidang)) or 0),
@@ -346,5 +373,7 @@ def organization_tree(db: Session) -> dict:
             "active_bidangs": int(
                 db.scalar(select(func.count()).select_from(Bidang).where(Bidang.is_active.is_(True))) or 0
             ),
+            "assigned_users": int(sum(member_counts.values())),
+            "unassigned_users": unassigned,
         },
     }

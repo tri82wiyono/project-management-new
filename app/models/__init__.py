@@ -1,6 +1,8 @@
 from app.models.models import (
     AppIdentity,
     AuditLog,
+    Bidang,
+    Division,
     Project,
     Role,
     SecuritySetting,
@@ -8,10 +10,12 @@ from app.models.models import (
     Task,
     TeamMember,
     User,
+    UserPlacementHistory,
 )
 
 __all__ = [
     "User",
+    "UserPlacementHistory",
     "TeamMember",
     "Project",
     "Task",
@@ -20,4 +24,6 @@ __all__ = [
     "Role",
     "AuditLog",
     "SecuritySetting",
+    "Division",
+    "Bidang",
 ]
