@@ -1,29 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.models import User
 from app.schemas.schemas import UserOut
-from app.services.auth import require_permission, require_user
+from app.services.auth import require_user
 
 router = APIRouter(prefix="/api/team", tags=["team"])
 
-
-class UserCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    email: str
-    role: str = "Member"
-    avatar_url: str = "https://i.pravatar.cc/150?img=1"
-
-
-class UserUpdate(BaseModel):
-    name: str | None = None
-    email: str | None = None
-    role: str | None = None
-    avatar_url: str | None = None
-    is_active: bool | None = None
+LEGACY_MUTATION_DISABLED_DETAIL = (
+    "Legacy team mutations are disabled. Use /api/users for account administration."
+)
 
 
 def _require_team_directory_access(user: User, db: Session) -> User:
@@ -69,34 +57,13 @@ def get_member(
     return member
 
 
-@router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def create_member(
-    payload: UserCreate,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_permission("users.manage")),
-) -> User:
-    exists = db.scalar(select(User).where(User.email == payload.email))
-    if exists:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(**payload.model_dump())
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+@router.post("", include_in_schema=False)
+def create_member_disabled() -> None:
+    """SEC-01: legacy account creation removed; canonical path is /api/users."""
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail=LEGACY_MUTATION_DISABLED_DETAIL)
 
 
-@router.patch("/{user_id}", response_model=UserOut)
-def update_member(
-    user_id: int,
-    payload: UserUpdate,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_permission("users.manage")),
-) -> User:
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Team member not found")
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(user, key, value)
-    db.commit()
-    db.refresh(user)
-    return user
+@router.patch("/{user_id}", include_in_schema=False)
+def update_member_disabled(user_id: int) -> None:
+    """SEC-02: legacy role/active mass-assignment removed; canonical path is /api/users."""
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail=LEGACY_MUTATION_DISABLED_DETAIL)

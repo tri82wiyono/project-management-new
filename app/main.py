@@ -20,9 +20,10 @@ from app.routers import tickets as tickets_router
 from app.routers import users as users_router
 from app.seed import seed_database
 from app.services.auth import ensure_default_admin, get_optional_user
+from app.services.config_safety import validate_runtime_settings
 from app.services.email import ensure_smtp_profiles
 from app.services.identity import get_or_create_app_identity
-from app.services.roles import ensure_default_roles
+from app.services.roles import ensure_default_roles, permission_catalog, user_has_permission
 from app.services.security_settings import (
     DEFAULT_SESSION_TIMEOUT_MINUTES,
     get_or_create_security_settings,
@@ -46,9 +47,20 @@ PUBLIC_PATHS = {
     "/api/health",
 }
 
+FORBIDDEN_PAGE_HTML = (
+    "<!DOCTYPE html><html lang='id'><head><meta charset='utf-8'/>"
+    "<title>Akses ditolak</title></head><body style='font-family:system-ui;padding:2rem'>"
+    "<h1>403 — Akses ditolak</h1>"
+    "<p>Anda tidak memiliki izin untuk membuka halaman ini.</p>"
+    "<p><a href='/'>Kembali ke beranda</a></p>"
+    "</body></html>"
+)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Fail fast on insecure production-like configuration (SEC-03).
+    validate_runtime_settings(settings)
     Base.metadata.create_all(bind=engine)
     ensure_schema()
     db = SessionLocal()
@@ -114,6 +126,13 @@ def _looks_like_asset_path(path: str) -> bool:
     return True
 
 
+def _reject_inactive_or_missing_session(request: Request, path: str):
+    request.session.clear()
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "Authentication required"}, status_code=401)
+    return RedirectResponse(url="/login?next=/", status_code=303)
+
+
 class AuthGuardMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -145,6 +164,21 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
                     status_code=401,
                 )
             return RedirectResponse(url="/login?next=/&session=expired", status_code=303)
+
+        # SEC-09: reject deactivated accounts even if the session cookie remains.
+        db = SessionLocal()
+        try:
+            from app.models.models import User
+
+            try:
+                uid = int(user_id)
+            except (TypeError, ValueError):
+                return _reject_inactive_or_missing_session(request, path)
+            user = db.get(User, uid)
+            if not user or not user.is_active:
+                return _reject_inactive_or_missing_session(request, path)
+        finally:
+            db.close()
 
         return await call_next(request)
 
@@ -195,6 +229,46 @@ def _user_context(request: Request, db: Session) -> dict:
     }
 
 
+def _allowed_permissions(db: Session, user) -> set[str]:
+    """Resolve permission keys via the existing RBAC helper (includes Admin bypass)."""
+    if not user:
+        return set()
+    return {item["key"] for item in permission_catalog() if user_has_permission(db, user, item["key"])}
+
+
+def _page_context(
+    request: Request,
+    db: Session,
+    *,
+    active_page: str,
+    page_title: str,
+    page_subtitle: str,
+    extra: dict | None = None,
+) -> dict:
+    user = get_optional_user(request, db)
+    current = _user_context(request, db)
+    perms = _allowed_permissions(db, user)
+    return build_page_context(
+        active_page=active_page,
+        page_title=page_title,
+        page_subtitle=page_subtitle,
+        current_user=current,
+        extra=extra,
+        allowed_permissions=perms,
+    )
+
+
+def _require_page_permission(request: Request, db: Session, *permissions: str):
+    """Backend gate for HTML pages (SEC-07). Hiding nav alone is not enough."""
+    user = get_optional_user(request, db)
+    if not user:
+        next_url = request.url.path if request.url.path != "/login" else "/"
+        return RedirectResponse(url=f"/login?next={next_url}", status_code=303)
+    if permissions and not any(user_has_permission(db, user, perm) for perm in permissions):
+        return HTMLResponse(FORBIDDEN_PAGE_HTML, status_code=403)
+    return None
+
+
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)) -> dict:
     db.connection()
@@ -210,28 +284,36 @@ def favicon():
 def login_page(request: Request, db: Session = Depends(get_db)):
     if request.session.get("user_id"):
         return RedirectResponse(url="/", status_code=303)
-    context = build_page_context(active_page="login", page_title="Login")
+    context = build_page_context(active_page="login", page_title="Login", allowed_permissions=set())
     return templates.TemplateResponse(request, "pages/login.html", context)
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "dashboard.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="dashboard",
         page_title="Good day!",
         page_subtitle="Plan, track, and deliver projects with your team.",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/dashboard.html", context)
 
 
 @app.get("/projects", response_class=HTMLResponse)
 def projects_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "projects.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="projects",
         page_title="Projects",
         page_subtitle="Manage and monitor all projects in one place.",
-        current_user=_user_context(request, db),
         extra={"search_placeholder": "Search projects, tasks, people..."},
     )
     return templates.TemplateResponse(request, "pages/projects.html", context)
@@ -239,11 +321,15 @@ def projects_page(request: Request, db: Session = Depends(get_db)) -> HTMLRespon
 
 @app.get("/tickets", response_class=HTMLResponse)
 def tickets_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "tickets.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="tickets",
         page_title="Daftar Tiket & Evaluasi",
         page_subtitle="Kelola daftar tiket kendala/bug dan catatan evaluasi proyek secara terpusat.",
-        current_user=_user_context(request, db),
         extra={"search_placeholder": "Cari tiket..."},
     )
     return templates.TemplateResponse(request, "pages/tickets.html", context)
@@ -253,11 +339,15 @@ def tickets_page(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
 def project_detail_page(
     project_id: int, request: Request, db: Session = Depends(get_db)
 ) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "projects.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="projects",
         page_title="Project Detail",
         page_subtitle="Ringkasan project, PIC, progress, dan task terkait.",
-        current_user=_user_context(request, db),
         extra={"project_id": project_id},
     )
     return templates.TemplateResponse(request, "pages/project_detail.html", context)
@@ -265,89 +355,122 @@ def project_detail_page(
 
 @app.get("/timeline", response_class=HTMLResponse)
 def timeline_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "projects.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="timeline",
         page_title="Project Timeline",
         page_subtitle="Track project schedules and upcoming milestones.",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/timeline.html", context)
 
 
 @app.get("/calendar", response_class=HTMLResponse)
 def calendar_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "dashboard.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="calendar",
         page_title="Calendar",
         page_subtitle="Lihat deadline task per tanggal dan jadwal mendatang.",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/calendar.html", context)
 
 
 @app.get("/tasks", response_class=HTMLResponse)
 def tasks_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "tasks.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="tasks",
         page_title="Tasks",
         page_subtitle="Track work across projects",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/tasks.html", context)
 
 
 @app.get("/users", response_class=HTMLResponse)
 def users_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "users.view", "users.manage")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="users",
         page_title="User Management",
         page_subtitle="Kelola akun pengguna dan akses sistem.",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/users.html", context)
 
 
 @app.get("/audit", response_class=HTMLResponse)
 def audit_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "audit.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="audit",
         page_title="Log Audit",
         page_subtitle="Pantau login dan pengiriman email password.",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/audit.html", context)
 
 
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    denied = _require_page_permission(request, db, "settings.manage")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="settings",
         page_title="Settings",
         page_subtitle="Configure notifications and system preferences.",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/settings.html", context)
 
 
 @app.get("/account", response_class=HTMLResponse)
 def account_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    context = build_page_context(
+    # Any authenticated active user may open their profile.
+    denied = _require_page_permission(request, db)
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
         active_page="account",
         page_title="Profil",
         page_subtitle="Update nama dan foto profil.",
-        current_user=_user_context(request, db),
     )
     return templates.TemplateResponse(request, "pages/account.html", context)
 
 
 @app.get("/account/security", response_class=HTMLResponse)
 def account_security_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    denied = _require_page_permission(request, db)
+    if denied:
+        return denied
     user = get_optional_user(request, db)
-    context = build_page_context(
+    context = _page_context(
+        request,
+        db,
         active_page="account",
         page_title="Keamanan",
         page_subtitle="Password, MFA, dan perangkat tepercaya.",
-        current_user=_user_context(request, db),
     )
     context["mfa_enabled"] = bool(user.mfa_enabled) if user else False
     context["mfa_backup_codes_remaining"] = (

@@ -69,11 +69,14 @@ nano .env
 Isi minimal:
 
 - `POSTGRES_PASSWORD` — password DB kuat
-- `SECRET_KEY` — string acak panjang
+- `SECRET_KEY` — string acak panjang (minimal 32 karakter; bukan placeholder)
 - `APP_URL` — URL publik, contoh `http://IP_VPS:8891` atau `https://domain-anda`
-- `COOKIE_SECURE=false` jika masih HTTP (IP:port); `true` jika sudah HTTPS
+- `APP_ENV=production` di VPS (atau `development` untuk local) — mode production menolak secret/password lemah saat startup
+- `COOKIE_SECURE=false` jika masih HTTP (IP:port); `true` jika sudah HTTPS (juga mengaktifkan validasi production-like)
 - `SEED_DATA=false`
-- `DEFAULT_ADMIN_PASSWORD` — ganti dari default
+- `DEFAULT_ADMIN_PASSWORD` — ganti dari default (minimal 12 karakter)
+
+Local development: set `APP_ENV=development` (dan biasanya `COOKIE_SECURE=false`) agar default secret lokal tetap bisa dipakai.
 
 ### 4. Jalankan mode production
 
@@ -131,4 +134,4 @@ docker compose -f docker-compose.prod.yml down
 - `GET /api/dashboard/team`
 - `GET/POST/PATCH/DELETE /api/projects`
 - `GET/POST/PATCH/DELETE /api/tasks`
-- `GET/POST/PATCH /api/team`
+- `GET /api/team` (directory picker; `POST`/`PATCH` legacy dinonaktifkan — gunakan `/api/users`)

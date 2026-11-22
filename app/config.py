@@ -8,8 +8,11 @@ class Settings(BaseSettings):
 
     app_name: str = "Project Management System"
     app_url: str = "http://localhost:8891"
+    # development | production — production-like also inferred from COOKIE_SECURE=true
+    app_env: str = "development"
     database_url: str = "postgresql+psycopg2://pm_user:pm_secret_2025@localhost:5438/project_mgmt"
     seed_data: bool = True
+    # Dev default only — rejected by config_safety in production-like mode
     secret_key: str = "pm-dev-secret-change-me-banksumut-2025"
     # Cookie ceiling; real session length comes from SecuritySetting.session_timeout_minutes
     session_max_age: int = 60 * 60 * 24 * 7  # 7 days cookie max
@@ -17,6 +20,7 @@ class Settings(BaseSettings):
     max_failed_logins: int = 6
     lockout_minutes: int = 30
     default_admin_email: str = "admin@banksumut.co.id"
+    # Dev default only — rejected by config_safety in production-like mode
     default_admin_password: str = "Admin@12345"
     default_admin_name: str = "System Admin"
     # true = Secure cookies + redirect HTTP→APP_URL HTTPS (production)
