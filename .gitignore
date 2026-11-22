@@ -3,9 +3,24 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+
+# Local secrets / environment (keep .env.example tracked)
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
+
+# Private keys and credential material
+*.pem
+*.key
+!*.example.key
+id_rsa
+id_rsa.pub
+*.p12
+*.pfx
+secrets/
+
 .DS_Store
 .pytest_cache/
 .mypy_cache/

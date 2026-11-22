@@ -22,6 +22,7 @@ _INSECURE_SECRET_KEYS = frozenset(
         "secret_key",
         "dev-secret",
         "ganti_dengan_string_acak_panjang_minimal_32_karakter",
+        "change_me_to_a_long_random_secret_at_least_32_chars",
     }
 )
 
@@ -32,6 +33,7 @@ _INSECURE_ADMIN_PASSWORDS = frozenset(
         "password",
         "Password1",
         "ganti_password_admin",
+        "change_me_strong_admin_password",
     }
 )
 
@@ -76,7 +78,7 @@ def _is_insecure_admin_password(password: str) -> bool:
     if value in _INSECURE_ADMIN_PASSWORDS:
         return True
     lowered = value.lower()
-    if lowered.startswith("ganti_"):
+    if lowered.startswith("ganti_") or lowered.startswith("change_me") or "change-me" in lowered:
         return True
     return False
 
