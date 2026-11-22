@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Organisasi · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/users.css?v=12" />
+  <link rel="stylesheet" href="/static/css/organization.css?v=1" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Organization Management</h1>
+      <p>Kelola Divisi, Bidang, dan struktur organisasi {{ organization_name }}.</p>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" type="button" aria-label="Notifications">●</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="users-page org-page" id="org-page">
+    <div class="users-topbar">
+      <div class="users-tabs" role="tablist" aria-label="Organization sections">
+        <button type="button" class="users-tab active" role="tab" aria-selected="true" data-tab="divisions" id="tab-divisions">
+          Divisi
+        </button>
+        <button type="button" class="users-tab" role="tab" aria-selected="false" data-tab="bidang" id="tab-bidang">
+          Bidang
+        </button>
+        <button type="button" class="users-tab" role="tab" aria-selected="false" data-tab="structure" id="tab-structure">
+          Struktur Organisasi
+        </button>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-new-division">+ Divisi</button>
+      <button type="button" class="btn btn-primary" id="btn-new-bidang" hidden>+ Bidang</button>
+    </div>
+
+    <div class="users-tab-panel active" id="panel-divisions" role="tabpanel" aria-labelledby="tab-divisions">
+      <section class="users-toolbar">
+        <label class="users-search">
+          <span>⌕</span>
+          <input id="division-search" type="search" placeholder="Cari kode atau nama Divisi..." autocomplete="off" />
+        </label>
+        <select id="division-active-filter" aria-label="Filter status Divisi">
+          <option value="">Semua Status</option>
+          <option value="true">Aktif</option>
+          <option value="false">Nonaktif</option>
+        </select>
+      </section>
+      <section class="users-table-wrap">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Kode</th>
+              <th>Nama Divisi</th>
+              <th>Pemimpin</th>
+              <th>Bidang</th>
+              <th>Status</th>
+              <th class="col-actions">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="divisions-tbody"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="users-tab-panel" id="panel-bidang" role="tabpanel" aria-labelledby="tab-bidang" hidden>
+      <section class="users-toolbar">
+        <label class="users-search">
+          <span>⌕</span>
+          <input id="bidang-search" type="search" placeholder="Cari kode atau nama Bidang..." autocomplete="off" />
+        </label>
+        <select id="bidang-division-filter" aria-label="Filter Divisi">
+          <option value="">Semua Divisi</option>
+        </select>
+        <select id="bidang-active-filter" aria-label="Filter status Bidang">
+          <option value="">Semua Status</option>
+          <option value="true">Aktif</option>
+          <option value="false">Nonaktif</option>
+        </select>
+      </section>
+      <section class="users-table-wrap">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Kode</th>
+              <th>Nama Bidang</th>
+              <th>Divisi</th>
+              <th>Pemimpin</th>
+              <th>Status</th>
+              <th class="col-actions">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="bidang-tbody"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="users-tab-panel" id="panel-structure" role="tabpanel" aria-labelledby="tab-structure" hidden>
+      <section class="org-tree" id="org-tree" aria-label="Struktur organisasi"></section>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="division-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="division-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="division-modal-title">Divisi Baru</h3>
+          <p id="division-modal-subtitle">Tambah unit Divisi. Bidang dapat ditambahkan kemudian.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-division-modal" aria-label="Close">×</button>
+      </div>
+      <form id="division-form" class="users-form">
+        <input type="hidden" id="division-id" value="" />
+        <label>
+          <span>Kode Divisi</span>
+          <input id="division-code" name="code" maxlength="40" required autocomplete="off" />
+        </label>
+        <label>
+          <span>Nama Divisi</span>
+          <input id="division-name" name="name" maxlength="160" required autocomplete="off" />
+        </label>
+        <label>
+          <span>Deskripsi</span>
+          <textarea id="division-description" name="description" rows="3" maxlength="500"></textarea>
+        </label>
+        <label>
+          <span>Pemimpin Divisi (opsional)</span>
+          <select id="division-leader" name="leader_user_id">
+            <option value="">— Belum ditetapkan —</option>
+          </select>
+        </label>
+        <label class="users-check">
+          <input type="checkbox" id="division-active" checked />
+          <span>Aktif</span>
+        </label>
+        <p class="form-status" id="division-form-status" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-division">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="bidang-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="bidang-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="bidang-modal-title">Bidang Baru</h3>
+          <p id="bidang-modal-subtitle">Tambah Bidang di bawah Divisi yang dipilih.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-bidang-modal" aria-label="Close">×</button>
+      </div>
+      <form id="bidang-form" class="users-form">
+        <input type="hidden" id="bidang-id" value="" />
+        <label>
+          <span>Divisi Induk</span>
+          <select id="bidang-division" name="division_id" required></select>
+        </label>
+        <label>
+          <span>Kode Bidang</span>
+          <input id="bidang-code" name="code" maxlength="40" required autocomplete="off" />
+        </label>
+        <label>
+          <span>Nama Bidang</span>
+          <input id="bidang-name" name="name" maxlength="160" required autocomplete="off" />
+        </label>
+        <label>
+          <span>Deskripsi</span>
+          <textarea id="bidang-description" name="description" rows="3" maxlength="500"></textarea>
+        </label>
+        <label>
+          <span>Pemimpin Bidang (opsional)</span>
+          <select id="bidang-leader" name="leader_user_id">
+            <option value="">— Belum ditetapkan —</option>
+          </select>
+        </label>
+        <label class="users-check">
+          <input type="checkbox" id="bidang-active" checked />
+          <span>Aktif</span>
+        </label>
+        <p class="form-status" id="bidang-form-status" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-bidang">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/organization.js?v=1" defer></script>
+{% endblock %}

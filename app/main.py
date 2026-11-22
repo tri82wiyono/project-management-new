@@ -15,6 +15,7 @@ from app.db_migrate import ensure_schema
 from app.routers import audit as audit_router
 from app.routers import auth as auth_router
 from app.routers import dashboard, projects, roles as roles_router
+from app.routers import organization as organization_router
 from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
 from app.routers import tickets as tickets_router
 from app.routers import users as users_router
@@ -207,6 +208,7 @@ app.include_router(team.router)
 app.include_router(settings_router.router)
 app.include_router(users_router.router)
 app.include_router(roles_router.router)
+app.include_router(organization_router.router)
 app.include_router(timeline_router.router)
 app.include_router(audit_router.router)
 
@@ -411,6 +413,21 @@ def users_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
         page_subtitle="Kelola akun pengguna dan akses sistem.",
     )
     return templates.TemplateResponse(request, "pages/users.html", context)
+
+
+@app.get("/organization", response_class=HTMLResponse)
+def organization_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    denied = _require_page_permission(request, db, "organization.view", "organization.manage")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
+        active_page="organization",
+        page_title="Organization Management",
+        page_subtitle="Kelola Divisi, Bidang, dan struktur organisasi.",
+    )
+    return templates.TemplateResponse(request, "pages/organization.html", context)
 
 
 @app.get("/audit", response_class=HTMLResponse)

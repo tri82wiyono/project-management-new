@@ -265,6 +265,36 @@ def ensure_schema() -> None:
     );
     CREATE INDEX IF NOT EXISTS ix_ticket_attachments_ticket_id ON ticket_attachments(ticket_id);
     """
+    organization_sql = """
+    CREATE TABLE IF NOT EXISTS divisions (
+      id SERIAL PRIMARY KEY,
+      code VARCHAR(40) NOT NULL UNIQUE,
+      name VARCHAR(160) NOT NULL,
+      description VARCHAR(500) DEFAULT '',
+      is_active BOOLEAN DEFAULT TRUE,
+      leader_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_divisions_leader_user_id ON divisions(leader_user_id);
+    CREATE INDEX IF NOT EXISTS ix_divisions_is_active ON divisions(is_active);
+
+    CREATE TABLE IF NOT EXISTS bidangs (
+      id SERIAL PRIMARY KEY,
+      division_id INTEGER NOT NULL REFERENCES divisions(id) ON DELETE RESTRICT,
+      code VARCHAR(40) NOT NULL,
+      name VARCHAR(160) NOT NULL,
+      description VARCHAR(500) DEFAULT '',
+      is_active BOOLEAN DEFAULT TRUE,
+      leader_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      CONSTRAINT uq_bidangs_division_code UNIQUE (division_id, code)
+    );
+    CREATE INDEX IF NOT EXISTS ix_bidangs_division_id ON bidangs(division_id);
+    CREATE INDEX IF NOT EXISTS ix_bidangs_leader_user_id ON bidangs(leader_user_id);
+    CREATE INDEX IF NOT EXISTS ix_bidangs_is_active ON bidangs(is_active);
+    """
     with engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
@@ -279,3 +309,4 @@ def ensure_schema() -> None:
         conn.execute(text(security_settings_sql))
         conn.execute(text(project_documents_sql))
         conn.execute(text(tickets_sql))
+        conn.execute(text(organization_sql))

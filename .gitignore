@@ -25,3 +25,4 @@ secrets/
 .pytest_cache/
 .mypy_cache/
 *.log
+backups/

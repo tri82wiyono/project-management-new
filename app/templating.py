@@ -23,6 +23,13 @@ NAV_ITEMS = [
         "href": "/users",
         "permissions": ["users.view", "users.manage"],
     },
+    {
+        "key": "organization",
+        "label": "Organisasi",
+        "icon": "⬡",
+        "href": "/organization",
+        "permissions": ["organization.view", "organization.manage"],
+    },
     {"key": "audit", "label": "Log Audit", "icon": "▥", "href": "/audit", "permissions": ["audit.view"]},
     {"key": "timeline", "label": "Timeline", "icon": "▤", "href": "/timeline", "permissions": ["projects.view"]},
     {"key": "team", "label": "Team", "icon": "◎", "href": "/#team", "permissions": ["dashboard.view"]},

@@ -17,6 +17,8 @@ PERMISSION_CATALOG = [
     {"key": "tasks.manage", "label": "Kelola Tasks"},
     {"key": "users.view", "label": "Lihat Users"},
     {"key": "users.manage", "label": "Kelola Users"},
+    {"key": "organization.view", "label": "Lihat Struktur Organisasi"},
+    {"key": "organization.manage", "label": "Kelola Struktur Organisasi"},
     {"key": "roles.manage", "label": "Kelola Roles"},
     {"key": "settings.manage", "label": "Kelola Settings"},
     {"key": "audit.view", "label": "Lihat Log Audit"},

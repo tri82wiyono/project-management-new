@@ -1,0 +1,106 @@
+.org-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.org-tree-root {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.org-tree-root h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.org-tree-root p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.org-division-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+}
+
+.org-division-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.org-division-card h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.org-division-card .meta {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.org-bidang-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.org-bidang-list li {
+  border: 1px solid #e8eef8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.org-bidang-list strong {
+  display: block;
+  font-size: 0.85rem;
+}
+
+.org-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 18px 8px;
+  text-align: center;
+}
+
+.org-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 54px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.org-badge.active {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.org-badge.inactive {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .org-division-card header {
+    flex-direction: column;
+  }
+}

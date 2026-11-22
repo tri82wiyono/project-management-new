@@ -119,6 +119,69 @@ class Role(Base):
     )
 
 
+class Division(Base):
+    """Organizational Division (unit). Leadership is metadata only — not an RBAC role."""
+
+    __tablename__ = "divisions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    leader_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    leader: Mapped["User | None"] = relationship("User", foreign_keys=[leader_user_id])
+    bidangs: Mapped[list["Bidang"]] = relationship(
+        "Bidang",
+        back_populates="division",
+        cascade="all, delete-orphan",
+        order_by="Bidang.name",
+    )
+
+
+class Bidang(Base):
+    """Organizational Bidang under a Division. Codes are unique within a Division."""
+
+    __tablename__ = "bidangs"
+    __table_args__ = (UniqueConstraint("division_id", "code", name="uq_bidangs_division_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    division_id: Mapped[int] = mapped_column(
+        ForeignKey("divisions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    leader_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    division: Mapped[Division] = relationship("Division", back_populates="bidangs")
+    leader: Mapped["User | None"] = relationship("User", foreign_keys=[leader_user_id])
+
+
 class User(Base):
     __tablename__ = "users"
 

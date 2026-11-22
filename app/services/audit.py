@@ -14,6 +14,16 @@ ACTION_LABELS = {
     "password_email_failed": "Email reset password gagal",
     "welcome_email_sent": "Email welcome/password terkirim",
     "welcome_email_failed": "Email welcome/password gagal",
+    "division_created": "Divisi dibuat",
+    "division_updated": "Divisi diubah",
+    "division_activated": "Divisi diaktifkan",
+    "division_deactivated": "Divisi dinonaktifkan",
+    "division_leader_changed": "Pemimpin Divisi diubah",
+    "bidang_created": "Bidang dibuat",
+    "bidang_updated": "Bidang diubah",
+    "bidang_activated": "Bidang diaktifkan",
+    "bidang_deactivated": "Bidang dinonaktifkan",
+    "bidang_leader_changed": "Pemimpin Bidang diubah",
 }
 
 
