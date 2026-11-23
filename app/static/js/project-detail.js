@@ -916,7 +916,12 @@ function wireEvents() {
     if (e.key === "Escape" && !els.modal.hidden && els.picDropdown.hidden) closeModal();
   });
   els.form?.addEventListener("submit", saveProject);
-  els.ownerType?.addEventListener("change", () => syncOwnershipFields());
+  els.ownerType?.addEventListener("change", async () => {
+    syncOwnershipFields();
+    if ((els.ownerType?.value || "") === "bidang") {
+      await loadBidangsForDivision(els.ownerDivision?.value || "");
+    }
+  });
   els.ownerDivision?.addEventListener("change", async () => {
     if ((els.ownerType?.value || "") === "bidang") {
       await loadBidangsForDivision(els.ownerDivision.value || "");

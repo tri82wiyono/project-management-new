@@ -880,6 +880,8 @@
   overscroll-behavior: contain;
 }
 .field { display: grid; gap: 5px; min-width: 0; }
+/* Author display:grid beats the UA [hidden] rule — keep ownership toggles working. */
+.field[hidden] { display: none !important; }
 .field span {
   font-size: 0.72rem;
   font-weight: 650;

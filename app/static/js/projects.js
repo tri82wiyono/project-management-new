@@ -1175,8 +1175,12 @@ function wireEvents() {
     await loadProjects();
   });
 
-  els.ownerType?.addEventListener("change", () => {
+  els.ownerType?.addEventListener("change", async () => {
     syncOwnershipFields();
+    // Switching Divisi → Bidang must reload options for the already-selected division.
+    if ((els.ownerType?.value || "") === "bidang") {
+      await loadBidangsForDivision(els.ownerDivision?.value || "");
+    }
   });
 
   els.ownerDivision?.addEventListener("change", async () => {
