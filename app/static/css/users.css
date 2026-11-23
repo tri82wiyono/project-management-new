@@ -352,6 +352,16 @@
   color: #dc2626;
 }
 
+.icon-action.warn:hover {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
+.users-table .col-actions .row-actions {
+  width: 100%;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

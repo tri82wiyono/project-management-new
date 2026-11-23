@@ -75,10 +75,22 @@
     return data;
   }
 
+  const ICONS = {
+    edit: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4.5L18.5 10a1.5 1.5 0 0 0 0-2.1L16.1 5.5a1.5 1.5 0 0 0-2.1 0L4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    powerOn: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7.2 6.5a7 7 0 1 0 9.6 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7l1 12a2 2 0 0 0 2 1.8h2a2 2 0 0 0 2-1.8L16 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  };
+
+  function iconBtn(attrs, label, icon, extraClass = "") {
+    const attrStr = Object.entries(attrs)
+      .map(([k, v]) => `${k}="${String(v).replaceAll('"', "&quot;")}"`)
+      .join(" ");
+    return `<button type="button" class="icon-action ${extraClass}" ${attrStr} title="${label}" aria-label="${label}">${icon}<span class="sr-only">${label}</span></button>`;
+  }
+
   function statusBadge(active) {
     return active
-      ? `<span class="org-badge active">Aktif</span>`
-      : `<span class="org-badge inactive">Nonaktif</span>`;
+      ? `<span class="org-badge active">Aktif</span>`      : `<span class="org-badge inactive">Nonaktif</span>`;
   }
 
   function leaderLabel(leader) {
@@ -171,10 +183,23 @@
         <td>${d.member_count ?? 0}</td>
         <td>${statusBadge(d.is_active)}</td>
         <td class="col-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-edit-division="${d.id}">Edit</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-toggle-division="${d.id}" data-active="${
-          d.is_active ? "1" : "0"
-        }">${d.is_active ? "Nonaktifkan" : "Aktifkan"}</button>
+          <div class="row-actions">
+            ${iconBtn({ "data-edit-division": d.id }, "Edit", ICONS.edit)}
+            ${
+              d.is_active
+                ? iconBtn(
+                    { "data-toggle-division": d.id, "data-active": "1" },
+                    "Nonaktifkan",
+                    ICONS.trash,
+                    "danger"
+                  )
+                : iconBtn(
+                    { "data-toggle-division": d.id, "data-active": "0" },
+                    "Aktifkan",
+                    ICONS.powerOn
+                  )
+            }
+          </div>
         </td>
       </tr>`
       )
@@ -270,10 +295,23 @@
         </td>
         <td>${statusBadge(b.is_active)}</td>
         <td class="col-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-edit-bidang="${b.id}">Edit</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-toggle-bidang="${b.id}" data-active="${
-          b.is_active ? "1" : "0"
-        }">${b.is_active ? "Nonaktifkan" : "Aktifkan"}</button>
+          <div class="row-actions">
+            ${iconBtn({ "data-edit-bidang": b.id }, "Edit", ICONS.edit)}
+            ${
+              b.is_active
+                ? iconBtn(
+                    { "data-toggle-bidang": b.id, "data-active": "1" },
+                    "Nonaktifkan",
+                    ICONS.trash,
+                    "danger"
+                  )
+                : iconBtn(
+                    { "data-toggle-bidang": b.id, "data-active": "0" },
+                    "Aktifkan",
+                    ICONS.powerOn
+                  )
+            }
+          </div>
         </td>
       </tr>`
       )
@@ -489,8 +527,9 @@
       const ok = await askConfirm({
         title: active ? "Nonaktifkan Divisi?" : "Aktifkan Divisi?",
         message: active
-          ? "Bidang di dalamnya tidak dihapus. Bidang aktif tidak dapat ditambahkan ke Divisi nonaktif."
+          ? "Divisi akan dinonaktifkan. Bidang di dalamnya tidak dihapus."
           : "Divisi akan ditandai aktif kembali.",
+        okText: active ? "Nonaktifkan" : "Aktifkan",
       });
       if (!ok) return;
       try {
@@ -528,6 +567,7 @@
       const ok = await askConfirm({
         title: active ? "Nonaktifkan Bidang?" : "Aktifkan Bidang?",
         message: "Data pengguna dan project tidak dihapus.",
+        okText: active ? "Nonaktifkan" : "Aktifkan",
       });
       if (!ok) return;
       try {
