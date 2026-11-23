@@ -1,9 +1,31 @@
 .git
 .gitignore
-README.md
 __pycache__
 *.pyc
 .venv
 venv
 .DS_Store
+
+# Secrets and local env — never send to build context
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+prod.env
+*.prod.env
+
+# Docs, tests, backups, local artifacts
 *.md
+docs/
+backups/
+tests/
+scripts/run_phase5_e2e.sh
+scripts/verify_isolated_test_db.py
+tmp/
+.pytest_cache/
+.mypy_cache/
+*.log

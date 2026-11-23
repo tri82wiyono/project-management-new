@@ -1,6 +1,9 @@
 # CI/CD — Deploy otomatis ke VPS
 
-Alur: **push ke `main` di GitHub → GitHub Actions SSH ke VPS → `git pull` + rebuild Docker**.
+Alur: **push ke `main` di GitHub → GitHub Actions SSH ke VPS → `git fetch` + `git reset --hard origin/main` + rebuild Docker**.
+
+**Secrets:** production env lives at `/etc/banksumut-pms/prod.env` (outside the Git tree).  
+Complete host bootstrap in [PRODUCTION_SECURE_CONFIG.md](./PRODUCTION_SECURE_CONFIG.md) **before** deploying a revision that no longer tracks `.env`.
 
 Laptop hanya dipakai untuk develop + `git push`. Deploy tidak perlu dijalankan manual dari laptop.
 

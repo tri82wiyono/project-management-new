@@ -10,6 +10,8 @@ venv/
 !.env.example
 .env.local
 .env.*.local
+prod.env
+*.prod.env
 
 # Private keys and credential material
 *.pem
@@ -20,6 +22,9 @@ id_rsa.pub
 *.p12
 *.pfx
 secrets/
+
+# Disposable local preflight artifacts
+tmp/
 
 .DS_Store
 .pytest_cache/

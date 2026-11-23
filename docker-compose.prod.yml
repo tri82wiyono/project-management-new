@@ -1,3 +1,12 @@
+# Production Compose — secrets MUST live outside the Git working tree.
+# Canonical host file: /etc/banksumut-pms/prod.env (mode 0600, root-owned)
+# Override path: export PM_ENV_FILE=/absolute/path/to/prod.env
+#
+# Always invoke with the same file for interpolation AND container injection:
+#   docker compose --env-file "$PM_ENV_FILE" -f docker-compose.prod.yml ...
+#
+# Do not place real credentials in this repository.
+
 name: project-management
 
 services:
@@ -6,10 +15,10 @@ services:
     container_name: pm_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-project_mgmt}
-      POSTGRES_USER: ${POSTGRES_USER:-pm_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    # Jangan expose Postgres ke publik di VPS
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in PM_ENV_FILE}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in PM_ENV_FILE}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in PM_ENV_FILE}
+    # Do not publish Postgres to the public internet on the VPS
     expose:
       - "5432"
     volumes:
@@ -17,7 +26,11 @@ services:
     networks:
       - pm_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pm_user} -d ${POSTGRES_DB:-project_mgmt}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\"",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -29,20 +42,26 @@ services:
     image: project-management-app:latest
     container_name: pm_app
     restart: unless-stopped
+    # Host-local secrets file (outside git). required:true fails closed if missing.
     env_file:
-      - .env
+      - path: ${PM_ENV_FILE:-/etc/banksumut-pms/prod.env}
+        required: true
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-pm_user}:${POSTGRES_PASSWORD}@pm_db:5432/${POSTGRES_DB:-project_mgmt}
-      APP_URL: ${APP_URL:?Set APP_URL in .env e.g. https://pm.example.com}
-      SEED_DATA: ${SEED_DATA:-false}
-      SECRET_KEY: ${SECRET_KEY:?Set a strong SECRET_KEY in .env}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Explicit required interpolations — no silent insecure defaults for secrets/mode.
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:?Set POSTGRES_USER in PM_ENV_FILE}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in PM_ENV_FILE}@pm_db:5432/${POSTGRES_DB:?Set POSTGRES_DB in PM_ENV_FILE}
+      APP_URL: ${APP_URL:?Set APP_URL in PM_ENV_FILE}
+      APP_ENV: ${APP_ENV:?Set APP_ENV in PM_ENV_FILE}
+      SEED_DATA: ${SEED_DATA:?Set SEED_DATA in PM_ENV_FILE}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in PM_ENV_FILE}
+      COOKIE_SECURE: ${COOKIE_SECURE:?Set COOKIE_SECURE in PM_ENV_FILE}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:?Set DEFAULT_ADMIN_EMAIL in PM_ENV_FILE}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?Set DEFAULT_ADMIN_PASSWORD in PM_ENV_FILE}
+      # Initial release must keep enforcement off until classification is complete.
+      ORG_SCOPE_ENFORCEMENT: ${ORG_SCOPE_ENFORCEMENT:-false}
     ports:
       - "${APP_HOST_PORT:-8891}:8000"
     volumes:
-      # Private ticket/project files (not under /static)
       - pm_uploads:/app/data/uploads
-      # Public profile avatars
       - pm_avatars:/app/app/static/uploads/avatars
     depends_on:
       db:

@@ -23,28 +23,90 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
+          # Never echo command strings that might include secret material
           script_stop: true
           script: |
             set -euo pipefail
+
             APP_DIR='${{ secrets.VPS_APP_DIR }}'
             APP_DIR="${APP_DIR:-/opt/project-management-new}"
-            cd "$APP_DIR"
+            PM_ENV_FILE="${PM_ENV_FILE:-/etc/banksumut-pms/prod.env}"
+            COMPOSE_FILE="docker-compose.prod.yml"
+
+            echo "==> Preflight: host-local env (outside git tree)"
+            if [[ ! -f "${PM_ENV_FILE}" ]]; then
+              echo "FAIL: missing secure env file at ${PM_ENV_FILE}"
+              echo "Host-side bootstrap MUST complete before deploying a revision that no longer tracks .env"
+              if [[ -f "${APP_DIR}/.env" ]]; then
+                echo "NOTE: ${APP_DIR}/.env still exists in the worktree — do NOT rely on it after git reset"
+                echo "Copy it to ${PM_ENV_FILE} with mode 0600 during authorized bootstrap, then re-run deploy"
+              fi
+              exit 1
+            fi
+
+            # Refuse to proceed if worktree .env is the only copy people might expect
+            # (host file already present — OK). Never print file contents.
+            echo "OK: host env file present (contents not logged)"
+
+            cd "${APP_DIR}"
+
+            echo "==> Record pre-deploy revision"
+            PRE_REV="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+            echo "pre_deploy_rev=${PRE_REV}"
 
             echo "==> Fetch latest main"
             git fetch origin main
+
+            echo "==> Reset worktree to origin/main (does NOT preserve tracked .env)"
             git reset --hard origin/main
 
-            echo "==> Rebuild app container"
-            docker compose -f docker-compose.prod.yml up -d --build app
+            POST_REV="$(git rev-parse HEAD)"
+            echo "deploy_rev=${POST_REV}"
+
+            # After reset, tracked .env may be gone. Host file must still exist.
+            if [[ ! -f "${PM_ENV_FILE}" ]]; then
+              echo "FAIL: ${PM_ENV_FILE} disappeared during deploy — aborting before compose"
+              exit 1
+            fi
+            if [[ -f "${APP_DIR}/.env" ]]; then
+              echo "WARN: worktree .env still present after reset — prefer host-only ${PM_ENV_FILE}"
+            fi
+
+            export PM_ENV_FILE
+            chmod +x scripts/validate_prod_env.sh scripts/compose_prod.sh
+            # Never chmod the secrets file (keep host 0600/0400 least privilege).
+
+            echo "==> Validate production env keys (values never printed)"
+            ./scripts/validate_prod_env.sh "${PM_ENV_FILE}"
+
+            # Compose prefers process env over --env-file; clear critical keys
+            # so /etc/banksumut-pms/prod.env is authoritative.
+            for key in \
+              ORG_SCOPE_ENFORCEMENT SEED_DATA APP_ENV COOKIE_SECURE SECRET_KEY \
+              POSTGRES_PASSWORD POSTGRES_USER POSTGRES_DB APP_URL APP_HOST_PORT \
+              DEFAULT_ADMIN_EMAIL DEFAULT_ADMIN_PASSWORD DEFAULT_ADMIN_NAME DATABASE_URL
+            do
+              unset "${key}" 2>/dev/null || true
+            done
+
+            echo "==> Validate Compose config (output discarded; may contain interpolated secrets)"
+            docker compose --env-file "${PM_ENV_FILE}" -f "${COMPOSE_FILE}" config >/dev/null
+
+            echo "==> Rebuild app container (volumes preserved)"
+            docker compose --env-file "${PM_ENV_FILE}" -f "${COMPOSE_FILE}" up -d --build app
 
             echo "==> Health check"
             for i in 1 2 3 4 5 6; do
-              if curl -fsS http://127.0.0.1:8891/api/health >/dev/null; then
+              if curl -fsS "http://127.0.0.1:8891/api/health" >/dev/null; then
                 echo "health ok"
+                echo "deployed_rev=${POST_REV}"
                 exit 0
               fi
               sleep 5
             done
+
             echo "health check failed"
-            docker compose -f docker-compose.prod.yml logs --tail 80 app
+            # Tail logs only — do not dump compose config or env files
+            docker compose --env-file "${PM_ENV_FILE}" -f "${COMPOSE_FILE}" logs --tail 80 app || true
+            echo "failed_rev=${POST_REV} previous_rev=${PRE_REV}"
             exit 1
