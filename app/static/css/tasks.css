@@ -207,10 +207,32 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 6px 8px;
+  padding: 7px 8px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--col-accent) 10%, #fff);
-  border: 1px solid color-mix(in srgb, var(--col-accent) 22%, transparent);
+  background: var(--col-accent);
+  border: 1px solid var(--col-accent);
+}
+.tasks-page .kanban-col .kanban-col-head h3,
+.tasks-page .kanban-col .kanban-status-label,
+.tasks-page .kanban-col .kanban-count {
+  color: #fff;
+}
+.tasks-page .kanban-col .kanban-dot {
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28);
+}
+.tasks-page .kanban-col .kanban-count {
+  background: rgba(255, 255, 255, 0.22);
+}
+.tasks-page .kanban-col .btn-col-add {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.tasks-page .kanban-col .btn-col-add:hover {
+  border-color: #fff;
+  background: #fff;
+  color: var(--col-accent);
 }
 
 .tasks-page .kanban-col h3 {
