@@ -874,26 +874,57 @@ body.tk-modal-open .app-shell.sidebar-collapsed > .app-main {
   min-width: 0;
 }
 .kanban-col {
+  --col-bg: #f7f9fc;
+  --col-border: #e6ebf2;
+  --col-head: #5b6b7c;
+  --col-accent: #7b8ea3;
   min-width: 0;
-  background: #f5f7fb;
-  border: 1px solid #e8eef6;
+  background: var(--col-bg);
+  border: 1px solid var(--col-border);
+  border-top: 2px solid var(--col-accent);
   border-radius: 11px;
   padding: 8px;
   overflow: hidden;
   min-height: 220px;
 }
+.kanban-col.status-todo {
+  --col-bg: #f7f9fc;
+  --col-border: #e6ebf2;
+  --col-head: #5b6b7c;
+  --col-accent: #7b8ea3;
+}
+.kanban-col.status-in_progress {
+  --col-bg: #f6f9ff;
+  --col-border: #e0eaff;
+  --col-head: #3d63b8;
+  --col-accent: #5b86e5;
+}
+.kanban-col.status-review {
+  --col-bg: #fffdf6;
+  --col-border: #f3e6c0;
+  --col-head: #9a6b00;
+  --col-accent: #d4a017;
+}
+.kanban-col.status-done {
+  --col-bg: #f5fbf7;
+  --col-border: #d9eee3;
+  --col-head: #2f7a52;
+  --col-accent: #4caf7a;
+}
 .kanban-col h3 {
   margin: 0 0 6px;
   font-size: 0.64rem;
   font-weight: 650;
-  color: var(--muted);
+  color: var(--col-head);
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 4px;
 }
 .task-card {
   background: #fff;
-  border: 1px solid var(--line);
+  border: 1px solid var(--col-border, var(--line));
+  border-left: 3px solid var(--col-accent, #94a3b8);
   border-radius: 7px;
   padding: 6px;
   margin-bottom: 5px;
@@ -912,12 +943,12 @@ body.tk-modal-open .app-shell.sidebar-collapsed > .app-main {
 }
 .task-card.has-notes {
   box-shadow:
-    inset 3px 0 0 #f59e0b,
+    inset 0 2px 0 #f59e0b,
     0 1px 2px rgba(24, 34, 51, 0.04);
 }
 .task-card.has-problem {
   box-shadow:
-    inset 3px 0 0 #ef4444,
+    inset 0 2px 0 #ef4444,
     0 1px 2px rgba(24, 34, 51, 0.04);
 }
 .task-note-badge {

@@ -150,16 +150,72 @@ function renderProgress(items) {
   });
 }
 
+const KANBAN_STATUS_COLORS = {
+  todo: {
+    accent: "#7b8ea3",
+    bg: "#f7f9fc",
+    border: "#e6ebf2",
+    head: "#5b6b7c",
+    headBg: "#eef2f7",
+    chip: "rgba(123,142,163,.14)",
+  },
+  in_progress: {
+    accent: "#5b86e5",
+    bg: "#f6f9ff",
+    border: "#e0eaff",
+    head: "#3d63b8",
+    headBg: "#ebf2ff",
+    chip: "rgba(91,134,229,.14)",
+  },
+  review: {
+    accent: "#d4a017",
+    bg: "#fffdf6",
+    border: "#f3e6c0",
+    head: "#9a6b00",
+    headBg: "#fff6de",
+    chip: "rgba(212,160,23,.14)",
+  },
+  done: {
+    accent: "#4caf7a",
+    bg: "#f5fbf7",
+    border: "#d9eee3",
+    head: "#2f7a52",
+    headBg: "#e8f6ee",
+    chip: "rgba(76,175,122,.14)",
+  },
+};
+
 function renderKanban(board) {
   const root = document.getElementById("kanban-board");
-  root.innerHTML = board.columns.map((col) => `
-    <div class="kanban-col">
-      <h3><span>${col.label}</span><span>${col.count}</span></h3>
+  root.innerHTML = board.columns.map((col) => {
+    const palette = KANBAN_STATUS_COLORS[col.status] || KANBAN_STATUS_COLORS.todo;
+    const colStyle = [
+      `background:${palette.bg}`,
+      `border:1px solid ${palette.border}`,
+      `border-top:2px solid ${palette.accent}`,
+    ].join(";");
+    const headStyle = [
+      `background:${palette.headBg}`,
+      `border:1px solid ${palette.border}`,
+      `color:${palette.head}`,
+      `border-radius:8px`,
+      `padding:5px 7px`,
+      `margin:0 0 6px`,
+    ].join(";");
+    return `
+    <div class="kanban-col status-${col.status || "todo"}" data-status="${col.status || "todo"}" style="${colStyle}">
+      <h3 style="${headStyle}">
+        <span style="display:inline-flex;align-items:center;gap:6px;color:${palette.head}">
+          <i class="kanban-dot" aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:${palette.accent};box-shadow:0 0 0 3px ${palette.chip}"></i>
+          ${escapeHtml(col.label)}
+        </span>
+        <span class="kanban-count" style="color:${palette.head};background:${palette.chip};min-width:18px;height:16px;padding:0 5px;border-radius:999px;display:inline-grid;place-items:center;font-size:0.58rem;font-weight:700">${col.count}</span>
+      </h3>
       ${col.tasks.slice(0, 3).map((task) => {
         const pct = Math.round(Number(task.project_progress || 0));
         const showBar = col.status === "in_progress" && task.project_progress != null;
         return `
-        <article class="task-card${task.notes_count > 0 ? " has-notes" : ""}${task.has_problem ? " has-problem" : ""}">
+        <article class="task-card status-${col.status || "todo"}${task.notes_count > 0 ? " has-notes" : ""}${task.has_problem ? " has-problem" : ""}" style="border-left:3px solid ${palette.accent};border-color:${palette.border}">
           <h4>${escapeHtml(task.title)}</h4>
           ${showBar ? `<div class="task-progress" title="Project ${pct}%"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>` : ""}
           <div class="task-card-foot">
@@ -181,8 +237,8 @@ function renderKanban(board) {
           </div>
         </article>`;
       }).join("") || `<div class="muted" style="padding:4px 0">No tasks</div>`}
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
 }
 
 function renderTeam(team) {
