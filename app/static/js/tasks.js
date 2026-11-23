@@ -26,6 +26,14 @@ const STATUS_LABELS = {
 
 const STATUS_ORDER = ["todo", "in_progress", "review", "done"];
 
+/** Inline status colors so column differentiation is not lost to CSS cache. */
+const STATUS_COLORS = {
+  todo: { accent: "#64748b", bg: "#f1f5f9", border: "#cbd5e1", head: "#334155" },
+  in_progress: { accent: "#2563eb", bg: "#eff6ff", border: "#93c5fd", head: "#1d4ed8" },
+  review: { accent: "#d97706", bg: "#fffbeb", border: "#fcd34d", head: "#b45309" },
+  done: { accent: "#059669", bg: "#ecfdf5", border: "#6ee7b7", head: "#047857" },
+};
+
 const state = {
   projectId: null,
   projects: [],
@@ -412,14 +420,34 @@ function renderBoard() {
   const showProject = !state.projectId;
 
   els.board.innerHTML = cols
-    .map((col) => `
-    <div class="kanban-col status-${col.status}" data-status="${col.status}">
-      <div class="kanban-col-head">
-        <h3>
-          <span class="kanban-status-label"><i class="kanban-dot" aria-hidden="true"></i>${STATUS_LABELS[col.status] || col.label}</span>
-          <span class="kanban-count">${col.count}</span>
+    .map((col) => {
+      const palette = STATUS_COLORS[col.status] || STATUS_COLORS.todo;
+      const colStyle = [
+        `--col-bg:${palette.bg}`,
+        `--col-border:${palette.border}`,
+        `--col-head:${palette.head}`,
+        `--col-accent:${palette.accent}`,
+        `--col-chip:${palette.accent}29`,
+        `--col-card:#ffffff`,
+        `--col-card-border:${palette.accent}47`,
+        `--col-drop:${palette.accent}24`,
+        `background:${palette.bg}`,
+        `border:1px solid ${palette.border}`,
+        `border-top:3px solid ${palette.accent}`,
+      ].join(";");
+      const headStyle = [
+        `background:${palette.accent}`,
+        `border-color:${palette.accent}`,
+        `color:#fff`,
+      ].join(";");
+      return `
+    <div class="kanban-col status-${col.status}" data-status="${col.status}" style="${colStyle}">
+      <div class="kanban-col-head" style="${headStyle}">
+        <h3 style="color:#fff">
+          <span class="kanban-status-label" style="color:#fff"><i class="kanban-dot" aria-hidden="true" style="background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.28)"></i>${STATUS_LABELS[col.status] || col.label}</span>
+          <span class="kanban-count" style="color:#fff;background:rgba(255,255,255,.22)">${col.count}</span>
         </h3>
-        <button type="button" class="btn-col-add" data-add-status="${col.status}" title="Add task">+</button>
+        <button type="button" class="btn-col-add" data-add-status="${col.status}" title="Add task" style="color:#fff;border-color:rgba(255,255,255,.45);background:rgba(255,255,255,.18)">+</button>
       </div>
       <div class="kanban-dropzone" data-drop-status="${col.status}">
         ${col.tasks
@@ -429,6 +457,7 @@ function renderBoard() {
             draggable="true"
             data-task-id="${task.id}"
             data-action="edit"
+            style="border-left:4px solid ${palette.accent};border-color:${palette.accent}47"
           >
             <button type="button" class="task-card-delete" data-delete-task="${task.id}" title="Hapus task" aria-label="Hapus task">×</button>
             ${showProject && task.project_name
@@ -452,7 +481,8 @@ function renderBoard() {
           </article>`)
           .join("") || `<div class="kanban-empty">No tasks</div>`}
       </div>
-    </div>`)
+    </div>`;
+    })
     .join("");
 }
 
