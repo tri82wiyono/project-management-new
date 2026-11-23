@@ -3,7 +3,7 @@
 {% block title %}Users · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/users.css?v=15" />
+  <link rel="stylesheet" href="/static/css/users.css?v=17" />
 {% endblock %}
 
 {% block header %}
@@ -143,41 +143,44 @@
               <option value="Member">Member</option>
             </select>
           </label>
-          <label class="field field-check">
+          <div class="field">
             <span>Status</span>
-            <label class="check-line">
+            <label class="status-toggle" for="field-active">
               <input id="field-active" type="checkbox" checked />
-              Aktif
+              <span class="status-toggle-ui" aria-hidden="true"></span>
+              <span class="status-toggle-label">Aktif</span>
             </label>
-          </label>
+          </div>
         </div>
 
-        <div class="field-row">
-          <label class="field">
-            <span>Divisi</span>
-            <select id="field-division" aria-label="Divisi penempatan">
-              <option value="">— Pilih Divisi —</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Bidang</span>
-            <select id="field-bidang" aria-label="Bidang penempatan">
-              <option value="">— Pilih Bidang —</option>
-            </select>
-            <small class="field-hint">Penempatan ke Bidang; Divisi mengikuti Bidang induk.</small>
-          </label>
+        <div class="field-block">
+          <div class="field-row">
+            <label class="field">
+              <span>Divisi</span>
+              <select id="field-division" aria-label="Divisi penempatan">
+                <option value="">— Pilih Divisi —</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Bidang</span>
+              <select id="field-bidang" aria-label="Bidang penempatan">
+                <option value="">— Pilih Bidang —</option>
+              </select>
+            </label>
+          </div>
+          <p class="field-hint">Penempatan ke Bidang; Divisi mengikuti Bidang induk.</p>
         </div>
         <input type="hidden" id="field-placement-version" value="0" />
         <input type="hidden" id="field-placement-bidang-current" value="" />
         <p class="placement-leadership" id="user-form-leadership" hidden></p>
-        <label class="check-line" id="user-ack-leadership-wrap" hidden>
+        <label class="check-line check-line-wrap" id="user-ack-leadership-wrap" hidden>
           <input id="field-ack-leadership" type="checkbox" />
-          Saya memahami pengguna tetap menjadi pemimpin unit; kepemimpinan tidak dihapus otomatis
+          <span>Saya memahami pengguna tetap menjadi pemimpin unit; kepemimpinan tidak dihapus otomatis</span>
         </label>
 
         <label class="check-line" id="send-email-wrap">
           <input id="field-send-email" type="checkbox" checked />
-          Kirim email welcome dengan password sementara
+          <span>Kirim email welcome dengan password sementara</span>
         </label>
 
         <div class="modal-actions">
