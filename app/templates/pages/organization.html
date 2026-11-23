@@ -3,8 +3,8 @@
 {% block title %}Organisasi · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/users.css?v=13" />
-  <link rel="stylesheet" href="/static/css/organization.css?v=2" />
+  <link rel="stylesheet" href="/static/css/users.css?v=14" />
+  <link rel="stylesheet" href="/static/css/organization.css?v=3" />
 {% endblock %}
 
 {% block header %}
@@ -132,27 +132,29 @@
         </div>
         <button type="button" class="modal-close" id="btn-close-division-modal" aria-label="Close">×</button>
       </div>
-      <form id="division-form" class="users-form">
+      <form id="division-form" class="user-form" novalidate>
         <input type="hidden" id="division-id" value="" />
-        <label>
-          <span>Kode Divisi</span>
-          <input id="division-code" name="code" maxlength="40" required autocomplete="off" />
-        </label>
-        <label>
-          <span>Nama Divisi</span>
-          <input id="division-name" name="name" maxlength="160" required autocomplete="off" />
-        </label>
-        <label>
+        <div class="field-row">
+          <label class="field">
+            <span>Kode Divisi</span>
+            <input id="division-code" name="code" maxlength="40" required autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Nama Divisi</span>
+            <input id="division-name" name="name" maxlength="160" required autocomplete="off" />
+          </label>
+        </div>
+        <label class="field">
           <span>Deskripsi</span>
           <textarea id="division-description" name="description" rows="3" maxlength="500"></textarea>
         </label>
-        <label>
+        <label class="field">
           <span>Pemimpin Divisi (opsional)</span>
           <select id="division-leader" name="leader_user_id">
             <option value="">— Belum ditetapkan —</option>
           </select>
         </label>
-        <label class="users-check">
+        <label class="check-line">
           <input type="checkbox" id="division-active" checked />
           <span>Aktif</span>
         </label>
@@ -174,31 +176,33 @@
         </div>
         <button type="button" class="modal-close" id="btn-close-bidang-modal" aria-label="Close">×</button>
       </div>
-      <form id="bidang-form" class="users-form">
+      <form id="bidang-form" class="user-form" novalidate>
         <input type="hidden" id="bidang-id" value="" />
-        <label>
+        <label class="field">
           <span>Divisi Induk</span>
           <select id="bidang-division" name="division_id" required></select>
         </label>
-        <label>
-          <span>Kode Bidang</span>
-          <input id="bidang-code" name="code" maxlength="40" required autocomplete="off" />
-        </label>
-        <label>
-          <span>Nama Bidang</span>
-          <input id="bidang-name" name="name" maxlength="160" required autocomplete="off" />
-        </label>
-        <label>
+        <div class="field-row">
+          <label class="field">
+            <span>Kode Bidang</span>
+            <input id="bidang-code" name="code" maxlength="40" required autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Nama Bidang</span>
+            <input id="bidang-name" name="name" maxlength="160" required autocomplete="off" />
+          </label>
+        </div>
+        <label class="field">
           <span>Deskripsi</span>
           <textarea id="bidang-description" name="description" rows="3" maxlength="500"></textarea>
         </label>
-        <label>
+        <label class="field">
           <span>Pemimpin Bidang (opsional)</span>
           <select id="bidang-leader" name="leader_user_id">
             <option value="">— Belum ditetapkan —</option>
           </select>
         </label>
-        <label class="users-check">
+        <label class="check-line">
           <input type="checkbox" id="bidang-active" checked />
           <span>Aktif</span>
         </label>

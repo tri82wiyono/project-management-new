@@ -476,7 +476,8 @@
 .field em { color: #ef4444; font-style: normal; }
 
 .field > input:not([type="checkbox"]),
-.field > select {
+.field > select,
+.field > textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -484,6 +485,8 @@
   font-size: 0.78rem;
   background: #fff;
   box-sizing: border-box;
+  font-family: inherit;
+  resize: vertical;
 }
 
 .field-row {
