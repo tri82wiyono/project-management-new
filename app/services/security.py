@@ -33,9 +33,10 @@ def verify_password(password: str, password_hash: str | None) -> bool:
 
 
 def generate_temp_password(length: int = 12) -> str:
-    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    # Alphanumeric only — avoids email-client / HTML copy issues with !@#$%&
+    alphabet = string.ascii_letters + string.digits
     while True:
-        pwd = "".join(secrets.choice(alphabet) for _ in range(length))
+        pwd = "".join(secrets.choice(alphabet) for _ in range(max(12, length)))
         if (
             any(c.islower() for c in pwd)
             and any(c.isupper() for c in pwd)
