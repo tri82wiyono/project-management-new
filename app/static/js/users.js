@@ -174,11 +174,90 @@
         const data = await bidangRes.json();
         bidangCache = data.items || [];
       }
+      // Fallback for admins without organization.view (ownership picker is enough).
+      if (!divisionsCache.length || !bidangCache.length) {
+        const optRes = await fetch("/api/organization/ownership-options");
+        if (optRes.ok) {
+          const data = await optRes.json();
+          if (!divisionsCache.length) divisionsCache = data.divisions || [];
+          if (!bidangCache.length) bidangCache = data.bidangs || [];
+        }
+      }
     } catch {
       divisionsCache = [];
       bidangCache = [];
     }
     fillOrgFilters();
+  }
+
+  function fillUserModalBidang(divisionId, selectedBidangId = "") {
+    const select = $("field-bidang");
+    if (!select) return;
+    const options = bidangCache.filter(
+      (b) => !divisionId || String(b.division_id) === String(divisionId)
+    );
+    select.innerHTML =
+      `<option value="">— Pilih Bidang —</option>` +
+      options
+        .map(
+          (b) =>
+            `<option value="${b.id}" ${
+              String(b.id) === String(selectedBidangId || "") ? "selected" : ""
+            }>${escapeHtml(b.code)} — ${escapeHtml(b.name)}</option>`
+        )
+        .join("");
+  }
+
+  function fillUserModalPlacement(user = null) {
+    const placement = user?.placement || {};
+    const divSelect = $("field-division");
+    const versionEl = $("field-placement-version");
+    const currentEl = $("field-placement-bidang-current");
+    if (versionEl) versionEl.value = String(placement.placement_version || 0);
+    if (currentEl) currentEl.value = placement.bidang_id ? String(placement.bidang_id) : "";
+    if (divSelect) {
+      divSelect.innerHTML =
+        `<option value="">— Pilih Divisi —</option>` +
+        divisionsCache
+          .map(
+            (d) =>
+              `<option value="${d.id}" ${
+                String(d.id) === String(placement.division_id || "") ? "selected" : ""
+              }>${escapeHtml(d.code)} — ${escapeHtml(d.name)}</option>`
+          )
+          .join("");
+    }
+    fillUserModalBidang(divSelect?.value || placement.division_id || "", placement.bidang_id || "");
+  }
+
+  async function syncUserPlacement(userId, { expectedVersion = 0 } = {}) {
+    const bidangId = $("field-bidang")?.value || "";
+    const currentBidangId = $("field-placement-bidang-current")?.value || "";
+    if (String(bidangId) === String(currentBidangId)) return { skipped: true };
+    if (!bidangId) {
+      // Empty on edit means leave placement unchanged (use dedicated Penempatan modal to clear).
+      return { skipped: true };
+    }
+    const res = await fetch(`/api/users/${userId}/placement`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clear: false,
+        bidang_id: Number(bidangId),
+        reason: "Ditetapkan dari form user",
+        expected_version: Number(expectedVersion) || 0,
+        acknowledge_leadership_conflict: false,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail =
+        typeof data.detail === "string"
+          ? data.detail
+          : data.detail?.message || "Gagal menyimpan penempatan";
+      throw new Error(detail);
+    }
+    return data;
   }
 
   function fillOrgFilters() {
@@ -303,7 +382,10 @@
     sendEmailWrap.hidden = mode === "edit";
     titleEl.textContent = mode === "edit" ? "Edit User" : "New User";
     subtitleEl.textContent =
-      mode === "edit" ? "Perbarui data akun pengguna." : "Buat akun baru dan kirim undangan email.";
+      mode === "edit"
+        ? "Perbarui akun dan penempatan Divisi/Bidang."
+        : "Buat akun baru, tetapkan penempatan, dan kirim undangan email.";
+    fillUserModalPlacement(user || null);
     setStatus(formStatus, "");
     modal.hidden = false;
   }
@@ -317,6 +399,10 @@
   $("btn-cancel-user").addEventListener("click", closeModal);
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeModal();
+  });
+
+  $("field-division")?.addEventListener("change", () => {
+    fillUserModalBidang($("field-division").value, "");
   });
 
   form.addEventListener("submit", async (event) => {
@@ -357,6 +443,15 @@
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Gagal menyimpan user");
+
+      const savedUserId = id || data.id;
+      const expectedVersion =
+        Number($("field-placement-version")?.value) ||
+        Number(data.placement?.placement_version) ||
+        0;
+      if (savedUserId) {
+        await syncUserPlacement(savedUserId, { expectedVersion });
+      }
 
       if (!id && data.temporary_password) {
         const mailNote = data.email_sent

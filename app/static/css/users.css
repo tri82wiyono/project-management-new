@@ -482,6 +482,7 @@
 }
 
 .field { display: grid; gap: 5px; min-width: 0; }
+.field[hidden] { display: none !important; }
 .field > span { font-size: 0.72rem; font-weight: 650; }
 .field em { color: #ef4444; font-style: normal; }
 

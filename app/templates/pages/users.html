@@ -3,7 +3,7 @@
 {% block title %}Users · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/users.css?v=14" />
+  <link rel="stylesheet" href="/static/css/users.css?v=15" />
 {% endblock %}
 
 {% block header %}
@@ -151,6 +151,24 @@
             </label>
           </label>
         </div>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Divisi</span>
+            <select id="field-division" aria-label="Divisi penempatan">
+              <option value="">— Pilih Divisi —</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Bidang</span>
+            <select id="field-bidang" aria-label="Bidang penempatan">
+              <option value="">— Pilih Bidang —</option>
+            </select>
+            <small class="field-hint">Penempatan ke Bidang; Divisi mengikuti Bidang induk.</small>
+          </label>
+        </div>
+        <input type="hidden" id="field-placement-version" value="0" />
+        <input type="hidden" id="field-placement-bidang-current" value="" />
 
         <label class="check-line" id="send-email-wrap">
           <input id="field-send-email" type="checkbox" checked />
@@ -325,5 +343,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/users.js?v=14" defer></script>
+  <script src="/static/js/users.js?v=15" defer></script>
 {% endblock %}
