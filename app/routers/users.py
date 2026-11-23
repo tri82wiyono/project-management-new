@@ -195,9 +195,9 @@ def create_user(
     data = _serialize(db, user)
     data["email_sent"] = email_sent
     data["email_error"] = email_error
-    # Only reveal temp password when email failed (admin must copy manually).
-    if not email_sent:
-        data["temporary_password"] = temp_password
+    # Always return temp password to admin so support can confirm login
+    # even when email delivery is delayed or the user opens an older message.
+    data["temporary_password"] = temp_password
     return data
 
 
@@ -439,9 +439,9 @@ def reset_user_password(
         "email_sent": email_sent,
         "email_error": email_error,
         "message": "Password direset. User harus login dengan password sementara.",
+        # Always return to admin (email may be delayed / user may open older mail).
+        "temporary_password": temp_password,
     }
-    if not email_sent:
-        data["temporary_password"] = temp_password
     return data
 
 
