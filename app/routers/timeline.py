@@ -17,7 +17,7 @@ def timeline_page_data(
     month: int | None = Query(default=None, ge=1, le=12),
     project_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.view")),
+    user: User = Depends(require_permission("projects.view")),
 ) -> dict:
     today = date.today()
     return get_timeline_page(
@@ -25,4 +25,5 @@ def timeline_page_data(
         year=year or today.year,
         month=month or today.month,
         project_id=project_id,
+        user=user,
     )

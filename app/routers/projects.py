@@ -13,17 +13,21 @@ from app.schemas.schemas import (
     ProjectDocumentUrlCreate,
     ProjectListResponse,
     ProjectOut,
+    ProjectOwnershipUpdate,
     ProjectStats,
     ProjectTaskNoteOut,
     ProjectUpdate,
 )
 from app.services.auth import require_permission, require_user
 from app.services import project_documents as docs_svc
+from app.services.audit import write_audit_log
+from app.services import org_scope
 from app.services.project_progress import (
     calculate_progress_from_tasks,
     recalculate_project_progress,
     release_allowed,
 )
+from fastapi import Request
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -52,6 +56,7 @@ def _to_out(project: Project, task_count: int = 0, *, with_documents: bool = Fal
         if with_documents
         else []
     )
+    ownership = org_scope.ownership_summary(project)
     return ProjectOut(
         id=project.id,
         name=project.name,
@@ -62,15 +67,28 @@ def _to_out(project: Project, task_count: int = 0, *, with_documents: bool = Fal
         color=project.color,
         start_date=project.start_date,
         end_date=project.end_date,
+        owner_type=ownership["owner_type"],
+        owner_division_id=ownership["owner_division_id"],
+        owner_bidang_id=ownership["owner_bidang_id"],
         created_at=project.created_at,
         members=project.members or [],
         task_count=task_count,
         documents=documents,
+        owner_division_code=ownership["owner_division_code"],
+        owner_division_name=ownership["owner_division_name"],
+        owner_bidang_code=ownership["owner_bidang_code"],
+        owner_bidang_name=ownership["owner_bidang_name"],
+        is_classified=ownership["is_classified"],
+        ownership_classified_at=ownership["ownership_classified_at"],
     )
 
 
 def _load_project(db: Session, project_id: int, *, with_documents: bool = False) -> Project:
-    opts = [joinedload(Project.members).joinedload(TeamMember.user)]
+    opts = [
+        joinedload(Project.members).joinedload(TeamMember.user),
+        joinedload(Project.owner_division),
+        joinedload(Project.owner_bidang),
+    ]
     if with_documents:
         opts.append(joinedload(Project.documents))
     project = db.scalar(
@@ -83,12 +101,70 @@ def _load_project(db: Session, project_id: int, *, with_documents: bool = False)
     return project
 
 
+@router.get("/scope-status")
+def project_scope_status(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.view")),
+) -> dict:
+    return org_scope.scope_status(db, user)
+
+
+@router.get("/unassigned", response_model=ProjectListResponse)
+def list_unassigned_projects(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> ProjectListResponse:
+    """Administrator workflow: classify legacy projects without ownership."""
+    if user.role != "Admin":
+        raise HTTPException(status_code=403, detail="Hanya Administrator yang dapat mengelola project belum diklasifikasi")
+    filters = [
+        or_(
+            Project.owner_type == "unassigned",
+            Project.owner_type.is_(None),
+            Project.owner_type == "",
+        )
+    ]
+    total = db.scalar(select(func.count()).select_from(Project).where(*filters)) or 0
+    pages = max(1, (int(total) + page_size - 1) // page_size)
+    page = min(page, pages)
+    projects = list(
+        db.scalars(
+            select(Project)
+            .options(
+                joinedload(Project.members).joinedload(TeamMember.user),
+                joinedload(Project.owner_division),
+                joinedload(Project.owner_bidang),
+            )
+            .where(*filters)
+            .order_by(Project.name.asc(), Project.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        .unique()
+        .all()
+    )
+    counts = _task_count_map(db, [p.id for p in projects])
+    return ProjectListResponse(
+        items=[_to_out(p, counts.get(p.id, 0)) for p in projects],
+        total=int(total),
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
 @router.get("/stats", response_model=ProjectStats)
 def project_stats(
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.view")),
+    user: User = Depends(require_permission("projects.view")),
 ) -> ProjectStats:
-    rows = db.execute(select(Project.status, func.count()).group_by(Project.status)).all()
+    stmt = select(Project.status, func.count()).group_by(Project.status)
+    scope = org_scope.project_visibility_filter(db, user)
+    if scope is not None:
+        stmt = stmt.where(scope)
+    rows = db.execute(stmt).all()
     by_status = {row[0]: int(row[1]) for row in rows}
     planning = by_status.get(ProjectStatus.backlog, 0)
     in_progress = sum(
@@ -115,14 +191,26 @@ def project_stats(
 def list_projects(
     q: str | None = Query(default=None),
     status_filter: ProjectStatus | None = Query(default=None, alias="status"),
+    owner_type: str | None = Query(default=None),
+    owner_division_id: int | None = Query(default=None),
+    owner_bidang_id: int | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.view")),
+    user: User = Depends(require_permission("projects.view")),
 ) -> ProjectListResponse:
     filters = []
+    scope = org_scope.project_visibility_filter(db, user)
+    if scope is not None:
+        filters.append(scope)
     if status_filter:
         filters.append(Project.status == status_filter)
+    if owner_type:
+        filters.append(Project.owner_type == owner_type.strip())
+    if owner_division_id is not None:
+        filters.append(Project.owner_division_id == owner_division_id)
+    if owner_bidang_id is not None:
+        filters.append(Project.owner_bidang_id == owner_bidang_id)
     if q:
         like = f"%{q.strip()}%"
         filters.append(
@@ -141,7 +229,11 @@ def list_projects(
     page = min(page, pages)
     offset = (page - 1) * page_size
 
-    stmt = select(Project).options(joinedload(Project.members).joinedload(TeamMember.user))
+    stmt = select(Project).options(
+        joinedload(Project.members).joinedload(TeamMember.user),
+        joinedload(Project.owner_division),
+        joinedload(Project.owner_bidang),
+    )
     if filters:
         stmt = stmt.where(*filters)
     projects = list(
@@ -165,9 +257,10 @@ def list_projects(
 def get_project(
     project_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.view")),
+    user: User = Depends(require_permission("projects.view")),
 ) -> ProjectOut:
     project = _load_project(db, project_id, with_documents=True)
+    org_scope.require_project_view(db, user, project)
     counts = _task_count_map(db, [project.id])
     return _to_out(project, counts.get(project.id, 0), with_documents=True)
 
@@ -177,10 +270,12 @@ def list_project_notes(
     project_id: int,
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.view")),
+    user: User = Depends(require_permission("projects.view")),
 ) -> list[ProjectTaskNoteOut]:
-    if not db.get(Project, project_id):
+    project = db.get(Project, project_id)
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    org_scope.require_project_view(db, user, project)
 
     notes = (
         db.scalars(
@@ -235,10 +330,23 @@ def _reject_premature_release(db: Session, project_id: int | None, status_value)
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.manage")),
+    current: User = Depends(require_permission("projects.manage")),
 ) -> ProjectOut:
+    if not org_scope.can_create_project(db, current):
+        raise HTTPException(status_code=403, detail="Tidak berwenang membuat project")
     _reject_premature_release(db, None, payload.status)
+    try:
+        owner_type, owner_division_id, owner_bidang_id = org_scope.validate_and_normalize_ownership(
+            db,
+            owner_type=payload.owner_type,
+            owner_division_id=payload.owner_division_id,
+            owner_bidang_id=payload.owner_bidang_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     project = Project(
         name=payload.name,
         description=payload.description,
@@ -248,19 +356,44 @@ def create_project(
         color=payload.color,
         start_date=payload.start_date,
         end_date=payload.end_date,
+        owner_type=owner_type,
+        owner_division_id=owner_division_id,
+        owner_bidang_id=owner_bidang_id,
     )
+    if owner_type != "unassigned":
+        from datetime import datetime, timezone
+
+        project.ownership_classified_at = datetime.now(timezone.utc)
+        project.ownership_classified_by_id = current.id
     db.add(project)
     db.flush()
 
     if payload.member_ids:
         users = db.scalars(select(User).where(User.id.in_(payload.member_ids))).all()
-        for user in users:
-            db.add(TeamMember(project_id=project.id, user_id=user.id, role=user.role))
+        for member in users:
+            if not member.is_active:
+                continue
+            db.add(TeamMember(project_id=project.id, user_id=member.id, role=member.role))
 
     recalculate_project_progress(db, project.id)
     db.commit()
     loaded = _load_project(db, project.id)
     counts = _task_count_map(db, [loaded.id])
+    write_audit_log(
+        db,
+        action="project_created",
+        success=True,
+        actor=current,
+        message=f"Project {loaded.name} dibuat",
+        request=request,
+        meta={
+            "project_id": loaded.id,
+            "owner_type": loaded.owner_type,
+            "owner_division_id": loaded.owner_division_id,
+            "owner_bidang_id": loaded.owner_bidang_id,
+            "member_ids": payload.member_ids,
+        },
+    )
     return _to_out(loaded, counts.get(loaded.id, 0))
 
 
@@ -268,13 +401,20 @@ def create_project(
 def update_project(
     project_id: int,
     payload: ProjectUpdate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.manage")),
+    current: User = Depends(require_permission("projects.manage")),
 ) -> ProjectOut:
     project = _load_project(db, project_id)
+    org_scope.require_project_manage(db, current, project)
     data = payload.model_dump(exclude_unset=True)
     member_ids = data.pop("member_ids", None)
     data.pop("progress", None)  # progress is derived from task statuses
+    ownership_keys = {"owner_type", "owner_division_id", "owner_bidang_id"}
+    ownership_touch = any(k in data for k in ownership_keys)
+    owner_type = data.pop("owner_type", None)
+    owner_division_id = data.pop("owner_division_id", None)
+    owner_bidang_id = data.pop("owner_bidang_id", None)
 
     if "status" in data:
         _reject_premature_release(db, project.id, data["status"])
@@ -282,16 +422,86 @@ def update_project(
     for key, value in data.items():
         setattr(project, key, value)
 
+    if ownership_touch:
+        try:
+            org_scope.apply_project_ownership(
+                db,
+                project,
+                owner_type=owner_type if owner_type is not None else (project.owner_type or "unassigned"),
+                owner_division_id=owner_division_id if "owner_division_id" in payload.model_fields_set else project.owner_division_id,
+                owner_bidang_id=owner_bidang_id if "owner_bidang_id" in payload.model_fields_set else project.owner_bidang_id,
+                actor=current,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    previous_member_ids = [m.user_id for m in (project.members or [])]
     if member_ids is not None:
         project.members.clear()
         db.flush()
         users = db.scalars(select(User).where(User.id.in_(member_ids))).all()
-        for user in users:
-            db.add(TeamMember(project_id=project.id, user_id=user.id, role=user.role))
+        for member in users:
+            if not member.is_active:
+                continue
+            db.add(TeamMember(project_id=project.id, user_id=member.id, role=member.role))
 
     recalculate_project_progress(db, project.id)
     db.commit()
     loaded = _load_project(db, project.id)
+    counts = _task_count_map(db, [loaded.id])
+    if member_ids is not None and sorted(previous_member_ids) != sorted(member_ids):
+        write_audit_log(
+            db,
+            action="project_membership_changed",
+            success=True,
+            actor=current,
+            message=f"Keanggotaan project {loaded.name} diubah",
+            request=request,
+            meta={
+                "project_id": loaded.id,
+                "from_member_ids": previous_member_ids,
+                "to_member_ids": member_ids,
+            },
+        )
+    return _to_out(loaded, counts.get(loaded.id, 0))
+
+
+@router.put("/{project_id}/ownership", response_model=ProjectOut)
+def classify_project_ownership(
+    project_id: int,
+    payload: ProjectOwnershipUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_user),
+) -> ProjectOut:
+    """Administrator-only classification of legacy / unassigned projects."""
+    if current.role != "Admin":
+        raise HTTPException(status_code=403, detail="Hanya Administrator yang dapat mengklasifikasi kepemilikan project")
+    project = _load_project(db, project_id)
+    before = org_scope.ownership_summary(project)
+    try:
+        org_scope.apply_project_ownership(
+            db,
+            project,
+            owner_type=payload.owner_type,
+            owner_division_id=payload.owner_division_id,
+            owner_bidang_id=payload.owner_bidang_id,
+            actor=current,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    loaded = _load_project(db, project.id)
+    after = org_scope.ownership_summary(loaded)
+    write_audit_log(
+        db,
+        action="project_ownership_classified",
+        success=True,
+        actor=current,
+        message=f"Kepemilikan project {loaded.name} diklasifikasi",
+        request=request,
+        meta={"project_id": loaded.id, "before": before, "after": after},
+    )
     counts = _task_count_map(db, [loaded.id])
     return _to_out(loaded, counts.get(loaded.id, 0))
 
@@ -300,9 +510,11 @@ def update_project(
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin_role),
+    user: User = Depends(require_admin_role),
 ) -> None:
     project = _load_project(db, project_id)
+    if not org_scope.can_delete_project(db, user, project):
+        raise HTTPException(status_code=403, detail="Hanya Admin yang dapat menghapus project")
     db.delete(project)
     db.commit()
     docs_svc.delete_project_files(project_id)
@@ -312,10 +524,12 @@ def delete_project(
 def list_project_documents(
     project_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.view")),
+    user: User = Depends(require_permission("projects.view")),
 ) -> list[ProjectDocumentOut]:
-    if not db.get(Project, project_id):
+    project = db.get(Project, project_id)
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    org_scope.require_project_view(db, user, project)
     return docs_svc.list_documents(db, project_id)
 
 
@@ -326,8 +540,10 @@ async def upload_project_documents(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("projects.manage")),
 ) -> list[ProjectDocumentOut]:
-    if not db.get(Project, project_id):
+    project = db.get(Project, project_id)
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    org_scope.require_project_manage(db, user, project)
     return await docs_svc.save_uploads(db, project_id=project_id, files=files, user=user)
 
 
@@ -342,8 +558,10 @@ def add_project_document_url(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("projects.manage")),
 ) -> ProjectDocumentOut:
-    if not db.get(Project, project_id):
+    project = db.get(Project, project_id)
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    org_scope.require_project_manage(db, user, project)
     return docs_svc.save_url(
         db,
         project_id=project_id,
@@ -358,8 +576,12 @@ def download_project_document(
     project_id: int,
     document_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.view")),
+    user: User = Depends(require_permission("projects.view")),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    org_scope.require_project_view(db, user, project)
     doc = db.scalar(
         select(ProjectDocument).where(
             ProjectDocument.id == document_id,
@@ -388,8 +610,12 @@ def delete_project_document(
     project_id: int,
     document_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("projects.manage")),
+    user: User = Depends(require_permission("projects.manage")),
 ) -> None:
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    org_scope.require_project_manage(db, user, project)
     doc = db.scalar(
         select(ProjectDocument).where(
             ProjectDocument.id == document_id,

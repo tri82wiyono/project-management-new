@@ -36,6 +36,9 @@ ACTION_LABELS = {
     "role_duplicated": "Role digandakan",
     "role_deleted": "Role dihapus",
     "user_role_changed": "Role pengguna diubah",
+    "project_created": "Project dibuat",
+    "project_membership_changed": "Keanggotaan project diubah",
+    "project_ownership_classified": "Kepemilikan project diklasifikasi",
 }
 
 

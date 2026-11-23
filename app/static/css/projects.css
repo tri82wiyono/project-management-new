@@ -119,7 +119,8 @@
   background: transparent;
   font-size: 0.78rem;
 }
-#project-status-filter {
+#project-status-filter,
+#project-owner-filter {
   flex: 0 0 auto;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -127,6 +128,48 @@
   background: #fff;
   font-size: 0.76rem;
   color: var(--ink);
+}
+.projects-legacy-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+}
+.projects-legacy-banner p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.owner-pill {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: #eef2ff;
+  color: #3730a3;
+}
+.owner-pill.unassigned {
+  background: #fef3c7;
+  color: #92400e;
+}
+.owner-pill.division {
+  background: #e0f2fe;
+  color: #075985;
+}
+.owner-pill.bidang {
+  background: #dcfce7;
+  color: #166534;
+}
+.ownership-fields {
+  align-items: start;
 }
 
 .projects-table-wrap {

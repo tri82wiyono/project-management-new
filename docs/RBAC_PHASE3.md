@@ -6,7 +6,7 @@
 
 Organizational placement (`users.primary_bidang_id`) and unit leadership are **not** authorization grants.
 
-Organizational data scope for Projects/Tasks is **Phase 4**.
+Organizational data scope for Projects/Tasks is **Phase 4** — see `docs/PROJECT_ORG_SCOPE_PHASE4.md`.
 
 ## Legacy compatibility
 

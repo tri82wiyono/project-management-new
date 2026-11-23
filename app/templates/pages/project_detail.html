@@ -54,6 +54,29 @@
           <textarea id="field-description" name="description" rows="3"></textarea>
         </label>
 
+        <div class="field-row ownership-fields" id="ownership-fields">
+          <label class="field">
+            <span>Kepemilikan organisasi</span>
+            <select id="field-owner-type" name="owner_type">
+              <option value="unassigned">Belum diklasifikasi</option>
+              <option value="division">Divisi</option>
+              <option value="bidang">Bidang</option>
+            </select>
+          </label>
+          <label class="field" id="owner-division-field">
+            <span>Divisi pemilik</span>
+            <select id="field-owner-division" name="owner_division_id">
+              <option value="">— Pilih Divisi —</option>
+            </select>
+          </label>
+          <label class="field" id="owner-bidang-field" hidden>
+            <span>Bidang pemilik</span>
+            <select id="field-owner-bidang" name="owner_bidang_id">
+              <option value="">— Pilih Bidang —</option>
+            </select>
+          </label>
+        </div>
+
         <div class="field">
           <span>Documents</span>
           <div class="doc-mode-tabs" role="tablist" aria-label="Jenis dokumen">
@@ -149,5 +172,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/project-detail.js?v=5" defer></script>
+  <script src="/static/js/project-detail.js?v=6" defer></script>
 {% endblock %}

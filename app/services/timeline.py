@@ -6,7 +6,8 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.models import Project, ProjectStatus, Task, TaskStatus
+from app.models.models import Project, ProjectStatus, Task, TaskStatus, User
+from app.services import org_scope
 
 STATUS_BAR_COLOR = {
     ProjectStatus.backlog: "#94a3b8",
@@ -62,7 +63,14 @@ def _week_starts_covering(range_start: date, range_end: date) -> list[date]:
     return weeks or [range_start]
 
 
-def get_timeline_page(db: Session, *, year: int, month: int, project_id: int | None = None) -> dict:
+def get_timeline_page(
+    db: Session,
+    *,
+    year: int,
+    month: int,
+    project_id: int | None = None,
+    user: User | None = None,
+) -> dict:
     """
     Timeline shows the overall project schedule (all modules/tasks inside),
     not only a single-day marker. Month navigation focuses the viewport,
@@ -73,7 +81,14 @@ def get_timeline_page(db: Session, *, year: int, month: int, project_id: int | N
     month_end = date(year, month, monthrange(year, month)[1])
 
     projects_q = select(Project).order_by(Project.start_date.asc(), Project.id.asc())
+    p_scope = org_scope.project_visibility_filter(db, user) if user is not None else None
+    if p_scope is not None:
+        projects_q = projects_q.where(p_scope)
     if project_id:
+        if user is not None:
+            project = db.get(Project, project_id)
+            if project is not None:
+                org_scope.require_project_view(db, user, project)
         projects_q = projects_q.where(Project.id == project_id)
     projects = list(db.scalars(projects_q).all())
 
@@ -88,25 +103,29 @@ def get_timeline_page(db: Session, *, year: int, month: int, project_id: int | N
 
     active_count = sum(1 for p in projects if p.status in PIPELINE_STATUSES)
 
-    upcoming_tasks = db.scalars(
+    t_scope = org_scope.task_visibility_filter(db, user) if user is not None else None
+    upcoming_q = (
         select(Task)
         .where(Task.due_date.is_not(None))
         .where(Task.due_date >= today)
         .where(Task.status != TaskStatus.done)
-        .order_by(Task.due_date.asc(), Task.id.asc())
-        .limit(8)
+    )
+    if t_scope is not None:
+        upcoming_q = upcoming_q.where(t_scope)
+    upcoming_tasks = db.scalars(
+        upcoming_q.order_by(Task.due_date.asc(), Task.id.asc()).limit(8)
     ).all()
 
-    overdue_count = (
-        db.scalar(
-            select(func.count())
-            .select_from(Task)
-            .where(Task.due_date.is_not(None))
-            .where(Task.due_date < today)
-            .where(Task.status != TaskStatus.done)
-        )
-        or 0
+    overdue_q = (
+        select(func.count())
+        .select_from(Task)
+        .where(Task.due_date.is_not(None))
+        .where(Task.due_date < today)
+        .where(Task.status != TaskStatus.done)
     )
+    if t_scope is not None:
+        overdue_q = overdue_q.where(t_scope)
+    overdue_count = db.scalar(overdue_q) or 0
 
     upcoming_deadlines = []
     for task in upcoming_tasks:
@@ -203,9 +222,12 @@ def get_timeline_page(db: Session, *, year: int, month: int, project_id: int | N
             }
         )
 
+    options_q = select(Project).order_by(Project.name.asc())
+    if p_scope is not None:
+        options_q = options_q.where(p_scope)
     project_options = [
         {"id": p.id, "name": p.name}
-        for p in db.scalars(select(Project).order_by(Project.name.asc())).all()
+        for p in db.scalars(options_q).all()
     ]
 
     return {

@@ -43,6 +43,9 @@ class ProjectBase(BaseModel):
     color: str = "#4F7CFF"
     start_date: date
     end_date: date
+    owner_type: str = "unassigned"
+    owner_division_id: int | None = None
+    owner_bidang_id: int | None = None
 
 
 class ProjectCreate(ProjectBase):
@@ -59,6 +62,15 @@ class ProjectUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     member_ids: list[int] | None = None
+    owner_type: str | None = None
+    owner_division_id: int | None = None
+    owner_bidang_id: int | None = None
+
+
+class ProjectOwnershipUpdate(BaseModel):
+    owner_type: str = Field(min_length=1, max_length=20)
+    owner_division_id: int | None = None
+    owner_bidang_id: int | None = None
 
 
 class ProjectDocumentOut(BaseModel):
@@ -89,6 +101,12 @@ class ProjectOut(ProjectBase):
     members: list[TeamMemberOut] = []
     task_count: int = 0
     documents: list[ProjectDocumentOut] = []
+    owner_division_code: str = ""
+    owner_division_name: str = ""
+    owner_bidang_code: str = ""
+    owner_bidang_name: str = ""
+    is_classified: bool = False
+    ownership_classified_at: datetime | None = None
 
 
 class ProjectStats(BaseModel):

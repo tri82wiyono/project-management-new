@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     upload_dir: str = "/app/data/uploads"
     max_project_documents: int = 3
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB per file
+    # Phase 4 — organizational Project/Task scope. Default off for safe legacy rollout.
+    # Enable only after classifying legacy projects. Does not auto-disable in production.
+    org_scope_enforcement: bool = False
 
 
 @lru_cache

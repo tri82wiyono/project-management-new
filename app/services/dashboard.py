@@ -25,6 +25,27 @@ from app.schemas.schemas import (
     TimelineItem,
     UserOut,
 )
+from app.services import org_scope
+
+
+def _project_scope(db: Session, user: User | None):
+    if user is None:
+        return None
+    return org_scope.project_visibility_filter(db, user)
+
+
+def _task_scope(db: Session, user: User | None):
+    if user is None:
+        return None
+    return org_scope.task_visibility_filter(db, user)
+
+
+def _and_scope(clause, scope):
+    if scope is None:
+        return clause
+    if clause is None:
+        return scope
+    return and_(clause, scope)
 
 
 STATUS_LABELS = {
@@ -91,14 +112,21 @@ def _period_bounds(days: int = 30) -> tuple[datetime, datetime, datetime]:
     return previous_start, current_start, now
 
 
-def get_kpi(db: Session) -> DashboardKPI:
+def get_kpi(db: Session, user: User | None = None) -> DashboardKPI:
     prev_start, curr_start, now = _period_bounds(30)
+    p_scope = _project_scope(db, user)
+    t_scope = _task_scope(db, user)
 
     # Aggregate counts in fewer round-trips
-    total_projects = db.scalar(select(func.count()).select_from(Project)) or 0
-    status_rows = db.execute(
-        select(Task.status, func.count()).group_by(Task.status)
-    ).all()
+    p_count_stmt = select(func.count()).select_from(Project)
+    if p_scope is not None:
+        p_count_stmt = p_count_stmt.where(p_scope)
+    total_projects = db.scalar(p_count_stmt) or 0
+
+    status_stmt = select(Task.status, func.count()).group_by(Task.status)
+    if t_scope is not None:
+        status_stmt = status_stmt.where(t_scope)
+    status_rows = db.execute(status_stmt).all()
     status_map = {row[0]: int(row[1]) for row in status_rows}
     completed_tasks = status_map.get(TaskStatus.done, 0)
     in_progress = status_map.get(TaskStatus.in_progress, 0) + status_map.get(TaskStatus.review, 0)
@@ -107,7 +135,7 @@ def get_kpi(db: Session) -> DashboardKPI:
         db.scalar(
             select(func.count())
             .select_from(Project)
-            .where(and_(Project.created_at >= curr_start, Project.created_at <= now))
+            .where(_and_scope(and_(Project.created_at >= curr_start, Project.created_at <= now), p_scope))
         )
         or 0
     )
@@ -115,7 +143,7 @@ def get_kpi(db: Session) -> DashboardKPI:
         db.scalar(
             select(func.count())
             .select_from(Project)
-            .where(and_(Project.created_at >= prev_start, Project.created_at < curr_start))
+            .where(_and_scope(and_(Project.created_at >= prev_start, Project.created_at < curr_start), p_scope))
         )
         or 0
     )
@@ -125,11 +153,14 @@ def get_kpi(db: Session) -> DashboardKPI:
             select(func.count())
             .select_from(Task)
             .where(
-                and_(
-                    Task.status == TaskStatus.done,
-                    Task.completed_at.is_not(None),
-                    Task.completed_at >= curr_start,
-                    Task.completed_at <= now,
+                _and_scope(
+                    and_(
+                        Task.status == TaskStatus.done,
+                        Task.completed_at.is_not(None),
+                        Task.completed_at >= curr_start,
+                        Task.completed_at <= now,
+                    ),
+                    t_scope,
                 )
             )
         )
@@ -140,11 +171,14 @@ def get_kpi(db: Session) -> DashboardKPI:
             select(func.count())
             .select_from(Task)
             .where(
-                and_(
-                    Task.status == TaskStatus.done,
-                    Task.completed_at.is_not(None),
-                    Task.completed_at >= prev_start,
-                    Task.completed_at < curr_start,
+                _and_scope(
+                    and_(
+                        Task.status == TaskStatus.done,
+                        Task.completed_at.is_not(None),
+                        Task.completed_at >= prev_start,
+                        Task.completed_at < curr_start,
+                    ),
+                    t_scope,
                 )
             )
         )
@@ -157,9 +191,12 @@ def get_kpi(db: Session) -> DashboardKPI:
             select(func.count())
             .select_from(Task)
             .where(
-                and_(
-                    Task.status.in_([TaskStatus.in_progress, TaskStatus.review]),
-                    Task.created_at < curr_start,
+                _and_scope(
+                    and_(
+                        Task.status.in_([TaskStatus.in_progress, TaskStatus.review]),
+                        Task.created_at < curr_start,
+                    ),
+                    t_scope,
                 )
             )
         )
@@ -172,10 +209,13 @@ def get_kpi(db: Session) -> DashboardKPI:
             select(func.count())
             .select_from(Task)
             .where(
-                and_(
-                    Task.status == TaskStatus.done,
-                    Task.due_date.is_not(None),
-                    Task.completed_at.is_not(None),
+                _and_scope(
+                    and_(
+                        Task.status == TaskStatus.done,
+                        Task.due_date.is_not(None),
+                        Task.completed_at.is_not(None),
+                    ),
+                    t_scope,
                 )
             )
         )
@@ -186,11 +226,14 @@ def get_kpi(db: Session) -> DashboardKPI:
             select(func.count())
             .select_from(Task)
             .where(
-                and_(
-                    Task.status == TaskStatus.done,
-                    Task.due_date.is_not(None),
-                    Task.completed_at.is_not(None),
-                    func.date(Task.completed_at) <= Task.due_date,
+                _and_scope(
+                    and_(
+                        Task.status == TaskStatus.done,
+                        Task.due_date.is_not(None),
+                        Task.completed_at.is_not(None),
+                        func.date(Task.completed_at) <= Task.due_date,
+                    ),
+                    t_scope,
                 )
             )
         )
@@ -203,12 +246,15 @@ def get_kpi(db: Session) -> DashboardKPI:
             select(func.count())
             .select_from(Task)
             .where(
-                and_(
-                    Task.status == TaskStatus.done,
-                    Task.due_date.is_not(None),
-                    Task.completed_at.is_not(None),
-                    Task.completed_at >= prev_start,
-                    Task.completed_at < curr_start,
+                _and_scope(
+                    and_(
+                        Task.status == TaskStatus.done,
+                        Task.due_date.is_not(None),
+                        Task.completed_at.is_not(None),
+                        Task.completed_at >= prev_start,
+                        Task.completed_at < curr_start,
+                    ),
+                    t_scope,
                 )
             )
         )
@@ -219,13 +265,16 @@ def get_kpi(db: Session) -> DashboardKPI:
             select(func.count())
             .select_from(Task)
             .where(
-                and_(
-                    Task.status == TaskStatus.done,
-                    Task.due_date.is_not(None),
-                    Task.completed_at.is_not(None),
-                    Task.completed_at >= prev_start,
-                    Task.completed_at < curr_start,
-                    func.date(Task.completed_at) <= Task.due_date,
+                _and_scope(
+                    and_(
+                        Task.status == TaskStatus.done,
+                        Task.due_date.is_not(None),
+                        Task.completed_at.is_not(None),
+                        Task.completed_at >= prev_start,
+                        Task.completed_at < curr_start,
+                        func.date(Task.completed_at) <= Task.due_date,
+                    ),
+                    t_scope,
                 )
             )
         )
@@ -245,17 +294,20 @@ def get_kpi(db: Session) -> DashboardKPI:
     )
 
 
-def get_project_progress(db: Session, limit: int = 8) -> list[ProjectProgress]:
+def get_project_progress(
+    db: Session, limit: int = 8, user: User | None = None
+) -> list[ProjectProgress]:
     """Active projects for the dashboard widget.
 
     Ordered by name (same as /projects) so the preview matches View All,
     instead of clustering many Review=70% projects at the top.
     """
+    scope = _project_scope(db, user)
+    stmt = select(Project).where(Project.status != ProjectStatus.release)
+    if scope is not None:
+        stmt = stmt.where(scope)
     projects = db.scalars(
-        select(Project)
-        .where(Project.status != ProjectStatus.release)
-        .order_by(Project.name.asc(), Project.id.asc())
-        .limit(limit)
+        stmt.order_by(Project.name.asc(), Project.id.asc()).limit(limit)
     ).all()
     return [
         ProjectProgress(
@@ -274,6 +326,7 @@ def get_kanban(
     project_id: int | None = None,
     *,
     limit_per_column: int | None = None,
+    user: User | None = None,
 ) -> KanbanBoard:
     load_opts = (
         joinedload(Task.assignee),
@@ -281,10 +334,17 @@ def get_kanban(
         joinedload(Task.project),
         joinedload(Task.notes),
     )
+    t_scope = _task_scope(db, user)
+    if project_id and user is not None:
+        project = db.get(Project, project_id)
+        if project is not None:
+            org_scope.require_project_view(db, user, project)
 
     # Mode ringan (dashboard): hitung per kolom + ambil N terbaru saja
     if limit_per_column:
         count_stmt = select(Task.status, func.count()).group_by(Task.status)
+        if t_scope is not None:
+            count_stmt = count_stmt.where(t_scope)
         if project_id:
             count_stmt = count_stmt.where(Task.project_id == project_id)
         counts = {row[0]: int(row[1]) for row in db.execute(count_stmt).all()}
@@ -298,6 +358,8 @@ def get_kanban(
                 .order_by(Task.created_at.desc())
                 .limit(limit_per_column)
             )
+            if t_scope is not None:
+                stmt = stmt.where(t_scope)
             if project_id:
                 stmt = stmt.where(Task.project_id == project_id)
             tasks = db.scalars(stmt).unique().all()
@@ -312,6 +374,8 @@ def get_kanban(
         return KanbanBoard(columns=columns)
 
     stmt = select(Task).options(*load_opts)
+    if t_scope is not None:
+        stmt = stmt.where(t_scope)
     if project_id:
         stmt = stmt.where(Task.project_id == project_id)
     tasks = db.scalars(stmt.order_by(Task.created_at.desc())).unique().all()
@@ -333,8 +397,13 @@ def get_kanban(
     )
 
 
-def get_timeline(db: Session, limit: int | None = 25) -> list[TimelineItem]:
+def get_timeline(
+    db: Session, limit: int | None = 25, user: User | None = None
+) -> list[TimelineItem]:
     stmt = select(Project).order_by(Project.start_date.asc(), Project.name.asc())
+    scope = _project_scope(db, user)
+    if scope is not None:
+        stmt = stmt.where(scope)
     if limit:
         stmt = stmt.limit(limit)
     projects = db.scalars(stmt).all()
@@ -352,20 +421,20 @@ def get_timeline(db: Session, limit: int | None = 25) -> list[TimelineItem]:
     ]
 
 
-def get_overdue_alert(db: Session, *, limit: int = 3) -> OverdueAlert:
+def get_overdue_alert(db: Session, *, limit: int = 3, user: User | None = None) -> OverdueAlert:
     """Tugas belum selesai yang due date-nya sudah lewat hari ini."""
     today = date.today()
+    t_scope = _task_scope(db, user)
+    overdue_clause = and_(
+        Task.due_date.is_not(None),
+        Task.due_date < today,
+        Task.status != TaskStatus.done,
+    )
     count = (
         db.scalar(
             select(func.count())
             .select_from(Task)
-            .where(
-                and_(
-                    Task.due_date.is_not(None),
-                    Task.due_date < today,
-                    Task.status != TaskStatus.done,
-                )
-            )
+            .where(_and_scope(overdue_clause, t_scope))
         )
         or 0
     )
@@ -375,13 +444,7 @@ def get_overdue_alert(db: Session, *, limit: int = 3) -> OverdueAlert:
             joinedload(Task.assignee),
             joinedload(Task.project),
         )
-        .where(
-            and_(
-                Task.due_date.is_not(None),
-                Task.due_date < today,
-                Task.status != TaskStatus.done,
-            )
-        )
+        .where(_and_scope(overdue_clause, t_scope))
         .order_by(Task.due_date.asc(), Task.id.asc())
         .limit(limit)
     ).unique().all()
@@ -403,34 +466,43 @@ def get_overdue_alert(db: Session, *, limit: int = 3) -> OverdueAlert:
     return OverdueAlert(count=int(count), items=items)
 
 
-def get_dashboard_summary(db: Session) -> dict:
+def get_dashboard_summary(db: Session, user: User | None = None) -> dict:
     """Satu payload untuk bootstrap dashboard (hindari 7 round-trip HTTP)."""
     return {
-        "kpi": get_kpi(db),
-        "progress": get_project_progress(db),
-        "kanban": get_kanban(db, limit_per_column=6),
-        "timeline": get_timeline(db, limit=25),
-        "analytics": get_analytics(db, 30),
-        "calendar": get_calendar(db, light=True),
+        "kpi": get_kpi(db, user=user),
+        "progress": get_project_progress(db, user=user),
+        "kanban": get_kanban(db, limit_per_column=6, user=user),
+        "timeline": get_timeline(db, limit=25, user=user),
+        "analytics": get_analytics(db, 30, user=user),
+        "calendar": get_calendar(db, light=True, user=user),
         "team": get_team_overview(db),
-        "overdue": get_overdue_alert(db),
+        "overdue": get_overdue_alert(db, user=user),
     }
 
 
-def get_analytics(db: Session, days: int = 30) -> AnalyticsResponse:
+def get_analytics(db: Session, days: int = 30, user: User | None = None) -> AnalyticsResponse:
     today = date.today()
     start = today - timedelta(days=days - 1)
+    t_scope = _task_scope(db, user)
     created_rows = db.execute(
         select(func.date(Task.created_at), func.count())
-        .where(Task.created_at >= datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc))
+        .where(
+            _and_scope(
+                Task.created_at >= datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
+                t_scope,
+            )
+        )
         .group_by(func.date(Task.created_at))
     ).all()
     completed_rows = db.execute(
         select(func.date(Task.completed_at), func.count())
         .where(
-            and_(
-                Task.completed_at.is_not(None),
-                Task.completed_at >= datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
+            _and_scope(
+                and_(
+                    Task.completed_at.is_not(None),
+                    Task.completed_at >= datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
+                ),
+                t_scope,
             )
         )
         .group_by(func.date(Task.completed_at))
@@ -474,12 +546,14 @@ def get_calendar(
     month: int | None = None,
     *,
     light: bool = False,
+    user: User | None = None,
 ) -> CalendarResponse:
     today = date.today()
     year = year or today.year
     month = month or today.month
     start = date(year, month, 1)
     end = date(year, month, monthrange(year, month)[1])
+    t_scope = _task_scope(db, user)
 
     # Dashboard hanya butuh count/category; halaman Calendar butuh detail penuh
     if light:
@@ -494,7 +568,12 @@ def get_calendar(
     tasks = db.scalars(
         select(Task)
         .options(*load_opts)
-        .where(and_(Task.due_date.is_not(None), Task.due_date >= start, Task.due_date <= end))
+        .where(
+            _and_scope(
+                and_(Task.due_date.is_not(None), Task.due_date >= start, Task.due_date <= end),
+                t_scope,
+            )
+        )
         .order_by(Task.due_date.asc())
     ).unique().all()
 
@@ -519,7 +598,12 @@ def get_calendar(
     upcoming_tasks = db.scalars(
         select(Task)
         .options(*load_opts)
-        .where(and_(Task.due_date.is_not(None), Task.due_date >= today, Task.status != TaskStatus.done))
+        .where(
+            _and_scope(
+                and_(Task.due_date.is_not(None), Task.due_date >= today, Task.status != TaskStatus.done),
+                t_scope,
+            )
+        )
         .order_by(Task.due_date.asc())
         .limit(8)
     ).unique().all()

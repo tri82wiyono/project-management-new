@@ -294,6 +294,14 @@ class UserDevice(Base):
     user: Mapped[User] = relationship(back_populates="devices")
 
 
+class ProjectOwnerType(str, enum.Enum):
+    """Organizational ownership for a Project. unassigned = legacy/unclassified."""
+
+    unassigned = "unassigned"
+    division = "division"
+    bidang = "bidang"
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -309,6 +317,23 @@ class Project(Base):
     color: Mapped[str] = mapped_column(String(20), default="#4F7CFF")
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # Phase 4 — organizational ownership (Division XOR Bidang; unassigned for legacy).
+    owner_type: Mapped[str] = mapped_column(String(20), default=ProjectOwnerType.unassigned.value, index=True)
+    owner_division_id: Mapped[int | None] = mapped_column(
+        ForeignKey("divisions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    owner_bidang_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bidangs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    ownership_classified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ownership_classified_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tasks: Mapped[list[Task]] = relationship(back_populates="project", cascade="all, delete-orphan")
@@ -323,6 +348,8 @@ class Project(Base):
         cascade="all, delete-orphan",
         order_by="desc(Ticket.created_at)",
     )
+    owner_division: Mapped["Division | None"] = relationship("Division", foreign_keys=[owner_division_id])
+    owner_bidang: Mapped["Bidang | None"] = relationship("Bidang", foreign_keys=[owner_bidang_id])
 
 
 class ProjectDocument(Base):

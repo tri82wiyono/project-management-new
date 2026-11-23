@@ -354,3 +354,37 @@ def ensure_schema() -> None:
         conn.execute(text(tickets_sql))
         conn.execute(text(organization_sql))
         conn.execute(text(user_placement_sql))
+        # Phase 4 — Project organizational ownership (additive; legacy rows remain unassigned).
+        conn.execute(
+            text(
+                """
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_type VARCHAR(20) DEFAULT 'unassigned';
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_division_id INTEGER;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_bidang_id INTEGER;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS ownership_classified_at TIMESTAMPTZ;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS ownership_classified_by_id INTEGER;
+    UPDATE projects SET owner_type = 'unassigned' WHERE owner_type IS NULL OR owner_type = '';
+    DO $$ BEGIN
+      ALTER TABLE projects
+        ADD CONSTRAINT fk_projects_owner_division
+        FOREIGN KEY (owner_division_id) REFERENCES divisions(id) ON DELETE SET NULL;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
+    DO $$ BEGIN
+      ALTER TABLE projects
+        ADD CONSTRAINT fk_projects_owner_bidang
+        FOREIGN KEY (owner_bidang_id) REFERENCES bidangs(id) ON DELETE SET NULL;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
+    DO $$ BEGIN
+      ALTER TABLE projects
+        ADD CONSTRAINT fk_projects_ownership_classified_by
+        FOREIGN KEY (ownership_classified_by_id) REFERENCES users(id) ON DELETE SET NULL;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
+    CREATE INDEX IF NOT EXISTS ix_projects_owner_type ON projects(owner_type);
+    CREATE INDEX IF NOT EXISTS ix_projects_owner_division_id ON projects(owner_division_id);
+    CREATE INDEX IF NOT EXISTS ix_projects_owner_bidang_id ON projects(owner_bidang_id);
+                """
+            )
+        )

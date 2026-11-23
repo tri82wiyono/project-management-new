@@ -9,6 +9,7 @@ from app.models.models import Project, Task, TaskAssignee, TaskNote, TaskStatus,
 from app.schemas.schemas import TaskCreate, TaskNoteCreate, TaskNoteOut, TaskOut, TaskUpdate
 from app.services.auth import require_permission
 from app.services.dashboard import _task_out
+from app.services import org_scope
 from app.services.project_progress import recalculate_project_progress
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -79,10 +80,17 @@ def list_tasks(
     project_id: int | None = None,
     status_filter: TaskStatus | None = Query(default=None, alias="status"),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tasks.view")),
+    user: User = Depends(require_permission("tasks.view")),
 ) -> list[TaskOut]:
     stmt = _task_query()
+    scope = org_scope.task_visibility_filter(db, user)
+    if scope is not None:
+        stmt = stmt.where(scope)
     if project_id:
+        project = db.get(Project, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        org_scope.require_project_view(db, user, project)
         stmt = stmt.where(Task.project_id == project_id)
     if status_filter:
         stmt = stmt.where(Task.status == status_filter)
@@ -94,19 +102,24 @@ def list_tasks(
 def get_task(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tasks.view")),
+    user: User = Depends(require_permission("tasks.view")),
 ) -> TaskOut:
-    return _task_out(_load_task(db, task_id))
+    task = _load_task(db, task_id)
+    org_scope.require_task_view(db, user, task)
+    return _task_out(task)
 
 
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def create_task(
     payload: TaskCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_permission("tasks.manage")),
 ) -> TaskOut:
-    if not db.get(Project, payload.project_id):
+    project = db.get(Project, payload.project_id)
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    # tasks.manage + project visibility (enforcement-aware) gates creation.
+    org_scope.require_project_view(db, user, project)
 
     data = payload.model_dump()
     assignee_ids = _normalize_assignee_ids(data.pop("assignee_ids", []), data.get("assignee_id"))
@@ -128,16 +141,19 @@ def update_task(
     task_id: int,
     payload: TaskUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_permission("tasks.manage")),
 ) -> TaskOut:
     task = _load_task(db, task_id)
+    org_scope.require_task_manage(db, user, task)
     data = payload.model_dump(exclude_unset=True)
     previous_status = task.status
     previous_project_id = task.project_id
 
     if "project_id" in data and data["project_id"] is not None:
-        if not db.get(Project, data["project_id"]):
+        dest = db.get(Project, data["project_id"])
+        if not dest:
             raise HTTPException(status_code=404, detail="Project not found")
+        org_scope.require_project_view(db, user, dest)
 
     assignee_ids = None
     if "assignee_ids" in data:
@@ -170,9 +186,10 @@ def update_task(
 def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_permission("tasks.manage")),
 ) -> None:
     task = _load_task(db, task_id)
+    org_scope.require_task_manage(db, user, task)
     project_id = task.project_id
     db.delete(task)
     db.flush()
@@ -184,10 +201,12 @@ def delete_task(
 def list_task_notes(
     task_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tasks.view")),
+    user: User = Depends(require_permission("tasks.view")),
 ) -> list[TaskNoteOut]:
-    if not db.get(Task, task_id):
+    task = db.get(Task, task_id)
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    org_scope.require_task_view(db, user, task)
     notes = db.scalars(
         select(TaskNote)
         .options(joinedload(TaskNote.author))
@@ -204,8 +223,10 @@ def create_task_note(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("tasks.manage")),
 ) -> TaskNoteOut:
-    if not db.get(Task, task_id):
+    task = db.get(Task, task_id)
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    org_scope.require_task_manage(db, user, task)
     body = payload.body.strip()
     if not body:
         raise HTTPException(status_code=400, detail="Catatan tidak boleh kosong")
@@ -224,8 +245,12 @@ def delete_task_note(
     task_id: int,
     note_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_permission("tasks.manage")),
 ) -> None:
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    org_scope.require_task_manage(db, user, task)
     note = db.scalar(
         select(TaskNote).where(TaskNote.id == note_id, TaskNote.task_id == task_id)
     )

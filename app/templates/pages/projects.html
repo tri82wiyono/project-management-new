@@ -3,7 +3,7 @@
 {% block title %}Projects · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=21" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=22" />
 {% endblock %}
 
 {% block header %}
@@ -54,6 +54,20 @@
         <option value="izin">Izin</option>
         <option value="release">Release</option>
       </select>
+      <select id="project-owner-filter" aria-label="Filter by ownership" hidden>
+        <option value="">Semua kepemilikan</option>
+        <option value="unassigned">Belum diklasifikasi</option>
+        <option value="division">Divisi</option>
+        <option value="bidang">Bidang</option>
+      </select>
+    </section>
+
+    <section class="projects-legacy-banner panel" id="legacy-ownership-banner" hidden>
+      <div>
+        <strong>Project legacy belum diklasifikasi</strong>
+        <p id="legacy-ownership-text">Administrator perlu menetapkan kepemilikan Divisi/Bidang sebelum enforcement diaktifkan.</p>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="#project-owner-filter" id="legacy-ownership-filter-link">Tampilkan daftar</a>
     </section>
 
     <section class="projects-table-wrap panel" aria-label="Project list">
@@ -62,6 +76,7 @@
           <thead>
             <tr>
               <th>Project</th>
+              <th>Kepemilikan</th>
               <th>PIC</th>
               <th>Status</th>
               <th>Progress</th>
@@ -100,6 +115,30 @@
           <span>Description</span>
           <textarea id="field-description" name="description" rows="2" placeholder="Brief project overview"></textarea>
         </label>
+
+        <div class="field-row ownership-fields" id="ownership-fields">
+          <label class="field">
+            <span>Kepemilikan organisasi</span>
+            <select id="field-owner-type" name="owner_type">
+              <option value="unassigned">Belum diklasifikasi</option>
+              <option value="division">Divisi</option>
+              <option value="bidang">Bidang</option>
+            </select>
+            <small class="field-hint">Hanya satu: Divisi atau Bidang. Legacy tetap unassigned hingga diklasifikasi.</small>
+          </label>
+          <label class="field" id="owner-division-field">
+            <span>Divisi pemilik</span>
+            <select id="field-owner-division" name="owner_division_id">
+              <option value="">— Pilih Divisi —</option>
+            </select>
+          </label>
+          <label class="field" id="owner-bidang-field" hidden>
+            <span>Bidang pemilik</span>
+            <select id="field-owner-bidang" name="owner_bidang_id">
+              <option value="">— Pilih Bidang —</option>
+            </select>
+          </label>
+        </div>
 
         <div class="field">
           <span>Documents</span>
@@ -202,5 +241,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=23" defer></script>
+  <script src="/static/js/projects.js?v=24" defer></script>
 {% endblock %}

@@ -34,6 +34,7 @@ from app.schemas.schemas import (
     UserOut,
 )
 from app.services.auth import require_permission
+from app.services import org_scope
 from app.services import ticket_attachments as attach_svc
 
 router = APIRouter(prefix="/api/tickets", tags=["tickets"])
@@ -146,10 +147,12 @@ def _load_ticket(db: Session, ticket_id: int) -> Ticket:
     return ticket
 
 
-def _validate_project(db: Session, project_id: int) -> Project:
+def _validate_project(db: Session, project_id: int, user: User | None = None) -> Project:
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=400, detail="Project tidak ditemukan")
+    if user is not None:
+        org_scope.require_project_view(db, user, project)
     return project
 
 
@@ -195,7 +198,7 @@ def ticket_stats(
 def list_modules(
     project_id: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("tickets.view")),
+    user: User = Depends(require_permission("tickets.view")),
 ) -> TicketModulesResponse:
     modules: list[str] = []
     seen: set[str] = set()
@@ -211,7 +214,7 @@ def list_modules(
         modules.append(value)
 
     if project_id:
-        _validate_project(db, project_id)
+        _validate_project(db, project_id, user=user)
         # Modules are sub-units of a project, taken from task categories on that project.
         categories = db.scalars(
             select(Task.category)
@@ -322,7 +325,7 @@ def create_ticket(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("tickets.manage")),
 ) -> TicketOut:
-    _validate_project(db, payload.project_id)
+    _validate_project(db, payload.project_id, user=user)
     ticket = Ticket(
         record_type=payload.record_type,
         project_id=payload.project_id,
@@ -356,7 +359,7 @@ def update_ticket(
     pic_ids = data.pop("pic_ids", None)
 
     if "project_id" in data and data["project_id"] is not None:
-        _validate_project(db, data["project_id"])
+        _validate_project(db, data["project_id"], user=user)
         ticket.project_id = data["project_id"]
     if "record_type" in data and data["record_type"] is not None:
         ticket.record_type = data["record_type"]

@@ -50,6 +50,8 @@ const state = {
   tasks: [],
   notes: [],
   users: [],
+  divisions: [],
+  bidangsByDivision: {},
   selectedPicIds: [],
   suggestions: [],
   highlightIndex: -1,
@@ -76,6 +78,11 @@ const els = {
   picOptions: document.getElementById("pic-options"),
   picChips: document.getElementById("pic-chips"),
   fieldPic: document.getElementById("field-pic"),
+  ownerType: document.getElementById("field-owner-type"),
+  ownerDivision: document.getElementById("field-owner-division"),
+  ownerBidang: document.getElementById("field-owner-bidang"),
+  ownerDivisionField: document.getElementById("owner-division-field"),
+  ownerBidangField: document.getElementById("owner-bidang-field"),
   docDropzone: document.getElementById("doc-dropzone"),
   docInput: document.getElementById("field-documents"),
   docList: document.getElementById("doc-file-list"),
@@ -206,6 +213,10 @@ function renderDetail() {
           <div class="details-item">
             <span>PIC</span>
             ${renderPicStack(p)}
+          </div>
+          <div class="details-item">
+            <span>Kepemilikan</span>
+            <strong>${escapeHtml(ownershipLabel(p))}</strong>
           </div>
           <div class="details-item">
             <span>Start Date</span>
@@ -679,6 +690,84 @@ function wireDocEvents() {
   });
 }
 
+function ownershipLabel(project) {
+  const kind = String(project.owner_type || "unassigned");
+  if (kind === "division") {
+    return project.owner_division_name
+      ? `Divisi · ${project.owner_division_name}`
+      : "Divisi";
+  }
+  if (kind === "bidang") {
+    const bidang = project.owner_bidang_name || "";
+    const division = project.owner_division_name || "";
+    if (bidang && division) return `Bidang · ${bidang} (${division})`;
+    if (bidang) return `Bidang · ${bidang}`;
+    return "Bidang";
+  }
+  return "Belum diklasifikasi";
+}
+
+function syncOwnershipFields() {
+  const kind = els.ownerType?.value || "unassigned";
+  if (els.ownerDivisionField) els.ownerDivisionField.hidden = kind === "unassigned";
+  if (els.ownerBidangField) els.ownerBidangField.hidden = kind !== "bidang";
+  if (kind === "unassigned") {
+    if (els.ownerDivision) els.ownerDivision.value = "";
+    if (els.ownerBidang) els.ownerBidang.value = "";
+  }
+  if (kind === "division" && els.ownerBidang) els.ownerBidang.value = "";
+}
+
+function fillDivisionOptions(selectedId = "") {
+  if (!els.ownerDivision) return;
+  els.ownerDivision.innerHTML = ['<option value="">— Pilih Divisi —</option>']
+    .concat(
+      state.divisions.map(
+        (d) =>
+          `<option value="${d.id}" ${String(d.id) === String(selectedId) ? "selected" : ""}>${escapeHtml(d.name)}</option>`
+      )
+    )
+    .join("");
+}
+
+async function loadBidangsForDivision(divisionId, selectedBidangId = "") {
+  if (!els.ownerBidang) return;
+  if (!divisionId) {
+    els.ownerBidang.innerHTML = '<option value="">— Pilih Bidang —</option>';
+    return;
+  }
+  let items = state.bidangsByDivision[divisionId];
+  if (!items) {
+    try {
+      const data = await api(`/api/divisions/${divisionId}`);
+      items = Array.isArray(data.bidangs) ? data.bidangs.filter((b) => b.is_active !== false) : [];
+      state.bidangsByDivision[divisionId] = items;
+    } catch {
+      items = [];
+    }
+  }
+  els.ownerBidang.innerHTML = ['<option value="">— Pilih Bidang —</option>']
+    .concat(
+      items.map(
+        (b) =>
+          `<option value="${b.id}" ${String(b.id) === String(selectedBidangId) ? "selected" : ""}>${escapeHtml(b.name)}</option>`
+      )
+    )
+    .join("");
+}
+
+async function applyOwnershipToForm(project) {
+  const kind = project?.owner_type || "unassigned";
+  if (els.ownerType) els.ownerType.value = kind;
+  fillDivisionOptions(project?.owner_division_id || "");
+  syncOwnershipFields();
+  if (kind === "bidang") {
+    await loadBidangsForDivision(project?.owner_division_id || "", project?.owner_bidang_id || "");
+  } else if (els.ownerBidang) {
+    els.ownerBidang.innerHTML = '<option value="">— Pilih Bidang —</option>';
+  }
+}
+
 async function openModal(project) {
   els.form.reset();
   els.formError.hidden = true;
@@ -699,6 +788,7 @@ async function openModal(project) {
     ? project.status
     : "backlog";
   setSelectedPicsFromProject(project);
+  await applyOwnershipToForm(project);
   try {
     const docs = project.documents?.length
       ? project.documents
@@ -725,6 +815,9 @@ async function saveProject(event) {
   syncPicField();
 
   const id = document.getElementById("project-id").value;
+  const ownerType = els.ownerType?.value || "unassigned";
+  const ownerDivisionId = els.ownerDivision?.value ? Number(els.ownerDivision.value) : null;
+  const ownerBidangId = els.ownerBidang?.value ? Number(els.ownerBidang.value) : null;
   const payload = {
     name: document.getElementById("field-name").value.trim(),
     description: document.getElementById("field-description").value.trim() || null,
@@ -733,11 +826,24 @@ async function saveProject(event) {
     end_date: document.getElementById("field-end").value,
     status: document.getElementById("field-status").value,
     member_ids: state.selectedPicIds.slice(),
+    owner_type: ownerType,
+    owner_division_id: ownerType === "division" || ownerType === "bidang" ? ownerDivisionId : null,
+    owner_bidang_id: ownerType === "bidang" ? ownerBidangId : null,
   };
 
   if (!payload.name || !payload.pic || !payload.start_date || !payload.end_date) {
     els.formError.hidden = false;
     els.formError.textContent = "Lengkapi field wajib, termasuk minimal 1 PIC.";
+    return;
+  }
+  if (ownerType === "division" && !ownerDivisionId) {
+    els.formError.hidden = false;
+    els.formError.textContent = "Pilih Divisi pemilik.";
+    return;
+  }
+  if (ownerType === "bidang" && !ownerBidangId) {
+    els.formError.hidden = false;
+    els.formError.textContent = "Pilih Bidang pemilik.";
     return;
   }
 
@@ -804,6 +910,12 @@ function wireEvents() {
     if (e.key === "Escape" && !els.modal.hidden && els.picDropdown.hidden) closeModal();
   });
   els.form?.addEventListener("submit", saveProject);
+  els.ownerType?.addEventListener("change", () => syncOwnershipFields());
+  els.ownerDivision?.addEventListener("change", async () => {
+    if ((els.ownerType?.value || "") === "bidang") {
+      await loadBidangsForDivision(els.ownerDivision.value || "");
+    }
+  });
   wirePicEvents();
   wireDocEvents();
 }
@@ -815,16 +927,18 @@ async function boot() {
     return;
   }
   try {
-    const [project, tasks, notes, users] = await Promise.all([
+    const [project, tasks, notes, users, divisions] = await Promise.all([
       api(`/api/projects/${state.projectId}`),
       api(`/api/tasks?project_id=${state.projectId}`),
       api(`/api/projects/${state.projectId}/notes`),
       api("/api/team?active_only=true"),
+      api("/api/divisions?active=true").catch(() => ({ items: [] })),
     ]);
     state.project = project;
     state.tasks = Array.isArray(tasks) ? tasks : [];
     state.notes = Array.isArray(notes) ? notes : [];
     state.users = Array.isArray(users) ? users : users.items || [];
+    state.divisions = Array.isArray(divisions.items) ? divisions.items : [];
     renderDetail();
   } catch (err) {
     els.root.innerHTML = `

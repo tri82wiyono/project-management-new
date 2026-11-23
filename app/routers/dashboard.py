@@ -22,43 +22,43 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 @router.get("/kpi", response_model=DashboardKPI)
 def kpi(
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> DashboardKPI:
-    return svc.get_kpi(db)
+    return svc.get_kpi(db, user=user)
 
 
 @router.get("/progress", response_model=list[ProjectProgress])
 def progress(
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> list[ProjectProgress]:
-    return svc.get_project_progress(db)
+    return svc.get_project_progress(db, user=user)
 
 
 @router.get("/kanban", response_model=KanbanBoard)
 def kanban(
     project_id: int | None = None,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> KanbanBoard:
-    return svc.get_kanban(db, project_id)
+    return svc.get_kanban(db, project_id, user=user)
 
 
 @router.get("/timeline", response_model=list[TimelineItem])
 def timeline(
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> list[TimelineItem]:
-    return svc.get_timeline(db, limit=None)
+    return svc.get_timeline(db, limit=None, user=user)
 
 
 @router.get("/analytics", response_model=AnalyticsResponse)
 def analytics(
     days: int = Query(default=30, ge=7, le=90),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> AnalyticsResponse:
-    return svc.get_analytics(db, days)
+    return svc.get_analytics(db, days, user=user)
 
 
 @router.get("/calendar", response_model=CalendarResponse)
@@ -66,9 +66,9 @@ def calendar(
     year: int | None = None,
     month: int | None = Query(default=None, ge=1, le=12),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> CalendarResponse:
-    return svc.get_calendar(db, year, month)
+    return svc.get_calendar(db, year, month, user=user)
 
 
 @router.get("/team", response_model=TeamOverview)
@@ -82,15 +82,15 @@ def team(
 @router.get("/overdue", response_model=OverdueAlert)
 def overdue(
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> OverdueAlert:
-    return svc.get_overdue_alert(db)
+    return svc.get_overdue_alert(db, user=user)
 
 
 @router.get("/summary")
 def summary(
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("dashboard.view")),
+    user: User = Depends(require_permission("dashboard.view")),
 ) -> dict:
     """Bootstrap dashboard dalam 1 request."""
-    return svc.get_dashboard_summary(db)
+    return svc.get_dashboard_summary(db, user=user)
