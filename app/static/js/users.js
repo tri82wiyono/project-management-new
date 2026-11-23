@@ -5,6 +5,7 @@
   const panels = {
     users: $("panel-users"),
     roles: $("panel-roles"),
+    matrix: $("panel-matrix"),
   };
 
   const btnNewUser = $("btn-new-user");
@@ -26,6 +27,7 @@
     btnNewUser.hidden = valid !== "users";
     btnNewRole.hidden = valid !== "roles";
     history.replaceState(null, "", `#${valid}`);
+    if (valid === "matrix") loadPermissionMatrix();
   }
 
   tabs.forEach((tab) => tab.addEventListener("click", () => activateTab(tab.dataset.tab)));
@@ -139,6 +141,8 @@
     trash: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7l1 12a2 2 0 0 0 2 1.8h2a2 2 0 0 0 2-1.8L16 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
     place: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
     history: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    copy: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 16V6a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    users: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 18a5.5 5.5 0 0 1 11 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="9" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 18a4.2 4.2 0 0 1 5.5-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   };
 
   function placementLabel(user) {
@@ -754,15 +758,35 @@
 
   function renderPermissionChecks(selected) {
     const selectedSet = new Set(selected || []);
-    rolePermBox.innerHTML = permissionCatalog
+    const assignable = permissionCatalog.filter((item) => (item.status || "active") === "active");
+    const groups = {};
+    assignable.forEach((item) => {
+      const cat = item.category || "Other";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    rolePermBox.innerHTML = Object.entries(groups)
       .map(
-        (item) => `
-      <label class="perm-item">
-        <input type="checkbox" name="perm" value="${escapeHtml(item.key)}" ${
-          selectedSet.has(item.key) ? "checked" : ""
-        } />
-        <span>${escapeHtml(item.label)}</span>
-      </label>`
+        ([category, items]) => `
+      <fieldset class="perm-group">
+        <legend>${escapeHtml(category)}</legend>
+        <div class="perm-grid">
+          ${items
+            .map(
+              (item) => `
+            <label class="perm-item" title="${escapeHtml(item.description || item.key)}">
+              <input type="checkbox" name="perm" value="${escapeHtml(item.key)}" ${
+                selectedSet.has(item.key) ? "checked" : ""
+              } />
+              <span>
+                <strong>${escapeHtml(item.label)}</strong>
+                <small>${escapeHtml(item.key)}</small>
+              </span>
+            </label>`
+            )
+            .join("")}
+        </div>
+      </fieldset>`
       )
       .join("");
   }
@@ -773,28 +797,29 @@
 
   function renderRoles(items) {
     if (!items.length) {
-      rolesTbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted)">Belum ada role.</td></tr>`;
+      rolesTbody.innerHTML = `<tr><td colspan="6" style="color:var(--muted)">Belum ada role.</td></tr>`;
       return;
     }
     rolesTbody.innerHTML = items
       .map((role) => {
         const chips = (role.permissions || [])
-          .slice(0, 6)
+          .slice(0, 5)
           .map((p) => `<span class="perm-chip">${escapeHtml(p)}</span>`)
           .join("");
         const more =
-          (role.permissions || []).length > 6
-            ? `<span class="perm-chip">+${role.permissions.length - 6}</span>`
+          (role.permissions || []).length > 5
+            ? `<span class="perm-chip">+${role.permissions.length - 5}</span>`
             : "";
         return `
         <tr data-id="${role.id}">
           <td>
-            <strong class="role-code">${escapeHtml(role.code)}</strong>
-            <div class="role-desc">${escapeHtml(role.name)}${
-          role.description ? " · " + escapeHtml(role.description) : ""
-        }</div>
+            <strong>${escapeHtml(role.name)}</strong>
+            <div class="role-desc">${
+              role.description ? escapeHtml(role.description) : "—"
+            }</div>
             ${role.is_system ? '<div style="margin-top:4px"><span class="badge badge-admin">System</span></div>' : ""}
           </td>
+          <td><code class="role-code">${escapeHtml(role.code)}</code></td>
           <td><div class="perm-chips">${chips}${more}</div></td>
           <td>${role.user_count ?? 0}</td>
           <td>${
@@ -805,8 +830,10 @@
           <td class="col-actions">
             <div class="row-actions">
               ${iconBtn("edit-role", "Edit Role", ICONS.edit)}
+              ${iconBtn("users-role", "Lihat Users", ICONS.users)}
+              ${iconBtn("dup-role", "Duplikasi Role", ICONS.copy)}
               ${
-                role.is_system
+                role.is_system || role.is_protected
                   ? ""
                   : iconBtn("delete-role", "Hapus Role", ICONS.trash, "danger")
               }
@@ -825,11 +852,28 @@
     $("role-description").value = role?.description || "";
     $("role-sort").value = role?.sort_order ?? 100;
     $("role-active").checked = role ? Boolean(role.is_active) : true;
+    if (role?.is_protected) {
+      $("role-active").disabled = true;
+    } else {
+      $("role-active").disabled = false;
+    }
     $("role-modal-title").textContent = role ? "Edit Role" : "New Role";
     $("role-modal-subtitle").textContent = role
       ? "Perbarui parameter role dan permission."
       : "Buat role baru dengan permission yang sesuai.";
     renderPermissionChecks(role?.permissions || []);
+    const hint = $("role-phase4-hint");
+    const pending = role?.phase4_pending_permissions || [];
+    if (hint) {
+      if (pending.length) {
+        hint.hidden = false;
+        hint.textContent =
+          "Phase 4 (organizational scope) dapat menambahkan: " + pending.join(", ");
+      } else {
+        hint.hidden = true;
+        hint.textContent = "";
+      }
+    }
     setStatus(roleFormStatus, "");
     roleModal.hidden = false;
   }
@@ -910,6 +954,126 @@
     }
   });
 
+  async function openRoleUsersModal(role) {
+    const modal = $("role-users-modal");
+    const list = $("role-users-list");
+    if (!modal || !list) return;
+    $("role-users-title").textContent = `Pengguna · ${role.name}`;
+    $("role-users-subtitle").textContent = `Kode: ${role.code}`;
+    list.innerHTML = `<p class="org-empty">Memuat…</p>`;
+    modal.hidden = false;
+    try {
+      const res = await fetch(`/api/roles/${role.id}/users`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Gagal memuat pengguna role");
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = `<p class="org-empty">Belum ada pengguna pada role ini.</p>`;
+        return;
+      }
+      list.innerHTML = items
+        .map(
+          (u) => `<div class="member-row">
+            <strong>${escapeHtml(u.name)}</strong>
+            <span>${escapeHtml(u.email)}</span>
+            <span class="meta">${u.is_active ? "Aktif" : "Nonaktif"}</span>
+          </div>`
+        )
+        .join("");
+    } catch (err) {
+      list.innerHTML = `<p class="org-empty" style="color:#dc2626">${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function closeRoleUsersModal() {
+    const modal = $("role-users-modal");
+    if (modal) modal.hidden = true;
+  }
+  $("btn-close-role-users")?.addEventListener("click", closeRoleUsersModal);
+  $("btn-close-role-users-footer")?.addEventListener("click", closeRoleUsersModal);
+  $("role-users-modal")?.addEventListener("click", (event) => {
+    if (event.target === $("role-users-modal")) closeRoleUsersModal();
+  });
+
+  function openDupModal(role) {
+    $("role-dup-source-id").value = role.id;
+    $("role-dup-code").value = `${role.code}-copy`.slice(0, 40);
+    $("role-dup-name").value = `${role.name} (Copy)`.slice(0, 80);
+    setStatus($("role-dup-status"), "");
+    $("role-dup-modal").hidden = false;
+  }
+  function closeDupModal() {
+    $("role-dup-modal").hidden = true;
+  }
+  $("btn-close-role-dup")?.addEventListener("click", closeDupModal);
+  $("btn-cancel-role-dup")?.addEventListener("click", closeDupModal);
+  $("role-dup-modal")?.addEventListener("click", (event) => {
+    if (event.target === $("role-dup-modal")) closeDupModal();
+  });
+  $("role-dup-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = $("role-dup-source-id").value;
+    const payload = {
+      code: $("role-dup-code").value.trim(),
+      name: $("role-dup-name").value.trim(),
+    };
+    setStatus($("role-dup-status"), "Menduplikasi…");
+    try {
+      const res = await fetch(`/api/roles/${id}/duplicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Gagal menduplikasi role");
+      closeDupModal();
+      await loadRoles();
+      setStatus(rolesStatus, `Role ${data.code} dibuat dari duplikasi.`, "ok");
+    } catch (err) {
+      setStatus($("role-dup-status"), err.message || "Gagal", "err");
+    }
+  });
+
+  async function loadPermissionMatrix() {
+    const host = $("permission-matrix");
+    const statusEl = $("matrix-status");
+    if (!host) return;
+    setStatus(statusEl, "Memuat matrix…");
+    try {
+      const res = await fetch("/api/roles/matrix");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Gagal memuat matrix");
+      const roles = data.roles || [];
+      const perms = (data.permissions || []).filter((p) => (p.status || "active") === "active");
+      if (!roles.length || !perms.length) {
+        host.innerHTML = `<p class="org-empty">Belum ada data matrix.</p>`;
+        setStatus(statusEl, "");
+        return;
+      }
+      const head = `<tr><th>Permission</th>${roles
+        .map((r) => `<th title="${escapeHtml(r.code)}">${escapeHtml(r.name)}</th>`)
+        .join("")}</tr>`;
+      const body = perms
+        .map((p) => {
+          const cells = roles
+            .map((r) => {
+              const has = (r.permissions || []).includes(p.key);
+              return `<td class="${has ? "matrix-yes" : "matrix-no"}">${has ? "✓" : "·"}</td>`;
+            })
+            .join("");
+          return `<tr><th scope="row"><span>${escapeHtml(p.label)}</span><small>${escapeHtml(
+            p.key
+          )}</small></th>${cells}</tr>`;
+        })
+        .join("");
+      host.innerHTML = `<div class="matrix-scroll"><table class="matrix-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+      setStatus(statusEl, "");
+    } catch (err) {
+      host.innerHTML = "";
+      setStatus(statusEl, err.message || "Gagal memuat matrix", "err");
+    }
+  }
+
   rolesTbody.addEventListener("click", async (event) => {
     const btn = event.target.closest("[data-action]");
     if (!btn) return;
@@ -921,6 +1085,16 @@
 
     if (btn.dataset.action === "edit-role") {
       openRoleModal(role);
+      return;
+    }
+
+    if (btn.dataset.action === "users-role") {
+      await openRoleUsersModal(role);
+      return;
+    }
+
+    if (btn.dataset.action === "dup-role") {
+      openDupModal(role);
       return;
     }
 

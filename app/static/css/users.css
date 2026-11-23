@@ -586,6 +586,147 @@
   font-size: 0.74rem;
 }
 
+.perm-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: min(48vh, 360px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.perm-group {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.perm-group legend {
+  padding: 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.perm-item {
+  align-items: flex-start;
+}
+
+.perm-item span {
+  display: grid;
+  gap: 2px;
+}
+
+.perm-item small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.matrix-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.matrix-wrap {
+  min-width: 0;
+}
+
+.matrix-scroll {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  max-height: min(70vh, 640px);
+}
+
+.matrix-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.74rem;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid #eef2f7;
+  padding: 8px 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.matrix-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  z-index: 2;
+  font-weight: 700;
+}
+
+.matrix-table tbody th {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  text-align: left;
+  z-index: 1;
+  min-width: 220px;
+}
+
+.matrix-table tbody th span {
+  display: block;
+  font-weight: 650;
+}
+
+.matrix-table tbody th small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.matrix-yes {
+  color: #047857;
+  font-weight: 700;
+  background: #ecfdf5;
+}
+
+.matrix-no {
+  color: #94a3b8;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(60vh, 420px);
+  overflow: auto;
+  padding: 4px 2px 12px;
+}
+
+.member-row {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.member-row .meta {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+code.role-code {
+  font-size: 0.78rem;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
 @media (max-width: 900px) {
   .users-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

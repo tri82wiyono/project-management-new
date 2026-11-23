@@ -28,6 +28,14 @@ ACTION_LABELS = {
     "user_placement_transferred": "Penempatan karyawan ditransfer",
     "user_placement_cleared": "Penempatan karyawan dihapus",
     "user_placement_updated": "Penempatan karyawan diubah",
+    "role_created": "Role dibuat",
+    "role_updated": "Role diubah",
+    "role_activated": "Role diaktifkan",
+    "role_deactivated": "Role dinonaktifkan",
+    "role_permissions_changed": "Permission role diubah",
+    "role_duplicated": "Role digandakan",
+    "role_deleted": "Role dihapus",
+    "user_role_changed": "Role pengguna diubah",
 }
 
 

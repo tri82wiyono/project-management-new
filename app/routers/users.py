@@ -10,7 +10,12 @@ from app.services.auth import require_admin
 from app.services.email import send_welcome_user_email
 from app.services import placement as placement_svc
 from app.services.placement import PlacementConflictError, PlacementVersionError
-from app.services.roles import get_role_by_code, list_roles
+from app.services.roles import (
+    assert_role_assignment_allowed,
+    get_role_by_code,
+    is_last_active_admin,
+    list_roles,
+)
 from app.services.security import default_avatar, generate_temp_password, hash_password
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -316,12 +321,15 @@ def update_placement(
 def update_user(
     user_id: int,
     payload: UserUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current: User = Depends(require_admin),
 ) -> dict:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    previous_role = user.role
 
     if payload.email is not None:
         email = _normalize_email(payload.email)
@@ -332,19 +340,45 @@ def update_user(
     if payload.name is not None:
         user.name = payload.name.strip()
     if payload.role is not None:
-        new_role = _resolve_role_code(db, payload.role)
-        if user.id == current.id and new_role != "Admin" and current.role == "Admin":
+        try:
+            role_row = assert_role_assignment_allowed(
+                db, target=user, new_role_code=_resolve_role_code(db, payload.role), actor=current
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if user.id == current.id and role_row.code != "Admin" and current.role == "Admin":
             raise HTTPException(status_code=400, detail="Tidak dapat menurunkan role akun sendiri")
-        user.role = new_role
+        user.role = role_row.code
     if payload.is_active is not None:
         if user.id == current.id and not payload.is_active:
             raise HTTPException(status_code=400, detail="Tidak dapat menonaktifkan akun sendiri")
+        if not payload.is_active and is_last_active_admin(db, user):
+            raise HTTPException(
+                status_code=400,
+                detail="Tidak dapat menonaktifkan Administrator terakhir yang aktif",
+            )
         user.is_active = payload.is_active
     if payload.avatar_url is not None:
         user.avatar_url = payload.avatar_url.strip()
 
     db.commit()
     user = placement_svc.load_user_with_placement(db, user.id) or user
+
+    if payload.role is not None and previous_role != user.role:
+        write_audit_log(
+            db,
+            action="user_role_changed",
+            success=True,
+            actor=current,
+            target=user,
+            message=f"Role pengguna diubah dari {previous_role} ke {user.role}",
+            request=request,
+            meta={
+                "from_role": previous_role,
+                "to_role": user.role,
+                "placement_bidang_id": user.primary_bidang_id,
+            },
+        )
     return _serialize(db, user)
 
 
@@ -422,6 +456,11 @@ def deactivate_user(
         raise HTTPException(status_code=404, detail="User not found")
     if user.id == current.id:
         raise HTTPException(status_code=400, detail="Tidak dapat menghapus akun sendiri")
+    if is_last_active_admin(db, user):
+        raise HTTPException(
+            status_code=400,
+            detail="Tidak dapat menonaktifkan Administrator terakhir yang aktif",
+        )
     user.is_active = False
     db.commit()
     return {"ok": True, "message": "User dinonaktifkan"}
