@@ -1,0 +1,168 @@
+# Read-only production Gate A–C probe via existing Actions→VPS SSH secrets.
+# Does NOT deploy, restart, migrate, rotate, or modify files.
+#
+# Run from a branch that contains this file (feature branch OK):
+#   gh workflow run production-preflight.yml --ref feature/phase-5-scope-readiness
+# Then:
+#   gh run watch
+#
+# This workflow is intentionally absent from push-to-main triggers.
+
+name: Production preflight (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: "Optional operator note (no secrets)"
+        required: false
+        default: "Gate A-D evidence collection"
+
+concurrency:
+  group: production-preflight-readonly
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Read-only VPS checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Probe production over SSH (read-only)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            APP_DIR='${{ secrets.VPS_APP_DIR }}'
+            APP_DIR="${APP_DIR:-/opt/project-management-new}"
+            PM_ENV_FILE="${PM_ENV_FILE:-/etc/banksumut-pms/prod.env}"
+            BACKUP_DIR="${BACKUP_DIR:-/var/backups/banksumut-pms}"
+
+            echo "=== PMS production preflight (READ-ONLY) ==="
+            echo "operator_note=${{ inputs.note }}"
+            echo "runner_time_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "remote_user=$(id -un)"
+            echo "app_dir=${APP_DIR}"
+            echo "pm_env_file=${PM_ENV_FILE}"
+
+            echo ""
+            echo "=== A2 deployed revision ==="
+            if [[ -d "${APP_DIR}/.git" ]]; then
+              cd "${APP_DIR}"
+              echo "git_head=$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+              echo "git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+              echo "git_status_short=$(git status -sb 2>/dev/null | head -1)"
+            else
+              echo "RESULT_A2=FAIL reason=app_dir_missing_or_not_git"
+            fi
+
+            echo ""
+            echo "=== A3 containers ==="
+            docker ps --filter name=pm_app --filter name=pm_db --format '{{.Names}}|{{.Status}}|{{.Image}}' || true
+            APP_UP=0
+            DB_UP=0
+            docker ps --filter name=pm_app --filter status=running --format '{{.Names}}' | grep -qx pm_app && APP_UP=1 || true
+            docker ps --filter name=pm_db --filter status=running --format '{{.Names}}' | grep -qx pm_db && DB_UP=1 || true
+            echo "pm_app_running=${APP_UP}"
+            echo "pm_db_running=${DB_UP}"
+
+            echo ""
+            echo "=== A4 health ==="
+            if curl -fsS --max-time 5 http://127.0.0.1:8891/api/health >/tmp/pm_health.json 2>/tmp/pm_health.err; then
+              # Print only non-secret shape markers (length / keys if jq available)
+              echo "health_http=OK"
+              if command -v jq >/dev/null 2>&1; then
+                echo "health_keys=$(jq -r 'keys|join(",")' /tmp/pm_health.json 2>/dev/null || echo unparsed)"
+              else
+                echo "health_bytes=$(wc -c </tmp/pm_health.json | tr -d ' ')"
+              fi
+              RESULT_A4=PASS
+            else
+              echo "health_http=FAIL"
+              echo "health_err=$(tr '\n' ' ' </tmp/pm_health.err | cut -c1-120)"
+              RESULT_A4=FAIL
+            fi
+            rm -f /tmp/pm_health.json /tmp/pm_health.err
+
+            echo ""
+            echo "=== A5 env file locations (metadata only) ==="
+            if [[ -e "${APP_DIR}/.env" ]]; then
+              echo "worktree_env=present mode=$(stat -c '%a' "${APP_DIR}/.env" 2>/dev/null || stat -f '%OLp' "${APP_DIR}/.env" 2>/dev/null || echo '?') owner=$(stat -c '%U:%G' "${APP_DIR}/.env" 2>/dev/null || stat -f '%Su:%Sg' "${APP_DIR}/.env" 2>/dev/null || echo '?')"
+            else
+              echo "worktree_env=absent"
+            fi
+            if [[ -e "${PM_ENV_FILE}" ]]; then
+              MODE=$(stat -c '%a' "${PM_ENV_FILE}" 2>/dev/null || stat -f '%OLp' "${PM_ENV_FILE}" 2>/dev/null || echo '?')
+              OWNER=$(stat -c '%U:%G' "${PM_ENV_FILE}" 2>/dev/null || stat -f '%Su:%Sg' "${PM_ENV_FILE}" 2>/dev/null || echo '?')
+              echo "host_env=present mode=${MODE} owner=${OWNER}"
+              case "${MODE}" in
+                600|400) echo "host_env_mode_ok=YES" ;;
+                *) echo "host_env_mode_ok=NO prefer=600_or_400" ;;
+              esac
+              # Flag values only (non-secret booleans / env name) — never dump full file
+              if [[ -r "${PM_ENV_FILE}" ]]; then
+                SEED=$(grep -E '^SEED_DATA=' "${PM_ENV_FILE}" | tail -n1 | cut -d= -f2- || true)
+                ORG=$(grep -E '^ORG_SCOPE_ENFORCEMENT=' "${PM_ENV_FILE}" | tail -n1 | cut -d= -f2- || true)
+                APPENV=$(grep -E '^APP_ENV=' "${PM_ENV_FILE}" | tail -n1 | cut -d= -f2- || true)
+                echo "flag_SEED_DATA=${SEED:-<unset>}"
+                echo "flag_ORG_SCOPE_ENFORCEMENT=${ORG:-<unset>}"
+                echo "flag_APP_ENV=${APPENV:-<unset>}"
+              else
+                echo "host_env_readable=NO (deploy user cannot read — fix ownership)"
+              fi
+            else
+              echo "host_env=absent"
+              echo "host_env_mode_ok=NO"
+            fi
+
+            echo ""
+            echo "=== A6 volumes ==="
+            docker volume ls --format '{{.Name}}' | grep -E '^(pm_pgdata|pm_uploads|pm_avatars)$' || true
+            for v in pm_pgdata pm_uploads pm_avatars; do
+              if docker volume inspect "$v" >/dev/null 2>&1; then
+                echo "volume_${v}=present"
+              else
+                echo "volume_${v}=absent"
+              fi
+            done
+
+            echo ""
+            echo "=== B backup inventory (metadata only) ==="
+            if [[ -d "${BACKUP_DIR}" ]]; then
+              echo "backup_dir=present mode=$(stat -c '%a' "${BACKUP_DIR}" 2>/dev/null || stat -f '%OLp' "${BACKUP_DIR}" 2>/dev/null || echo '?')"
+              # Newest 5 files: name size mtime only
+              ls -lt "${BACKUP_DIR}" 2>/dev/null | head -6 | awk '{print}' || true
+              echo "backup_file_count=$(find "${BACKUP_DIR}" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')"
+            else
+              echo "backup_dir=absent path=${BACKUP_DIR}"
+            fi
+            echo "NOTE: restore drill cannot be proven by listing alone — admin must confirm isolated restore PASS"
+
+            echo ""
+            echo "=== C compose file presence (no config dump) ==="
+            if [[ -f "${APP_DIR}/docker-compose.prod.yml" ]]; then
+              echo "compose_prod_yml=present"
+              if grep -q 'banksumut-pms/prod.env' "${APP_DIR}/docker-compose.prod.yml" 2>/dev/null; then
+                echo "compose_expects_external_env=YES"
+              else
+                echo "compose_expects_external_env=NO (likely still on pre-74dfd59 main)"
+              fi
+            else
+              echo "compose_prod_yml=absent"
+            fi
+
+            echo ""
+            echo "=== GATE SUMMARY (evidence lines only) ==="
+            [[ "${APP_UP}" -eq 1 && "${DB_UP}" -eq 1 ]] && echo "GATE_A3=PASS" || echo "GATE_A3=FAIL"
+            echo "GATE_A4=${RESULT_A4}"
+            if [[ -e "${PM_ENV_FILE}" ]]; then echo "GATE_C_HOST_ENV=PRESENT"; else echo "GATE_C_HOST_ENV=ABSENT"; fi
+            echo "GATE_B_RESTORE=NOT_VERIFIED_BY_THIS_JOB"
+            echo "GATE_D_ROTATION=REQUIRES_ADMIN_APPROVAL_AND_EVIDENCE"
+            echo "=== END preflight (no production state changed) ==="
