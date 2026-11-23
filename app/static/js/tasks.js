@@ -26,12 +26,40 @@ const STATUS_LABELS = {
 
 const STATUS_ORDER = ["todo", "in_progress", "review", "done"];
 
-/** Inline status colors so column differentiation is not lost to CSS cache. */
+/** Soft status palettes (inline so CSS cache cannot erase differentiation). */
 const STATUS_COLORS = {
-  todo: { accent: "#64748b", bg: "#f1f5f9", border: "#cbd5e1", head: "#334155" },
-  in_progress: { accent: "#2563eb", bg: "#eff6ff", border: "#93c5fd", head: "#1d4ed8" },
-  review: { accent: "#d97706", bg: "#fffbeb", border: "#fcd34d", head: "#b45309" },
-  done: { accent: "#059669", bg: "#ecfdf5", border: "#6ee7b7", head: "#047857" },
+  todo: {
+    accent: "#7b8ea3",
+    bg: "#f7f9fc",
+    border: "#e6ebf2",
+    head: "#5b6b7c",
+    headBg: "#eef2f7",
+    chip: "rgba(123,142,163,.14)",
+  },
+  in_progress: {
+    accent: "#5b86e5",
+    bg: "#f6f9ff",
+    border: "#e0eaff",
+    head: "#3d63b8",
+    headBg: "#ebf2ff",
+    chip: "rgba(91,134,229,.14)",
+  },
+  review: {
+    accent: "#d4a017",
+    bg: "#fffdf6",
+    border: "#f3e6c0",
+    head: "#9a6b00",
+    headBg: "#fff6de",
+    chip: "rgba(212,160,23,.14)",
+  },
+  done: {
+    accent: "#4caf7a",
+    bg: "#f5fbf7",
+    border: "#d9eee3",
+    head: "#2f7a52",
+    headBg: "#e8f6ee",
+    chip: "rgba(76,175,122,.14)",
+  },
 };
 
 const state = {
@@ -427,27 +455,27 @@ function renderBoard() {
         `--col-border:${palette.border}`,
         `--col-head:${palette.head}`,
         `--col-accent:${palette.accent}`,
-        `--col-chip:${palette.accent}29`,
+        `--col-chip:${palette.chip}`,
         `--col-card:#ffffff`,
-        `--col-card-border:${palette.accent}47`,
-        `--col-drop:${palette.accent}24`,
+        `--col-card-border:${palette.border}`,
+        `--col-drop:${palette.chip}`,
         `background:${palette.bg}`,
         `border:1px solid ${palette.border}`,
-        `border-top:3px solid ${palette.accent}`,
+        `border-top:2px solid ${palette.accent}`,
       ].join(";");
       const headStyle = [
-        `background:${palette.accent}`,
-        `border-color:${palette.accent}`,
-        `color:#fff`,
+        `background:${palette.headBg}`,
+        `border:1px solid ${palette.border}`,
+        `color:${palette.head}`,
       ].join(";");
       return `
     <div class="kanban-col status-${col.status}" data-status="${col.status}" style="${colStyle}">
       <div class="kanban-col-head" style="${headStyle}">
-        <h3 style="color:#fff">
-          <span class="kanban-status-label" style="color:#fff"><i class="kanban-dot" aria-hidden="true" style="background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.28)"></i>${STATUS_LABELS[col.status] || col.label}</span>
-          <span class="kanban-count" style="color:#fff;background:rgba(255,255,255,.22)">${col.count}</span>
+        <h3 style="color:${palette.head}">
+          <span class="kanban-status-label" style="color:${palette.head}"><i class="kanban-dot" aria-hidden="true" style="background:${palette.accent};box-shadow:0 0 0 3px ${palette.chip}"></i>${STATUS_LABELS[col.status] || col.label}</span>
+          <span class="kanban-count" style="color:${palette.head};background:${palette.chip}">${col.count}</span>
         </h3>
-        <button type="button" class="btn-col-add" data-add-status="${col.status}" title="Add task" style="color:#fff;border-color:rgba(255,255,255,.45);background:rgba(255,255,255,.18)">+</button>
+        <button type="button" class="btn-col-add" data-add-status="${col.status}" title="Add task" style="color:${palette.head};border-color:${palette.border};background:#fff">+</button>
       </div>
       <div class="kanban-dropzone" data-drop-status="${col.status}">
         ${col.tasks
@@ -457,7 +485,7 @@ function renderBoard() {
             draggable="true"
             data-task-id="${task.id}"
             data-action="edit"
-            style="border-left:4px solid ${palette.accent};border-color:${palette.accent}47"
+            style="border-left:3px solid ${palette.accent};border-color:${palette.border}"
           >
             <button type="button" class="task-card-delete" data-delete-task="${task.id}" title="Hapus task" aria-label="Hapus task">×</button>
             ${showProject && task.project_name
