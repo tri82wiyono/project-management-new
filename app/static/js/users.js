@@ -213,8 +213,28 @@
     const divSelect = $("field-division");
     const versionEl = $("field-placement-version");
     const currentEl = $("field-placement-bidang-current");
+    const leadEl = $("user-form-leadership");
+    const ackWrap = $("user-ack-leadership-wrap");
+    const ackBox = $("field-ack-leadership");
     if (versionEl) versionEl.value = String(placement.placement_version || 0);
     if (currentEl) currentEl.value = placement.bidang_id ? String(placement.bidang_id) : "";
+    if (ackBox) ackBox.checked = false;
+    const leadership = user?.leadership || [];
+    if (leadEl && ackWrap) {
+      if (leadership.length) {
+        leadEl.hidden = false;
+        leadEl.innerHTML =
+          "Pemimpin unit: " +
+          leadership
+            .map((l) => `${escapeHtml(l.unit_type)} ${escapeHtml(l.code)} — ${escapeHtml(l.name)}`)
+            .join("; ");
+        ackWrap.hidden = false;
+      } else {
+        leadEl.hidden = true;
+        leadEl.textContent = "";
+        ackWrap.hidden = true;
+      }
+    }
     if (divSelect) {
       divSelect.innerHTML =
         `<option value="">— Pilih Divisi —</option>` +
@@ -238,18 +258,60 @@
       // Empty on edit means leave placement unchanged (use dedicated Penempatan modal to clear).
       return { skipped: true };
     }
-    const res = await fetch(`/api/users/${userId}/placement`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clear: false,
-        bidang_id: Number(bidangId),
-        reason: "Ditetapkan dari form user",
-        expected_version: Number(expectedVersion) || 0,
-        acknowledge_leadership_conflict: false,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
+
+    const sendPlacement = async (acknowledge) => {
+      const res = await fetch(`/api/users/${userId}/placement`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clear: false,
+          bidang_id: Number(bidangId),
+          reason: "Ditetapkan dari form user",
+          expected_version: Number(expectedVersion) || 0,
+          acknowledge_leadership_conflict: Boolean(acknowledge),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    };
+
+    let acknowledge = Boolean($("field-ack-leadership")?.checked);
+    let { res, data } = await sendPlacement(acknowledge);
+
+    if (res.status === 409 && data.detail?.code === "leadership_conflict") {
+      const ackWrap = $("user-ack-leadership-wrap");
+      const leadEl = $("user-form-leadership");
+      if (ackWrap) ackWrap.hidden = false;
+      const conflicts = (data.detail.conflicts || [])
+        .map((c) => `${c.unit_type} ${c.code}`)
+        .join(", ");
+      if (leadEl) {
+        leadEl.hidden = false;
+        leadEl.textContent = conflicts
+          ? `Pemimpin unit: ${conflicts}`
+          : data.detail.message || "Pengguna masih menjadi pemimpin unit.";
+      }
+      const ok = await askConfirm({
+        title: "Konflik kepemimpinan",
+        message:
+          data.detail.message ||
+          "Pengguna masih menjadi pemimpin unit organisasi. Lanjutkan penempatan tanpa mengubah kepemimpinan?",
+        meta: conflicts || undefined,
+        tone: "warn",
+        okText: "Lanjutkan Penempatan",
+        cancelText: "Batal",
+      });
+      if (!ok) {
+        throw new Error(
+          `${data.detail.message || "Konflik kepemimpinan."}${
+            conflicts ? ` (${conflicts})` : ""
+          } Centang konfirmasi lalu simpan lagi, atau ubah pemimpin di Organization.`
+        );
+      }
+      if ($("field-ack-leadership")) $("field-ack-leadership").checked = true;
+      ({ res, data } = await sendPlacement(true));
+    }
+
     if (!res.ok) {
       const detail =
         typeof data.detail === "string"

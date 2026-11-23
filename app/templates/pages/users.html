@@ -169,6 +169,11 @@
         </div>
         <input type="hidden" id="field-placement-version" value="0" />
         <input type="hidden" id="field-placement-bidang-current" value="" />
+        <p class="placement-leadership" id="user-form-leadership" hidden></p>
+        <label class="check-line" id="user-ack-leadership-wrap" hidden>
+          <input id="field-ack-leadership" type="checkbox" />
+          Saya memahami pengguna tetap menjadi pemimpin unit; kepemimpinan tidak dihapus otomatis
+        </label>
 
         <label class="check-line" id="send-email-wrap">
           <input id="field-send-email" type="checkbox" checked />
@@ -343,5 +348,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/users.js?v=15" defer></script>
+  <script src="/static/js/users.js?v=16" defer></script>
 {% endblock %}
