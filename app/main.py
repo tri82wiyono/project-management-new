@@ -22,6 +22,7 @@ from app.routers import users as users_router
 from app.seed import seed_database
 from app.services.auth import ensure_default_admin, get_optional_user
 from app.services.config_safety import validate_runtime_settings
+from app.services.csrf_guard import CsrfOriginMiddleware
 from app.services.email import ensure_smtp_profiles
 from app.services.identity import get_or_create_app_identity
 from app.services.roles import ensure_default_roles, permission_catalog, user_has_permission
@@ -186,7 +187,7 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 # Order matters: last added runs first.
-# ForceHttps → Session → AuthGuard (outermost first).
+# ForceHttps → CSRF Origin → Session → AuthGuard (outermost first).
 app.add_middleware(AuthGuardMiddleware)
 app.add_middleware(
     SessionMiddleware,
@@ -196,6 +197,7 @@ app.add_middleware(
     same_site="lax",
     https_only=bool(settings.cookie_secure),
 )
+app.add_middleware(CsrfOriginMiddleware)
 app.add_middleware(ForceHttpsMiddleware)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 

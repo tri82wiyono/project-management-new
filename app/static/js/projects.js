@@ -783,15 +783,11 @@ async function loadBidangsForDivision(divisionId, selectedBidangId = "") {
     els.ownerBidang.innerHTML = '<option value="">— Pilih Bidang —</option>';
     return;
   }
-  let items = state.bidangsByDivision[divisionId];
+  let items = state.bidangsByDivision[divisionId] || state.bidangsByDivision[String(divisionId)];
   if (!items) {
-    try {
-      const data = await api(`/api/divisions/${divisionId}`);
-      items = Array.isArray(data.bidangs) ? data.bidangs.filter((b) => b.is_active !== false) : [];
-      state.bidangsByDivision[divisionId] = items;
-    } catch {
-      items = [];
-    }
+    // Fallback: refresh ownership options (no organization.view required).
+    await loadOrganizationOptions();
+    items = state.bidangsByDivision[divisionId] || state.bidangsByDivision[String(divisionId)] || [];
   }
   els.ownerBidang.innerHTML = ['<option value="">— Pilih Bidang —</option>']
     .concat(
@@ -925,10 +921,17 @@ async function loadUsers() {
 
 async function loadOrganizationOptions() {
   try {
-    const data = await api("/api/divisions?active=true");
-    state.divisions = Array.isArray(data.items) ? data.items : [];
+    const data = await api("/api/organization/ownership-options");
+    state.divisions = Array.isArray(data.divisions) ? data.divisions : [];
+    state.bidangsByDivision = {};
+    for (const b of Array.isArray(data.bidangs) ? data.bidangs : []) {
+      const key = String(b.division_id);
+      if (!state.bidangsByDivision[key]) state.bidangsByDivision[key] = [];
+      state.bidangsByDivision[key].push(b);
+    }
   } catch {
     state.divisions = [];
+    state.bidangsByDivision = {};
   }
 }
 

@@ -1,0 +1,36 @@
+# Isolated PostgreSQL for Phase 5 E2E only.
+# NEVER point the main app (.env / docker-compose.yml) at this database.
+# Volume: pm_pgdata_test (separate from pm_pgdata).
+name: project-management-test
+
+services:
+  db_test:
+    image: postgres:16-alpine
+    container_name: pm_db_test
+    restart: "no"
+    environment:
+      POSTGRES_DB: project_mgmt_test
+      POSTGRES_USER: pm_test_user
+      POSTGRES_PASSWORD: pm_test_only_not_for_production
+      # Marker consumed by safety checks
+      PM_DB_ISOLATION: phase5-test
+    ports:
+      - "${TEST_POSTGRES_HOST_PORT:-5439}:5432"
+    volumes:
+      - pm_pgdata_test:/var/lib/postgresql/data
+    networks:
+      - pm_test_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pm_test_user -d project_mgmt_test"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+networks:
+  pm_test_net:
+    name: pm_test_net
+    driver: bridge
+
+volumes:
+  pm_pgdata_test:
+    name: pm_pgdata_test

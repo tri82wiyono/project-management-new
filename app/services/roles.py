@@ -269,8 +269,9 @@ LEGACY_PERMISSION_IMPLIES: dict[str, tuple[str, ...]] = {
     "organization.manage": ("organization.view",),
 }
 
-# Conservative templates for new business roles until Phase 4 scope exists.
-# Do NOT grant *.manage that currently exposes all projects/tasks globally.
+# Permissions safe to grant on business templates ONLY after org-scope enforcement
+# is enabled. Do not auto-apply to existing roles — Admin configures via UI.
+# Keyed by role code for UI hints (phase4_pending_permissions field name retained).
 PHASE4_PENDING_PERMISSIONS = {
     "PemimpinDivisi": [
         "projects.view",

@@ -4,14 +4,37 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from sqlalchemy import select
+
 from app.database import get_db
-from app.models.models import User
-from app.services.auth import require_permission
+from app.models.models import Bidang, Division, User
+from app.services.auth import require_permission, require_user
 from app.services.audit import write_audit_log
 from app.services import organization as org_svc
 from app.services import placement as placement_svc
+from app.services.roles import user_has_permission
 
 router = APIRouter(prefix="/api", tags=["organization"])
+
+
+def _require_ownership_options_access(user: User, db: Session) -> User:
+    """Minimal org options for project ownership UI — not full organization.view."""
+    if user.role == "Admin":
+        return user
+    allowed = (
+        user_has_permission(db, user, "projects.manage")
+        or user_has_permission(db, user, "projects.create")
+        or user_has_permission(db, user, "projects.update")
+        or user_has_permission(db, user, "projects.assign")
+        or user_has_permission(db, user, "organization.view")
+        or user_has_permission(db, user, "organization.manage")
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Permission required to load project ownership options",
+        )
+    return user
 
 
 class DivisionCreate(BaseModel):
@@ -52,6 +75,48 @@ class BidangUpdate(BaseModel):
 
 def _http_value_error(exc: ValueError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/organization/ownership-options")
+def organization_ownership_options(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> dict:
+    """Read-only active Division/Bidang list for project ownership pickers.
+
+    Does not expose leadership, member counts, or inactive units.
+    Accessible with project create/update/assign/manage (or organization.view).
+    """
+    _require_ownership_options_access(user, db)
+    divisions = list(
+        db.scalars(
+            select(Division)
+            .where(Division.is_active.is_(True))
+            .order_by(Division.name.asc(), Division.id.asc())
+        ).all()
+    )
+    bidangs = list(
+        db.scalars(
+            select(Bidang)
+            .where(Bidang.is_active.is_(True))
+            .order_by(Bidang.name.asc(), Bidang.id.asc())
+        ).all()
+    )
+    return {
+        "divisions": [
+            {"id": d.id, "code": d.code, "name": d.name}
+            for d in divisions
+        ],
+        "bidangs": [
+            {
+                "id": b.id,
+                "code": b.code,
+                "name": b.name,
+                "division_id": b.division_id,
+            }
+            for b in bidangs
+        ],
+    }
 
 
 @router.get("/organization/tree")

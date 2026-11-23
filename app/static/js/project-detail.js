@@ -736,12 +736,18 @@ async function loadBidangsForDivision(divisionId, selectedBidangId = "") {
     els.ownerBidang.innerHTML = '<option value="">— Pilih Bidang —</option>';
     return;
   }
-  let items = state.bidangsByDivision[divisionId];
+  let items = state.bidangsByDivision[divisionId] || state.bidangsByDivision[String(divisionId)];
   if (!items) {
     try {
-      const data = await api(`/api/divisions/${divisionId}`);
-      items = Array.isArray(data.bidangs) ? data.bidangs.filter((b) => b.is_active !== false) : [];
-      state.bidangsByDivision[divisionId] = items;
+      const data = await api("/api/organization/ownership-options");
+      state.divisions = Array.isArray(data.divisions) ? data.divisions : [];
+      state.bidangsByDivision = {};
+      for (const b of Array.isArray(data.bidangs) ? data.bidangs : []) {
+        const key = String(b.division_id);
+        if (!state.bidangsByDivision[key]) state.bidangsByDivision[key] = [];
+        state.bidangsByDivision[key].push(b);
+      }
+      items = state.bidangsByDivision[String(divisionId)] || [];
     } catch {
       items = [];
     }
@@ -932,13 +938,19 @@ async function boot() {
       api(`/api/tasks?project_id=${state.projectId}`),
       api(`/api/projects/${state.projectId}/notes`),
       api("/api/team?active_only=true"),
-      api("/api/divisions?active=true").catch(() => ({ items: [] })),
+      api("/api/organization/ownership-options").catch(() => ({ divisions: [], bidangs: [] })),
     ]);
     state.project = project;
     state.tasks = Array.isArray(tasks) ? tasks : [];
     state.notes = Array.isArray(notes) ? notes : [];
     state.users = Array.isArray(users) ? users : users.items || [];
-    state.divisions = Array.isArray(divisions.items) ? divisions.items : [];
+    state.divisions = Array.isArray(divisions.divisions) ? divisions.divisions : [];
+    state.bidangsByDivision = {};
+    for (const b of Array.isArray(divisions.bidangs) ? divisions.bidangs : []) {
+      const key = String(b.division_id);
+      if (!state.bidangsByDivision[key]) state.bidangsByDivision[key] = [];
+      state.bidangsByDivision[key].push(b);
+    }
     renderDetail();
   } catch (err) {
     els.root.innerHTML = `
