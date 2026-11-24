@@ -238,7 +238,20 @@ async def create_message(
         if not parent or parent.deleted_at is not None:
             raise HTTPException(status_code=400, detail="Pesan yang dibalas tidak ditemukan")
 
-    mention_ids = sorted({int(x) for x in (mention_ids or []) if int(x) > 0})
+    mention_ids = {int(x) for x in (mention_ids or []) if int(x) > 0}
+    # Also resolve @Name mentions typed in the body.
+    for match in re.finditer(r"@([A-Za-z0-9][A-Za-z0-9 .'_-]{0,80})", text):
+        name = match.group(1).strip()
+        if not name:
+            continue
+        matched = db.scalar(
+            select(User).where(User.is_active.is_(True), func.lower(User.name) == name.lower())
+        )
+        if matched:
+            mention_ids.add(matched.id)
+    mention_ids.discard(author.id)
+    mention_ids = sorted(mention_ids)
+
     mention_users: list[User] = []
     if mention_ids:
         mention_users = list(

@@ -449,12 +449,22 @@ def ensure_schema() -> None:
       id SERIAL PRIMARY KEY,
       message_id INTEGER NOT NULL REFERENCES project_discussion_messages(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      read_at TIMESTAMPTZ,
       CONSTRAINT uq_discussion_mention UNIQUE (message_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS ix_project_discussion_mentions_message_id
       ON project_discussion_mentions(message_id);
     CREATE INDEX IF NOT EXISTS ix_project_discussion_mentions_user_id
       ON project_discussion_mentions(user_id);
+    ALTER TABLE project_discussion_mentions
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+    ALTER TABLE project_discussion_mentions
+      ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_mentions_created_at
+      ON project_discussion_mentions(created_at);
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_mentions_read_at
+      ON project_discussion_mentions(read_at);
                 """
             )
         )

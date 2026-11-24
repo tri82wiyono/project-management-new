@@ -15,6 +15,7 @@ from app.db_migrate import ensure_schema
 from app.routers import audit as audit_router
 from app.routers import auth as auth_router
 from app.routers import dashboard, projects, roles as roles_router
+from app.routers import notifications as notifications_router
 from app.routers import organization as organization_router
 from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
 from app.routers import tickets as tickets_router
@@ -213,6 +214,7 @@ app.include_router(roles_router.router)
 app.include_router(organization_router.router)
 app.include_router(timeline_router.router)
 app.include_router(audit_router.router)
+app.include_router(notifications_router.router)
 
 
 def _user_context(request: Request, db: Session) -> dict:

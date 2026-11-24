@@ -441,3 +441,23 @@ class DiscussionListResponse(BaseModel):
     items: list[DiscussionMessageOut]
     total: int
     has_more: bool = False
+
+
+class MentionNotificationOut(BaseModel):
+    id: int
+    project_id: int
+    project_name: str
+    message_id: int
+    body_preview: str
+    actor_name: str
+    actor_avatar_url: str = ""
+    actor_role: str = ""
+    created_at: datetime
+    is_read: bool = False
+    open_url: str
+
+
+class MentionNotificationListResponse(BaseModel):
+    items: list[MentionNotificationOut]
+    unread_count: int
+    total: int

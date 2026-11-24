@@ -173,6 +173,13 @@
           if (otherToggle) otherToggle.setAttribute("aria-expanded", "false");
         }
       });
+      document.querySelectorAll("[data-notif-menu].open").forEach((notif) => {
+        notif.classList.remove("open");
+        const notifPanel = notif.querySelector("[data-notif-panel]");
+        const notifToggle = notif.querySelector("[data-notif-toggle]");
+        if (notifPanel) notifPanel.hidden = true;
+        if (notifToggle) notifToggle.setAttribute("aria-expanded", "false");
+      });
       panel.hidden = false;
       menu.classList.add("open");
       toggle.setAttribute("aria-expanded", "true");

@@ -647,6 +647,8 @@ class ProjectDiscussionMention(Base):
         index=True,
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 
     message: Mapped[ProjectDiscussionMessage] = relationship(back_populates="mentions")
     user: Mapped[User] = relationship("User")

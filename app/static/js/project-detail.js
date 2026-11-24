@@ -950,6 +950,41 @@
     });
   }
 
+  async function focusMessageFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const focusId = Number(params.get("focus_msg") || 0);
+    const notifId = Number(params.get("notif") || 0);
+    if (!focusId) return;
+
+    const node = document.querySelector(`[data-msg-id="${focusId}"]`);
+    if (node) {
+      node.classList.add("is-focused");
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => node.classList.remove("is-focused"), 4000);
+    }
+
+    try {
+      if (notifId) {
+        await api("/api/notifications/mentions/read", {
+          method: "POST",
+          body: JSON.stringify({ notification_id: notifId }),
+        });
+      } else {
+        await api("/api/notifications/mentions/read", {
+          method: "POST",
+          body: JSON.stringify({ message_id: focusId }),
+        });
+      }
+    } catch (_) {
+      /* ignore mark-read failure */
+    }
+
+    params.delete("focus_msg");
+    params.delete("notif");
+    const next = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash || ""}`;
+    window.history.replaceState({}, "", next);
+  }
+
   async function boot() {
     wireHeaderEvents();
     if (!state.projectId) {
@@ -971,6 +1006,7 @@
       state.messages = Array.isArray(discussion.items) ? discussion.items : [];
       renderWorkspace();
       startPolling();
+      await focusMessageFromQuery();
     } catch (err) {
       els.root.innerHTML = `
         <div class="details-empty">

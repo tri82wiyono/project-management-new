@@ -407,6 +407,12 @@
   grid-template-columns: 36px minmax(0, 1fr);
   gap: 9px;
   align-items: start;
+  scroll-margin-top: 12px;
+}
+.pw-msg.is-focused .pw-msg-bubble {
+  border-color: #93b0ff;
+  box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.18);
+  background: #f5f8ff;
 }
 
 .pw-msg-avatar {
