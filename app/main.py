@@ -323,6 +323,27 @@ def projects_page(request: Request, db: Session = Depends(get_db)) -> HTMLRespon
     return templates.TemplateResponse(request, "pages/projects.html", context)
 
 
+@app.get("/projects/new", response_class=HTMLResponse)
+def project_new_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    denied = _require_page_permission(
+        request, db, "projects.create", "projects.manage", "projects.update"
+    )
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
+        active_page="projects",
+        page_title="New Project",
+        page_subtitle="Lengkapi detail project pada halaman khusus.",
+        extra={
+            "form_mode": "create",
+            "project_id": None,
+        },
+    )
+    return templates.TemplateResponse(request, "pages/project_form.html", context)
+
+
 @app.get("/tickets", response_class=HTMLResponse)
 def tickets_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     denied = _require_page_permission(request, db, "tickets.view")
@@ -337,6 +358,29 @@ def tickets_page(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
         extra={"search_placeholder": "Cari tiket..."},
     )
     return templates.TemplateResponse(request, "pages/tickets.html", context)
+
+
+@app.get("/projects/{project_id}/edit", response_class=HTMLResponse)
+def project_edit_page(
+    project_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    denied = _require_page_permission(
+        request, db, "projects.update", "projects.manage", "projects.create"
+    )
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
+        active_page="projects",
+        page_title="Edit Project",
+        page_subtitle="Perbarui detail project pada halaman khusus.",
+        extra={
+            "form_mode": "edit",
+            "project_id": project_id,
+        },
+    )
+    return templates.TemplateResponse(request, "pages/project_form.html", context)
 
 
 @app.get("/projects/{project_id}", response_class=HTMLResponse)

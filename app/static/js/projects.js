@@ -1103,12 +1103,7 @@ function wirePicEvents() {
 }
 
 function wireEvents() {
-  els.btnNew.addEventListener("click", () => openModal());
-  // Close only via Cancel — not backdrop, Escape, or outside click.
-  els.btnCancel.addEventListener("click", closeModal);
-  els.form.addEventListener("submit", saveProject);
-  wirePicEvents();
-  wireDocEvents();
+  // New/Edit project use dedicated pages (/projects/new, /projects/{id}/edit).
 
   els.list.addEventListener("click", (e) => {
     const editBtn = e.target.closest('[data-action="edit"]');
@@ -1116,8 +1111,7 @@ function wireEvents() {
       e.preventDefault();
       e.stopPropagation();
       const id = Number(editBtn.dataset.id);
-      const project = state.projects.find((p) => p.id === id);
-      if (project) openModal(project);
+      if (id) window.location.href = `/projects/${id}/edit`;
       return;
     }
 

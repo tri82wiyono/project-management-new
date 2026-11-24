@@ -325,7 +325,9 @@ function renderDetail() {
     </section>
   `;
 
-  document.getElementById("btn-edit-inline")?.addEventListener("click", () => openModal(p));
+  document.getElementById("btn-edit-inline")?.addEventListener("click", () => {
+    if (p?.id) window.location.href = `/projects/${p.id}/edit`;
+  });
 }
 
 function selectedUsers() {
@@ -905,30 +907,8 @@ function wirePicEvents() {
 
 function wireEvents() {
   els.btnEdit?.addEventListener("click", () => {
-    if (state.project) openModal(state.project);
+    if (state.projectId) window.location.href = `/projects/${state.projectId}/edit`;
   });
-  els.btnClose?.addEventListener("click", closeModal);
-  els.btnCancel?.addEventListener("click", closeModal);
-  els.modal?.addEventListener("click", (e) => {
-    if (e.target === els.modal) closeModal();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !els.modal.hidden && els.picDropdown.hidden) closeModal();
-  });
-  els.form?.addEventListener("submit", saveProject);
-  els.ownerType?.addEventListener("change", async () => {
-    syncOwnershipFields();
-    if ((els.ownerType?.value || "") === "bidang") {
-      await loadBidangsForDivision(els.ownerDivision?.value || "");
-    }
-  });
-  els.ownerDivision?.addEventListener("change", async () => {
-    if ((els.ownerType?.value || "") === "bidang") {
-      await loadBidangsForDivision(els.ownerDivision.value || "");
-    }
-  });
-  wirePicEvents();
-  wireDocEvents();
 }
 
 async function boot() {
