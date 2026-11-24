@@ -4,7 +4,8 @@
 
 {% block head_extra %}
   <link rel="stylesheet" href="/static/css/projects.css?v=24" />
-  <link rel="stylesheet" href="/static/css/project-form.css?v=1" />
+  <link rel="stylesheet" href="/static/css/project-form.css?v=3" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" />
 {% endblock %}
 
 {% block header %}
@@ -41,10 +42,73 @@
             <input id="field-name" name="name" type="text" required maxlength="160" placeholder="e.g. Digital Banking Platform" />
           </label>
 
-          <label class="field">
+          <div class="field-row">
+            <label class="field">
+              <span>Dikembangkan oleh <em>*</em></span>
+              <select id="field-developed-by" name="developed_by" required>
+                <option value="">— Pilih —</option>
+                <option value="internal">Internal Bank</option>
+                <option value="vendor">Pihak Ketiga (Vendor)</option>
+                <option value="blanket_mandays">Blanket Mandays</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Anggaran (Rp)</span>
+              <input
+                id="field-budget"
+                name="budget_display"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="1.000.000"
+              />
+              <input type="hidden" id="field-budget-value" name="budget" value="" />
+              <small class="field-hint">Angka otomatis memakai pemisah ribuan (contoh: 1.000.000).</small>
+            </label>
+          </div>
+
+          <div class="field">
             <span>Description</span>
-            <textarea id="field-description" name="description" rows="4" placeholder="Brief project overview"></textarea>
-          </label>
+            <div id="description-editor" class="wysiwyg-editor"></div>
+            <textarea id="field-description" name="description" hidden></textarea>
+            <small class="field-hint">Gunakan editor untuk format teks, daftar, dan tautan.</small>
+          </div>
+
+          <div class="field">
+            <span>Dokumen pendukung</span>
+            <div class="doc-mode-tabs" role="tablist" aria-label="Jenis dokumen">
+              <button type="button" class="doc-mode-tab is-active" data-doc-mode="file" role="tab" aria-selected="true">Upload file</button>
+              <button type="button" class="doc-mode-tab" data-doc-mode="url" role="tab" aria-selected="false">URL / Drive</button>
+            </div>
+
+            <div class="doc-mode-panel" id="doc-mode-file" data-doc-panel="file">
+              <div
+                class="doc-dropzone"
+                id="doc-dropzone"
+                tabindex="0"
+                role="button"
+                aria-label="Upload dokumen project"
+              >
+                <input type="file" id="field-documents" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip" hidden />
+                <div class="doc-dropzone-inner">
+                  <strong>Drag & drop file di sini</strong>
+                  <span>atau klik untuk memilih · maks. 3 item · 10 MB/file</span>
+                </div>
+              </div>
+              <small class="field-hint">PDF, Office, gambar, ZIP, TXT/CSV.</small>
+            </div>
+
+            <div class="doc-mode-panel" id="doc-mode-url" data-doc-panel="url" hidden>
+              <div class="doc-url-form">
+                <input id="field-doc-url" type="url" placeholder="https://drive.google.com/…" autocomplete="off" />
+                <input id="field-doc-url-title" type="text" placeholder="Judul (opsional)" maxlength="255" autocomplete="off" />
+                <button type="button" class="btn btn-ghost" id="btn-add-doc-url">Tambah URL</button>
+              </div>
+              <small class="field-hint">Tempel tautan Google Drive, OneDrive, SharePoint, atau URL dokumen lain.</small>
+            </div>
+
+            <ul class="doc-file-list" id="doc-file-list" hidden></ul>
+          </div>
 
           <div class="field-row">
             <label class="field">
@@ -111,12 +175,12 @@
 
       <section class="form-section">
         <div class="form-section-head">
-          <h2>PIC & Dokumen</h2>
-          <p>Tunjuk Project Manager dan lampirkan dokumen pendukung.</p>
+          <h2>Project Manager (PIC)</h2>
+          <p>Tunjuk PIC yang bertanggung jawab atas project.</p>
         </div>
         <div class="form-section-body">
           <div class="field">
-            <span>Project Manager (PIC) <em>*</em></span>
+            <span>PIC <em>*</em></span>
             <div class="pic-tagbox" id="pic-multiselect">
               <div class="pic-input-wrap" id="pic-input-wrap">
                 <div class="pic-chips" id="pic-chips"></div>
@@ -138,42 +202,6 @@
             <input type="hidden" id="field-pic" name="pic" value="" />
             <small class="field-hint">Ketik nama untuk autocomplete, pilih beberapa sebagai tag.</small>
           </div>
-
-          <div class="field">
-            <span>Documents</span>
-            <div class="doc-mode-tabs" role="tablist" aria-label="Jenis dokumen">
-              <button type="button" class="doc-mode-tab is-active" data-doc-mode="file" role="tab" aria-selected="true">Upload file</button>
-              <button type="button" class="doc-mode-tab" data-doc-mode="url" role="tab" aria-selected="false">URL / Drive</button>
-            </div>
-
-            <div class="doc-mode-panel" id="doc-mode-file" data-doc-panel="file">
-              <div
-                class="doc-dropzone"
-                id="doc-dropzone"
-                tabindex="0"
-                role="button"
-                aria-label="Upload dokumen project"
-              >
-                <input type="file" id="field-documents" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip" hidden />
-                <div class="doc-dropzone-inner">
-                  <strong>Drag & drop file di sini</strong>
-                  <span>atau klik untuk memilih · maks. 3 item · 10 MB/file</span>
-                </div>
-              </div>
-              <small class="field-hint">PDF, Office, gambar, ZIP, TXT/CSV.</small>
-            </div>
-
-            <div class="doc-mode-panel" id="doc-mode-url" data-doc-panel="url" hidden>
-              <div class="doc-url-form">
-                <input id="field-doc-url" type="url" placeholder="https://drive.google.com/…" autocomplete="off" />
-                <input id="field-doc-url-title" type="text" placeholder="Judul (opsional)" maxlength="255" autocomplete="off" />
-                <button type="button" class="btn btn-ghost" id="btn-add-doc-url">Tambah URL</button>
-              </div>
-              <small class="field-hint">Tempel tautan Google Drive, OneDrive, SharePoint, atau URL dokumen lain.</small>
-            </div>
-
-            <ul class="doc-file-list" id="doc-file-list" hidden></ul>
-          </div>
         </div>
       </section>
 
@@ -188,5 +216,6 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/project-form.js?v=1" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+  <script src="/static/js/project-form.js?v=3" defer></script>
 {% endblock %}

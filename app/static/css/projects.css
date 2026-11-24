@@ -605,6 +605,14 @@
   font-size: 0.8rem;
   line-height: 1.55;
 }
+.details-desc-html {
+  max-width: 72ch;
+}
+.details-desc-html p { margin: 0 0 0.6em; }
+.details-desc-html p:last-child { margin-bottom: 0; }
+.details-desc-html ul,
+.details-desc-html ol { margin: 0 0 0.6em; padding-left: 1.25em; }
+.details-desc-html a { color: var(--brand, #2563eb); }
 .details-progress {
   margin: 0 0 14px;
   padding: 10px;

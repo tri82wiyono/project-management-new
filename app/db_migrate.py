@@ -388,3 +388,12 @@ def ensure_schema() -> None:
                 """
             )
         )
+        conn.execute(
+            text(
+                """
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS developed_by VARCHAR(40);
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget BIGINT;
+    CREATE INDEX IF NOT EXISTS ix_projects_developed_by ON projects(developed_by);
+                """
+            )
+        )

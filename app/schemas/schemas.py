@@ -43,6 +43,8 @@ class ProjectBase(BaseModel):
     color: str = "#4F7CFF"
     start_date: date
     end_date: date
+    developed_by: str | None = Field(default=None, max_length=40)
+    budget: int | None = Field(default=None, ge=0)
     owner_type: str = "unassigned"
     owner_division_id: int | None = None
     owner_bidang_id: int | None = None
@@ -61,6 +63,8 @@ class ProjectUpdate(BaseModel):
     color: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    developed_by: str | None = Field(default=None, max_length=40)
+    budget: int | None = Field(default=None, ge=0)
     member_ids: list[int] | None = None
     owner_type: str | None = None
     owner_division_id: int | None = None

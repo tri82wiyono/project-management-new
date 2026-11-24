@@ -67,6 +67,8 @@ def _to_out(project: Project, task_count: int = 0, *, with_documents: bool = Fal
         color=project.color,
         start_date=project.start_date,
         end_date=project.end_date,
+        developed_by=getattr(project, "developed_by", None),
+        budget=getattr(project, "budget", None),
         owner_type=ownership["owner_type"],
         owner_division_id=ownership["owner_division_id"],
         owner_bidang_id=ownership["owner_bidang_id"],
@@ -347,6 +349,10 @@ def create_project(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    developed_by = (payload.developed_by or "").strip() or None
+    if developed_by and developed_by not in {"internal", "vendor", "blanket_mandays"}:
+        raise HTTPException(status_code=400, detail="Nilai developed_by tidak valid")
+
     project = Project(
         name=payload.name,
         description=payload.description,
@@ -356,6 +362,8 @@ def create_project(
         color=payload.color,
         start_date=payload.start_date,
         end_date=payload.end_date,
+        developed_by=developed_by,
+        budget=payload.budget,
         owner_type=owner_type,
         owner_division_id=owner_division_id,
         owner_bidang_id=owner_bidang_id,
@@ -418,6 +426,12 @@ def update_project(
 
     if "status" in data:
         _reject_premature_release(db, project.id, data["status"])
+
+    if "developed_by" in data:
+        developed_by = (data.get("developed_by") or "").strip() or None
+        if developed_by and developed_by not in {"internal", "vendor", "blanket_mandays"}:
+            raise HTTPException(status_code=400, detail="Nilai developed_by tidak valid")
+        data["developed_by"] = developed_by
 
     for key, value in data.items():
         setattr(project, key, value)

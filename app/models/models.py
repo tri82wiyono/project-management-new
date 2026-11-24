@@ -4,6 +4,7 @@ import enum
 from datetime import date, datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -302,6 +303,14 @@ class ProjectOwnerType(str, enum.Enum):
     bidang = "bidang"
 
 
+class ProjectDevelopedBy(str, enum.Enum):
+    """Who develops the application."""
+
+    internal = "internal"
+    vendor = "vendor"
+    blanket_mandays = "blanket_mandays"
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -317,6 +326,8 @@ class Project(Base):
     color: Mapped[str] = mapped_column(String(20), default="#4F7CFF")
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    developed_by: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    budget: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # Phase 4 — organizational ownership (Division XOR Bidang; unassigned for legacy).
     owner_type: Mapped[str] = mapped_column(String(20), default=ProjectOwnerType.unassigned.value, index=True)
     owner_division_id: Mapped[int | None] = mapped_column(

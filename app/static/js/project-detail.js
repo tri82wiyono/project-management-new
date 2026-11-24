@@ -28,6 +28,12 @@ const STATUS_LABEL = {
   release: "Release",
 };
 
+const DEVELOPED_BY_LABEL = {
+  internal: "Internal Bank",
+  vendor: "Pihak Ketiga (Vendor)",
+  blanket_mandays: "Blanket Mandays",
+};
+
 const TASK_STATUS_LABEL = {
   todo: "To Do",
   in_progress: "In Progress",
@@ -97,6 +103,28 @@ function escapeHtml(text) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function stripHtml(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = String(html || "");
+  return (tmp.textContent || tmp.innerText || "").trim();
+}
+
+function formatBudgetId(value) {
+  if (value == null || value === "") return "—";
+  const digits = String(value).replace(/\D/g, "");
+  if (!digits) return "—";
+  return `Rp ${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
+
+function renderDescriptionHtml(description) {
+  const raw = String(description || "").trim();
+  if (!raw) return `<p class="details-desc">Tidak ada deskripsi.</p>`;
+  if (/<[a-z][\s\S]*>/i.test(raw)) {
+    return `<div class="details-desc details-desc-html">${raw}</div>`;
+  }
+  return `<p class="details-desc">${escapeHtml(raw)}</p>`;
 }
 
 function formatNoteTime(value) {
@@ -185,7 +213,8 @@ function renderDetail() {
   const related = state.tasks.slice(0, 12);
 
   els.pageTitle.textContent = p.name;
-  els.pageSubtitle.textContent = p.description || "Ringkasan project, PIC, progress, dan task terkait.";
+  els.pageSubtitle.textContent =
+    stripHtml(p.description) || "Ringkasan project, PIC, progress, dan task terkait.";
   els.btnEdit.hidden = false;
   els.btnTasks.href = `/tasks?project_id=${p.id}`;
 
@@ -198,7 +227,7 @@ function renderDetail() {
           <span class="status-badge ${escapeHtml(p.status)}">${STATUS_LABEL[p.status] || p.status}</span>
         </div>
       </div>
-      <p class="details-desc">${escapeHtml(p.description || "Tidak ada deskripsi.")}</p>
+      ${renderDescriptionHtml(p.description)}
       <div class="details-actions">
         <button type="button" class="btn btn-ghost btn-sm" id="btn-edit-inline">Edit</button>
         <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}">Open Tasks</a>
@@ -217,6 +246,14 @@ function renderDetail() {
           <div class="details-item">
             <span>Kepemilikan</span>
             <strong>${escapeHtml(ownershipLabel(p))}</strong>
+          </div>
+          <div class="details-item">
+            <span>Dikembangkan oleh</span>
+            <strong>${escapeHtml(DEVELOPED_BY_LABEL[p.developed_by] || p.developed_by || "—")}</strong>
+          </div>
+          <div class="details-item">
+            <span>Anggaran</span>
+            <strong>${escapeHtml(formatBudgetId(p.budget))}</strong>
           </div>
           <div class="details-item">
             <span>Start Date</span>

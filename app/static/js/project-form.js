@@ -51,6 +51,10 @@
     ownerBidang: document.getElementById("field-owner-bidang"),
     ownerDivisionField: document.getElementById("owner-division-field"),
     ownerBidangField: document.getElementById("owner-bidang-field"),
+    developedBy: document.getElementById("field-developed-by"),
+    budgetDisplay: document.getElementById("field-budget"),
+    budgetValue: document.getElementById("field-budget-value"),
+    description: document.getElementById("field-description"),
     picWrap: document.getElementById("pic-input-wrap"),
     picDropdown: document.getElementById("pic-dropdown"),
     picSearch: document.getElementById("pic-search"),
@@ -64,6 +68,76 @@
     docUrlTitle: document.getElementById("field-doc-url-title"),
     btnAddDocUrl: document.getElementById("btn-add-doc-url"),
   };
+
+  let quill = null;
+
+  function formatBudgetDisplay(rawDigits) {
+    const digits = String(rawDigits || "").replace(/\D/g, "");
+    if (!digits) return "";
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function parseBudgetValue(display) {
+    const digits = String(display || "").replace(/\D/g, "");
+    if (!digits) return null;
+    const num = Number(digits);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function syncBudgetFromDisplay() {
+    if (!els.budgetDisplay || !els.budgetValue) return null;
+    const digits = String(els.budgetDisplay.value || "").replace(/\D/g, "");
+    els.budgetDisplay.value = formatBudgetDisplay(digits);
+    const value = parseBudgetValue(digits);
+    els.budgetValue.value = value == null ? "" : String(value);
+    return value;
+  }
+
+  function setBudgetValue(value) {
+    if (!els.budgetDisplay || !els.budgetValue) return;
+    if (value == null || value === "") {
+      els.budgetDisplay.value = "";
+      els.budgetValue.value = "";
+      return;
+    }
+    els.budgetValue.value = String(value);
+    els.budgetDisplay.value = formatBudgetDisplay(String(value));
+  }
+
+  function initQuill(initialHtml = "") {
+    const host = document.getElementById("description-editor");
+    if (!host || typeof Quill === "undefined") return null;
+    const editor = new Quill(host, {
+      theme: "snow",
+      placeholder: "Tulis deskripsi project…",
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ["bold", "italic", "underline", "strike"],
+          [{ list: "ordered" }, { list: "bullet" }],
+          ["link"],
+          ["clean"],
+        ],
+      },
+    });
+    if (initialHtml) {
+      editor.root.innerHTML = initialHtml;
+    }
+    editor.on("text-change", () => {
+      if (els.description) els.description.value = editor.root.innerHTML;
+    });
+    if (els.description) els.description.value = editor.root.innerHTML;
+    return editor;
+  }
+
+  function getDescriptionHtml() {
+    if (quill) {
+      const html = quill.root.innerHTML;
+      const text = quill.getText().trim();
+      return text ? html : null;
+    }
+    return (els.description?.value || "").trim() || null;
+  }
 
   function escapeHtml(text) {
     return String(text ?? "")
@@ -447,12 +521,18 @@
     if (project) {
       document.getElementById("project-id").value = project.id;
       document.getElementById("field-name").value = project.name || "";
-      document.getElementById("field-description").value = project.description || "";
       document.getElementById("field-start").value = project.start_date || "";
       document.getElementById("field-end").value = project.end_date || "";
       document.getElementById("field-status").value = STATUS_VALUES.includes(project.status)
         ? project.status
         : "backlog";
+      if (els.developedBy) els.developedBy.value = project.developed_by || "";
+      setBudgetValue(project.budget);
+      if (!quill) quill = initQuill(project.description || "");
+      else {
+        quill.root.innerHTML = project.description || "";
+        if (els.description) els.description.value = quill.root.innerHTML;
+      }
       syncReleaseOption(project.progress);
       setSelectedPicsFromNames(project.pic || "");
       await applyOwnershipToForm(project);
@@ -468,10 +548,16 @@
     } else {
       document.getElementById("project-id").value = "";
       document.getElementById("field-name").value = "";
-      document.getElementById("field-description").value = "";
       document.getElementById("field-start").value = todayISO();
       document.getElementById("field-end").value = plusDaysISO(90);
       document.getElementById("field-status").value = "backlog";
+      if (els.developedBy) els.developedBy.value = "";
+      setBudgetValue(null);
+      if (!quill) quill = initQuill("");
+      else {
+        quill.setText("");
+        if (els.description) els.description.value = "";
+      }
       syncReleaseOption(0);
       syncPicField();
       await applyOwnershipToForm(null);
@@ -488,22 +574,26 @@
     const ownerType = els.ownerType?.value || "unassigned";
     const ownerDivisionId = els.ownerDivision?.value ? Number(els.ownerDivision.value) : null;
     const ownerBidangId = els.ownerBidang?.value ? Number(els.ownerBidang.value) : null;
+    const developedBy = (els.developedBy?.value || "").trim();
+    const budget = syncBudgetFromDisplay();
     const payload = {
       name: document.getElementById("field-name").value.trim(),
-      description: document.getElementById("field-description").value.trim() || null,
+      description: getDescriptionHtml(),
       pic: els.fieldPic.value.trim(),
       start_date: document.getElementById("field-start").value,
       end_date: document.getElementById("field-end").value,
       status: document.getElementById("field-status").value,
+      developed_by: developedBy || null,
+      budget,
       member_ids: state.selectedPicIds.slice(),
       owner_type: ownerType,
       owner_division_id: ownerType === "division" || ownerType === "bidang" ? ownerDivisionId : null,
       owner_bidang_id: ownerType === "bidang" ? ownerBidangId : null,
     };
 
-    if (!payload.name || !payload.pic || !payload.start_date || !payload.end_date) {
+    if (!payload.name || !payload.pic || !payload.start_date || !payload.end_date || !developedBy) {
       els.formError.hidden = false;
-      els.formError.textContent = "Lengkapi field wajib, termasuk minimal 1 PIC.";
+      els.formError.textContent = "Lengkapi field wajib: nama, dikembangkan oleh, PIC, dan tanggal.";
       return;
     }
     if (payload.end_date < payload.start_date) {
@@ -664,6 +754,8 @@
     els.form.addEventListener("submit", saveProject);
     wirePicEvents();
     wireDocEvents();
+    els.budgetDisplay?.addEventListener("input", syncBudgetFromDisplay);
+    els.budgetDisplay?.addEventListener("blur", syncBudgetFromDisplay);
     els.ownerType?.addEventListener("change", async () => {
       syncOwnershipFields();
       if ((els.ownerType?.value || "") === "bidang") {
