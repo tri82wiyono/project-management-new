@@ -3,42 +3,65 @@
 {% block title %}Chat · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/chat.css?v=1" />
+  <link rel="stylesheet" href="/static/css/project-workspace.css?v=3" />
+  <link rel="stylesheet" href="/static/css/chat.css?v=2" />
 {% endblock %}
 
 {% block header %}
   <header class="topbar">
     <div class="greeting">
       <h1>Chat</h1>
-      <p>Ruang diskusi project yang menjadi tanggung jawab atau akses Anda.</p>
+      <p>Riwayat percakapan project — lanjutkan chat langsung di sini.</p>
     </div>
     <div class="top-actions">
-      <label class="search">
-        <span>⌕</span>
-        <input id="chat-search" type="search" placeholder="{{ search_placeholder }}" autocomplete="off" />
-      </label>
       {% include "partials/user_menu.html" %}
     </div>
   </header>
 {% endblock %}
 
 {% block content %}
-  <div class="chat-page" id="chat-page">
-    <section class="chat-shell">
-      <div class="chat-shell-head">
-        <div>
-          <h2>Percakapan Saya</h2>
-          <p id="chat-summary">Memuat daftar chat…</p>
+  <div
+    class="chat-page"
+    id="chat-page"
+    data-user-id="{{ current_user.id or 0 }}"
+    data-user-name="{{ current_user.name }}"
+    data-can-manage="{% if current_user.role and current_user.role|lower in ['admin', 'administrator', 'manager', 'pm'] %}1{% else %}0{% endif %}"
+  >
+    <section class="chat-workspace">
+      <aside class="chat-sidebar">
+        <div class="chat-sidebar-head">
+          <div>
+            <h2>Riwayat Chat</h2>
+            <p id="chat-summary">Memuat…</p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="chat-refresh" title="Refresh">↻</button>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" id="chat-refresh">Refresh</button>
-      </div>
-      <div class="chat-list" id="chat-list">
-        <div class="chat-empty">Memuat chat…</div>
-      </div>
+        <label class="chat-search">
+          <span>⌕</span>
+          <input id="chat-search" type="search" placeholder="Cari project atau pesan…" autocomplete="off" />
+        </label>
+        <div class="chat-list" id="chat-list">
+          <div class="chat-empty">Memuat riwayat chat…</div>
+        </div>
+      </aside>
+
+      <section class="chat-room" id="chat-room">
+        <div class="chat-room-empty" id="chat-room-empty">
+          <div class="chat-room-empty-icon">◌</div>
+          <h3>Pilih percakapan</h3>
+          <p>Buka salah satu riwayat chat di kiri untuk melihat pesan dan melanjutkan diskusi.</p>
+        </div>
+
+        <div class="chat-room-active" id="chat-room-active" hidden>
+          <div class="chat-room-head" id="chat-room-head"></div>
+          <div class="pw-discussion-feed chat-room-feed" id="chat-feed"></div>
+          <div class="pw-composer chat-room-composer" id="chat-composer"></div>
+        </div>
+      </section>
     </section>
   </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/chat.js?v=1" defer></script>
+  <script src="/static/js/chat.js?v=2" defer></script>
 {% endblock %}

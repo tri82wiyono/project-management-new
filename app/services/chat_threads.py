@@ -111,10 +111,7 @@ def list_chat_threads(
         unread = unread_map.get(project.id, 0)
         # Keep rooms with activity, or rooms where user is a member (always show visible projects)
         # Prefer showing all visible projects so users can start chatting.
-        focus = latest_by_project.get(project.id)
-        open_url = f"/projects/{project.id}"
-        if focus:
-            open_url = f"/projects/{project.id}?focus_msg={focus}"
+        open_url = f"/chat?project_id={project.id}"
 
         items.append(
             ChatThreadOut(

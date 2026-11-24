@@ -38,7 +38,7 @@ def _to_out(row: ProjectDiscussionMention) -> MentionNotificationOut:
         actor_role=author.role if author else "",
         created_at=row.created_at or (message.created_at if message else datetime.now(timezone.utc)),
         is_read=row.read_at is not None,
-        open_url=f"/projects/{project_id}?focus_msg={message_id}&notif={row.id}",
+        open_url=f"/chat?project_id={project_id}&focus_msg={message_id}&notif={row.id}",
     )
 
 
