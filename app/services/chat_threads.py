@@ -20,6 +20,39 @@ def _preview(text: str, limit: int = 120) -> str:
     return clean[: limit - 1].rstrip() + "…"
 
 
+def _project_ids_with_user_history(db: Session, *, user_id: int, visible_ids: list[int]) -> set[int]:
+    """Projects where the user authored a message or was mentioned."""
+    if not visible_ids:
+        return set()
+
+    authored = db.scalars(
+        select(ProjectDiscussionMessage.project_id)
+        .where(
+            ProjectDiscussionMessage.project_id.in_(visible_ids),
+            ProjectDiscussionMessage.author_id == user_id,
+            ProjectDiscussionMessage.deleted_at.is_(None),
+        )
+        .distinct()
+    ).all()
+
+    mentioned = db.scalars(
+        select(ProjectDiscussionMessage.project_id)
+        .select_from(ProjectDiscussionMention)
+        .join(
+            ProjectDiscussionMessage,
+            ProjectDiscussionMessage.id == ProjectDiscussionMention.message_id,
+        )
+        .where(
+            ProjectDiscussionMention.user_id == user_id,
+            ProjectDiscussionMessage.deleted_at.is_(None),
+            ProjectDiscussionMessage.project_id.in_(visible_ids),
+        )
+        .distinct()
+    ).all()
+
+    return {int(pid) for pid in [*authored, *mentioned]}
+
+
 def list_chat_threads(
     db: Session,
     *,
@@ -30,7 +63,7 @@ def list_chat_threads(
     limit = max(1, min(int(limit or 100), 200))
     scope = org_scope.project_visibility_filter(db, user)
 
-    project_stmt = select(Project).where(True)
+    project_stmt = select(Project)
     if scope is not None:
         project_stmt = project_stmt.where(scope)
     query = (q or "").strip()
@@ -38,13 +71,25 @@ def list_chat_threads(
         like = f"%{query}%"
         project_stmt = project_stmt.where(Project.name.ilike(like))
 
-    projects = list(db.scalars(project_stmt.order_by(Project.name.asc())).all())
+    visible_projects = list(db.scalars(project_stmt.order_by(Project.name.asc())).all())
+    if not visible_projects:
+        return ChatThreadListResponse(items=[], total=0, unread_threads=0)
+
+    visible_ids = [p.id for p in visible_projects]
+    history_ids = _project_ids_with_user_history(db, user_id=user.id, visible_ids=visible_ids)
+
+    # Prefer only projects with this user's chat history.
+    # Fallback: if user has no chat history yet, show all visible projects.
+    if history_ids:
+        projects = [p for p in visible_projects if p.id in history_ids]
+    else:
+        projects = visible_projects
+
     if not projects:
         return ChatThreadListResponse(items=[], total=0, unread_threads=0)
 
     project_ids = [p.id for p in projects]
 
-    # Latest message id per project
     latest_id_rows = db.execute(
         select(
             ProjectDiscussionMessage.project_id,
@@ -57,7 +102,6 @@ def list_chat_threads(
         .group_by(ProjectDiscussionMessage.project_id)
     ).all()
     latest_ids = [int(row.max_id) for row in latest_id_rows if row.max_id]
-    latest_by_project = {int(row.project_id): int(row.max_id) for row in latest_id_rows if row.max_id}
 
     latest_messages: dict[int, ProjectDiscussionMessage] = {}
     if latest_ids:
@@ -69,7 +113,6 @@ def list_chat_threads(
         for msg in rows:
             latest_messages[msg.project_id] = msg
 
-    # Message counts
     count_rows = db.execute(
         select(
             ProjectDiscussionMessage.project_id,
@@ -83,7 +126,6 @@ def list_chat_threads(
     ).all()
     counts = {int(row.project_id): int(row.cnt) for row in count_rows}
 
-    # Unread mention counts for current user
     unread_rows = db.execute(
         select(
             ProjectDiscussionMessage.project_id,
@@ -109,10 +151,6 @@ def list_chat_threads(
         msg = latest_messages.get(project.id)
         message_count = counts.get(project.id, 0)
         unread = unread_map.get(project.id, 0)
-        # Keep rooms with activity, or rooms where user is a member (always show visible projects)
-        # Prefer showing all visible projects so users can start chatting.
-        open_url = f"/chat?project_id={project.id}"
-
         items.append(
             ChatThreadOut(
                 project_id=project.id,
@@ -128,13 +166,14 @@ def list_chat_threads(
                 last_author_avatar_url=(msg.author.avatar_url if msg and msg.author else ""),
                 unread_mentions=unread,
                 message_count=message_count,
-                open_url=open_url,
+                open_url=f"/chat?project_id={project.id}",
             )
         )
 
     items.sort(
         key=lambda item: (
             0 if item.unread_mentions else 1,
+            0 if item.message_count > 0 else 1,
             -(item.last_message_at.timestamp() if item.last_message_at else 0),
             item.project_name.lower(),
         )

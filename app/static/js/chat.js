@@ -163,14 +163,14 @@
     if (els.summary) {
       els.summary.textContent = unreadThreads
         ? `${state.threads.length} chat · ${unreadThreads} belum dibaca`
-        : `${state.threads.length} riwayat chat`;
+        : `${state.threads.length} riwayat chat Anda`;
     }
 
     if (!state.threads.length) {
       els.list.innerHTML = `<div class="chat-empty">${
         state.query
           ? "Tidak ada chat yang cocok."
-          : "Belum ada project chat yang dapat diakses."
+          : "Belum ada riwayat chat. Mulai diskusi dari halaman Project."
       }</div>`;
       return;
     }
