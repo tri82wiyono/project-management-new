@@ -377,3 +377,67 @@ class TicketStats(BaseModel):
 class TicketModulesResponse(BaseModel):
     project_id: int | None = None
     modules: list[str]
+
+
+class DiscussionAuthorOut(BaseModel):
+    id: int
+    name: str
+    role: str
+    avatar_url: str
+
+
+class DiscussionAttachmentOut(BaseModel):
+    id: int
+    kind: str
+    original_name: str
+    content_type: str
+    size_bytes: int
+    url: str
+
+
+class DiscussionReactionOut(BaseModel):
+    emoji: str
+    count: int
+    reacted_by_me: bool
+    user_ids: list[int] = []
+
+
+class DiscussionMentionOut(BaseModel):
+    id: int
+    name: str
+
+
+class DiscussionParentPreview(BaseModel):
+    id: int
+    author_name: str
+    body_preview: str
+
+
+class DiscussionMessageOut(BaseModel):
+    id: int
+    project_id: int
+    body: str
+    created_at: datetime
+    updated_at: datetime | None = None
+    is_deleted: bool = False
+    author: DiscussionAuthorOut
+    parent: DiscussionParentPreview | None = None
+    attachments: list[DiscussionAttachmentOut] = []
+    reactions: list[DiscussionReactionOut] = []
+    mentions: list[DiscussionMentionOut] = []
+
+
+class DiscussionMessageCreate(BaseModel):
+    body: str = Field(default="", max_length=8000)
+    parent_id: int | None = None
+    mention_ids: list[int] = []
+
+
+class DiscussionReactionCreate(BaseModel):
+    emoji: str = Field(min_length=1, max_length=16)
+
+
+class DiscussionListResponse(BaseModel):
+    items: list[DiscussionMessageOut]
+    total: int
+    has_more: bool = False

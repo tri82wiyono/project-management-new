@@ -3,14 +3,15 @@
 {% block title %}Project Detail · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=24" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=25" />
+  <link rel="stylesheet" href="/static/css/project-workspace.css?v=1" />
 {% endblock %}
 
 {% block header %}
   <header class="topbar">
     <div class="greeting">
-      <h1 id="detail-page-title">Project Detail</h1>
-      <p id="detail-page-subtitle">Ringkasan project, PIC, progress, dan task terkait.</p>
+      <h1 id="detail-page-title">Project Workspace</h1>
+      <p id="detail-page-subtitle">Ruang kolaborasi, monitoring, dan diskusi project.</p>
     </div>
     <div class="top-actions">
       <a class="btn btn-ghost btn-sm" href="/projects">← Projects</a>
@@ -22,155 +23,23 @@
 {% endblock %}
 
 {% block content %}
-  <div class="project-detail-page" id="project-detail-page" data-project-id="{{ project_id }}">
+  <div
+    class="project-detail-page"
+    id="project-detail-page"
+    data-project-id="{{ project_id }}"
+    data-user-id="{{ current_user.id or 0 }}"
+    data-user-name="{{ current_user.name }}"
+    data-can-manage="{% if current_user.role and current_user.role|lower in ['admin', 'administrator', 'manager', 'pm'] %}1{% else %}0{% endif %}"
+  >
     <div id="project-detail-root" class="project-detail-root">
       <div class="details-empty">
         <div class="details-empty-icon">▣</div>
-        Memuat detail project…
+        Memuat workspace project…
       </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="project-modal" hidden>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
-      <div class="modal-head">
-        <div>
-          <h3 id="project-modal-title">Edit Project</h3>
-          <p id="project-modal-subtitle">Update the essential details for your project.</p>
-        </div>
-        <button type="button" class="modal-close" id="btn-close-modal" aria-label="Close">×</button>
-      </div>
-
-      <form id="project-form" class="project-form" novalidate>
-        <input type="hidden" id="project-id" name="id" value="" />
-
-        <label class="field">
-          <span>Project Name <em>*</em></span>
-          <input id="field-name" name="name" type="text" required maxlength="160" />
-        </label>
-
-        <label class="field">
-          <span>Description</span>
-          <textarea id="field-description" name="description" rows="3"></textarea>
-        </label>
-
-        <div class="field-row ownership-fields" id="ownership-fields">
-          <label class="field">
-            <span>Kepemilikan organisasi</span>
-            <select id="field-owner-type" name="owner_type">
-              <option value="unassigned">Belum diklasifikasi</option>
-              <option value="division">Divisi</option>
-              <option value="bidang">Bidang</option>
-            </select>
-          </label>
-          <label class="field" id="owner-division-field">
-            <span>Divisi pemilik</span>
-            <select id="field-owner-division" name="owner_division_id">
-              <option value="">— Pilih Divisi —</option>
-            </select>
-          </label>
-          <label class="field" id="owner-bidang-field" hidden>
-            <span>Bidang pemilik</span>
-            <select id="field-owner-bidang" name="owner_bidang_id">
-              <option value="">— Pilih Bidang —</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="field">
-          <span>Documents</span>
-          <div class="doc-mode-tabs" role="tablist" aria-label="Jenis dokumen">
-            <button type="button" class="doc-mode-tab is-active" data-doc-mode="file" role="tab" aria-selected="true">Upload file</button>
-            <button type="button" class="doc-mode-tab" data-doc-mode="url" role="tab" aria-selected="false">URL / Drive</button>
-          </div>
-
-          <div class="doc-mode-panel" id="doc-mode-file" data-doc-panel="file">
-            <div
-              class="doc-dropzone"
-              id="doc-dropzone"
-              tabindex="0"
-              role="button"
-              aria-label="Upload dokumen project"
-            >
-              <input type="file" id="field-documents" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip" hidden />
-              <div class="doc-dropzone-inner">
-                <strong>Drag & drop file di sini</strong>
-                <span>atau klik untuk memilih · maks. 3 item · 10 MB/file</span>
-              </div>
-            </div>
-            <small class="field-hint">PDF, Office, gambar, ZIP, TXT/CSV.</small>
-          </div>
-
-          <div class="doc-mode-panel" id="doc-mode-url" data-doc-panel="url" hidden>
-            <div class="doc-url-form">
-              <input id="field-doc-url" type="url" placeholder="https://drive.google.com/…" autocomplete="off" />
-              <input id="field-doc-url-title" type="text" placeholder="Judul (opsional)" maxlength="255" autocomplete="off" />
-              <button type="button" class="btn btn-ghost" id="btn-add-doc-url">Tambah URL</button>
-            </div>
-            <small class="field-hint">Tempel tautan Google Drive, OneDrive, SharePoint, atau URL dokumen lain.</small>
-          </div>
-
-          <ul class="doc-file-list" id="doc-file-list" hidden></ul>
-        </div>
-
-        <div class="field">
-          <span>Project Manager (PIC) <em>*</em></span>
-          <div class="pic-tagbox" id="pic-multiselect">
-            <div class="pic-input-wrap" id="pic-input-wrap">
-              <div class="pic-chips" id="pic-chips"></div>
-              <input
-                type="text"
-                id="pic-search"
-                class="pic-search"
-                placeholder="Ketik nama lalu pilih…"
-                autocomplete="off"
-                aria-autocomplete="list"
-                aria-expanded="false"
-                aria-controls="pic-options"
-              />
-            </div>
-            <div class="pic-dropdown" id="pic-dropdown" hidden>
-              <div class="pic-options" id="pic-options" role="listbox"></div>
-            </div>
-          </div>
-          <input type="hidden" id="field-pic" name="pic" value="" />
-        </div>
-
-        <div class="field-row">
-          <label class="field">
-            <span>Start Date <em>*</em></span>
-            <input id="field-start" name="start_date" type="date" required />
-          </label>
-          <label class="field">
-            <span>Target Date <em>*</em></span>
-            <input id="field-end" name="end_date" type="date" required />
-          </label>
-        </div>
-
-        <label class="field">
-          <span>Status</span>
-          <select id="field-status" name="status">
-            <option value="backlog">Backlog</option>
-            <option value="dev">Dev</option>
-            <option value="sit">SIT</option>
-            <option value="uat">UAT</option>
-            <option value="to">TO</option>
-            <option value="izin">Izin</option>
-            <option value="release">Release</option>
-          </select>
-        </label>
-
-        <p class="form-error" id="form-error" hidden></p>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="btn-cancel-modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="btn-save-project">Save Project</button>
-        </div>
-      </form>
     </div>
   </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/project-detail.js?v=9" defer></script>
+  <script src="/static/js/project-detail.js?v=10" defer></script>
 {% endblock %}

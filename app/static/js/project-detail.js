@@ -1,987 +1,985 @@
-const api = async (path, options = {}) => {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-  if (res.status === 204) return null;
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const detail = data.detail;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
-          : `Request failed (${res.status})`;
-    throw new Error(message);
-  }
-  return data;
-};
-
-const STATUS_LABEL = {
-  backlog: "Backlog",
-  dev: "Dev",
-  sit: "SIT",
-  uat: "UAT",
-  to: "TO",
-  izin: "Izin",
-  release: "Release",
-};
-
-const DEVELOPED_BY_LABEL = {
-  internal: "Internal Bank",
-  vendor: "Pihak Ketiga (Vendor)",
-  blanket_mandays: "Blanket Mandays",
-};
-
-const TASK_STATUS_LABEL = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  review: "Review",
-  done: "Done",
-};
-
-const STATUS_VALUES = Object.keys(STATUS_LABEL);
-
-const MAX_DOCS = 3;
-const MAX_DOC_BYTES = 10 * 1024 * 1024;
-const DOC_EXT = new Set([
-  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-  ".png", ".jpg", ".jpeg", ".gif", ".txt", ".csv", ".zip",
-]);
-
-const state = {
-  projectId: Number(document.getElementById("project-detail-page")?.dataset.projectId || 0),
-  project: null,
-  tasks: [],
-  notes: [],
-  users: [],
-  divisions: [],
-  bidangsByDivision: {},
-  selectedPicIds: [],
-  suggestions: [],
-  highlightIndex: -1,
-  picSearch: "",
-  pendingDocs: [],
-  existingDocs: [],
-};
-
-const els = {
-  root: document.getElementById("project-detail-root"),
-  pageTitle: document.getElementById("detail-page-title"),
-  pageSubtitle: document.getElementById("detail-page-subtitle"),
-  btnEdit: document.getElementById("btn-edit-project"),
-  btnTasks: document.getElementById("btn-open-tasks"),
-  modal: document.getElementById("project-modal"),
-  form: document.getElementById("project-form"),
-  formError: document.getElementById("form-error"),
-  modalTitle: document.getElementById("project-modal-title"),
-  btnClose: document.getElementById("btn-close-modal"),
-  btnCancel: document.getElementById("btn-cancel-modal"),
-  picWrap: document.getElementById("pic-input-wrap"),
-  picDropdown: document.getElementById("pic-dropdown"),
-  picSearch: document.getElementById("pic-search"),
-  picOptions: document.getElementById("pic-options"),
-  picChips: document.getElementById("pic-chips"),
-  fieldPic: document.getElementById("field-pic"),
-  ownerType: document.getElementById("field-owner-type"),
-  ownerDivision: document.getElementById("field-owner-division"),
-  ownerBidang: document.getElementById("field-owner-bidang"),
-  ownerDivisionField: document.getElementById("owner-division-field"),
-  ownerBidangField: document.getElementById("owner-bidang-field"),
-  docDropzone: document.getElementById("doc-dropzone"),
-  docInput: document.getElementById("field-documents"),
-  docList: document.getElementById("doc-file-list"),
-  docUrl: document.getElementById("field-doc-url"),
-  docUrlTitle: document.getElementById("field-doc-url-title"),
-  btnAddDocUrl: document.getElementById("btn-add-doc-url"),
-};
-
-function escapeHtml(text) {
-  return String(text ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function stripHtml(html) {
-  const tmp = document.createElement("div");
-  tmp.innerHTML = String(html || "");
-  return (tmp.textContent || tmp.innerText || "").trim();
-}
-
-function formatBudgetId(value) {
-  if (value == null || value === "") return "—";
-  const digits = String(value).replace(/\D/g, "");
-  if (!digits) return "—";
-  return `Rp ${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
-}
-
-function renderDescriptionHtml(description) {
-  const raw = String(description || "").trim();
-  if (!raw) return `<p class="details-desc">Tidak ada deskripsi.</p>`;
-  if (/<[a-z][\s\S]*>/i.test(raw)) {
-    return `<div class="details-desc details-desc-html">${raw}</div>`;
-  }
-  return `<p class="details-desc">${escapeHtml(raw)}</p>`;
-}
-
-function formatNoteTime(value) {
-  if (!value) return "";
-  try {
-    return new Date(value).toLocaleString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+(() => {
+  const api = async (path, options = {}) => {
+    const res = await fetch(path, {
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...options,
     });
-  } catch {
-    return "";
-  }
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  const d = new Date(`${value}T00:00:00`);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function hasPhoto(url) {
-  return Boolean(String(url || "").trim());
-}
-
-function picIcon(title = "") {
-  return `
-    <span class="pic-avatar pic-avatar-icon" title="${escapeHtml(title)}" role="img" aria-label="${escapeHtml(title || "PIC")}">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-6.75 1.8-6.75 4.05V20h13.5v-1.7c0-2.25-3.15-4.05-6.75-4.05Z"/>
-      </svg>
-    </span>`;
-}
-
-function picPeople(project) {
-  const fromMembers = (project.members || []).map((m) => m.user).filter(Boolean);
-  if (fromMembers.length) return fromMembers;
-  return [];
-}
-
-function renderPicStack(project) {
-  const people = picPeople(project);
-  const label = people.map((u) => u.name).join(", ") || project.pic || "Tidak ada PIC";
-  if (!people.length) {
-    return `<div class="pic-avatar-stack" title="${escapeHtml(label)}">${picIcon(label)}</div>`;
-  }
-  const shown = people.slice(0, 6);
-  const extra = people.length - shown.length;
-  return `
-    <div class="pic-avatar-stack" title="${escapeHtml(label)}">
-      ${shown
-        .map((u) =>
-          hasPhoto(u.avatar_url)
-            ? `<img class="pic-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`
-            : picIcon(u.name)
-        )
-        .join("")}
-      ${extra > 0 ? `<span class="pic-avatar-extra">+${extra}</span>` : ""}
-    </div>
-    <div class="detail-pic-names">${escapeHtml(label)}</div>`;
-}
-
-function taskCounts(tasks) {
-  const counts = { todo: 0, in_progress: 0, review: 0, done: 0 };
-  for (const t of tasks) {
-    if (counts[t.status] != null) counts[t.status] += 1;
-  }
-  return counts;
-}
-
-function renderDetail() {
-  const p = state.project;
-  if (!p) {
-    els.root.innerHTML = `
-      <div class="details-empty">
-        <div class="details-empty-icon">!</div>
-        Project tidak ditemukan.
-      </div>`;
-    return;
-  }
-
-  const pct = Math.round(p.progress || 0);
-  const counts = taskCounts(state.tasks);
-  const related = state.tasks.slice(0, 12);
-
-  els.pageTitle.textContent = p.name;
-  els.pageSubtitle.textContent =
-    stripHtml(p.description) || "Ringkasan project, PIC, progress, dan task terkait.";
-  els.btnEdit.hidden = false;
-  els.btnTasks.href = `/tasks?project_id=${p.id}`;
-
-  els.root.innerHTML = `
-    <section class="detail-hero panel">
-      <div class="details-head">
-        <div class="project-card-icon lg" style="background:${escapeHtml(p.color || "#4F7CFF")}20;color:${escapeHtml(p.color || "#4F7CFF")}">▣</div>
-        <div class="details-head-text">
-          <h3>${escapeHtml(p.name)}</h3>
-          <span class="status-badge ${escapeHtml(p.status)}">${STATUS_LABEL[p.status] || p.status}</span>
-        </div>
-      </div>
-      ${renderDescriptionHtml(p.description)}
-      <div class="details-actions">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-edit-inline">Edit</button>
-        <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}">Open Tasks</a>
-        <a class="btn btn-ghost btn-sm" href="/timeline">Timeline</a>
-      </div>
-    </section>
-
-    <section class="detail-grid-wrap detail-grid-3">
-      <article class="panel detail-card">
-        <h4>Overview</h4>
-        <div class="details-grid">
-          <div class="details-item">
-            <span>PIC</span>
-            ${renderPicStack(p)}
-          </div>
-          <div class="details-item">
-            <span>Kepemilikan</span>
-            <strong>${escapeHtml(ownershipLabel(p))}</strong>
-          </div>
-          <div class="details-item">
-            <span>Dikembangkan oleh</span>
-            <strong>${escapeHtml(DEVELOPED_BY_LABEL[p.developed_by] || p.developed_by || "—")}</strong>
-          </div>
-          <div class="details-item">
-            <span>Anggaran</span>
-            <strong>${escapeHtml(formatBudgetId(p.budget))}</strong>
-          </div>
-          <div class="details-item">
-            <span>Start Date</span>
-            <strong>${formatDate(p.start_date)}</strong>
-          </div>
-          <div class="details-item">
-            <span>Target Date</span>
-            <strong>${formatDate(p.end_date)}</strong>
-          </div>
-          <div class="details-item">
-            <span>Tasks</span>
-            <strong>${Number(p.task_count || state.tasks.length || 0)}</strong>
-          </div>
-        </div>
-        <div class="details-progress">
-          <div class="details-progress-label">
-            <span>Progress</span>
-            <strong>${pct}%</strong>
-          </div>
-          <div class="project-progress-bar">
-            <span style="width:${Math.min(100, Math.max(0, pct))}%;background:${escapeHtml(p.color || "#4F7CFF")}"></span>
-          </div>
-        </div>
-        ${
-          Array.isArray(p.documents) && p.documents.length
-            ? `<div class="details-docs">
-                <span>Documents</span>
-                <ul class="details-doc-list">
-                  ${p.documents
-                    .map(
-                      (d) => `
-                    <li>
-                      <a href="${escapeHtml(d.open_url || d.download_url || d.external_url || `#`)}" target="_blank" rel="noopener">${escapeHtml(d.original_name)}${d.kind === "url" ? " ↗" : ""}</a>
-                    </li>`
-                    )
-                    .join("")}
-                </ul>
-              </div>`
-            : ""
-        }
-      </article>
-
-      <article class="panel detail-card">
-        <h4>Task breakdown</h4>
-        <div class="task-breakdown">
-          ${Object.entries(TASK_STATUS_LABEL)
-            .map(
-              ([key, label]) => `
-            <div class="task-breakdown-item">
-              <span>${label}</span>
-              <strong>${counts[key] || 0}</strong>
-            </div>`
-            )
-            .join("")}
-        </div>
-      </article>
-
-      <article class="panel detail-card related-tasks">
-        <div class="related-head">
-          <h4>Related tasks</h4>
-          <a href="/tasks?project_id=${p.id}">Lihat semua →</a>
-        </div>
-        ${
-          related.length
-            ? `<ul>${related
-                .map(
-                  (t) => `
-              <li>
-                <div>
-                  <strong>${escapeHtml(t.title)}</strong>
-                  <small>${escapeHtml(t.category || "General")}${t.due_date ? ` · due ${formatDate(t.due_date)}` : ""}${
-                    t.notes_count > 0 ? ` · ${t.notes_count} catatan` : ""
-                  }</small>
-                </div>
-                <span class="task-status">${TASK_STATUS_LABEL[t.status] || t.status}</span>
-              </li>`
-                )
-                .join("")}</ul>`
-            : `<div class="cal-empty details-empty" style="padding:18px 8px">Belum ada task untuk project ini.</div>`
-        }
-      </article>
-    </section>
-
-    <section class="panel project-notes">
-      <div class="related-head">
-        <h4>Catatan / Problem</h4>
-        <span class="project-notes-count">${state.notes.length}</span>
-      </div>
-      ${
-        state.notes.length
-          ? `<div class="project-notes-list">${state.notes
-              .map(
-                (note) => `
-            <article class="project-note-item kind-${escapeHtml(note.kind || "problem")}">
-              <div class="project-note-meta">
-                <span class="project-note-kind">${note.kind === "note" ? "Catatan" : "Problem"}</span>
-                <a class="project-note-task" href="/tasks?project_id=${p.id}" title="Buka board task">${escapeHtml(note.task_title || `Task #${note.task_id}`)}</a>
-                <span>${escapeHtml(formatNoteTime(note.created_at))}</span>
-              </div>
-              <p>${escapeHtml(note.body)}</p>
-            </article>`
-              )
-              .join("")}</div>`
-          : `<div class="cal-empty details-empty" style="padding:18px 8px">Belum ada catatan pada task di project ini.</div>`
-      }
-    </section>
-  `;
-
-  document.getElementById("btn-edit-inline")?.addEventListener("click", () => {
-    if (p?.id) window.location.href = `/projects/${p.id}/edit`;
-  });
-}
-
-function selectedUsers() {
-  return state.users.filter((u) => state.selectedPicIds.includes(u.id));
-}
-
-function availableUsers(query = "") {
-  const q = query.trim().toLowerCase();
-  return state.users.filter((user) => {
-    if (state.selectedPicIds.includes(user.id)) return false;
-    if (!q) return true;
-    return (
-      user.name.toLowerCase().includes(q) ||
-      String(user.email || "").toLowerCase().includes(q) ||
-      String(user.role || "").toLowerCase().includes(q)
-    );
-  });
-}
-
-function syncPicField() {
-  els.fieldPic.value = selectedUsers().map((u) => u.name).join(", ");
-  els.picSearch.placeholder = state.selectedPicIds.length
-    ? "Tambah nama…"
-    : "Ketik nama lalu pilih…";
-  renderPicChips();
-}
-
-function renderPicChips() {
-  els.picChips.innerHTML = selectedUsers()
-    .map(
-      (user) => `
-    <span class="pic-chip">
-      <span>${escapeHtml(user.name)}</span>
-      <button type="button" data-remove-pic="${user.id}" aria-label="Hapus ${escapeHtml(user.name)}">×</button>
-    </span>`
-    )
-    .join("");
-}
-
-function renderPicOptions() {
-  state.suggestions = availableUsers(state.picSearch).slice(0, 12);
-  if (!state.suggestions.length) {
-    state.highlightIndex = -1;
-    els.picOptions.innerHTML = `<div class="pic-empty">${
-      state.picSearch.trim() ? "Tidak ada nama yang cocok." : "Semua PIC sudah dipilih."
-    }</div>`;
-    return;
-  }
-  els.picOptions.innerHTML = state.suggestions
-    .map(
-      (user, index) => `
-      <button
-        type="button"
-        class="pic-option${index === state.highlightIndex ? " active" : ""}"
-        role="option"
-        data-pic-id="${user.id}"
-      >
-        <strong>${escapeHtml(user.name)}</strong>
-        <small>${escapeHtml(user.role || "")}</small>
-      </button>`
-    )
-    .join("");
-}
-
-function openPicDropdown() {
-  els.picDropdown.hidden = false;
-  els.picWrap.classList.add("open");
-  els.picSearch.setAttribute("aria-expanded", "true");
-  renderPicOptions();
-}
-
-function closePicDropdown() {
-  els.picDropdown.hidden = true;
-  els.picWrap.classList.remove("open");
-  els.picSearch.setAttribute("aria-expanded", "false");
-}
-
-function addPic(id) {
-  const num = Number(id);
-  if (!num || state.selectedPicIds.includes(num)) return;
-  state.selectedPicIds.push(num);
-  state.picSearch = "";
-  els.picSearch.value = "";
-  syncPicField();
-  renderPicOptions();
-  els.picSearch.focus();
-}
-
-function removePic(id) {
-  const num = Number(id);
-  state.selectedPicIds = state.selectedPicIds.filter((x) => x !== num);
-  syncPicField();
-  if (!els.picDropdown.hidden) renderPicOptions();
-}
-
-function setSelectedPicsFromProject(project) {
-  const memberIds = (project.members || []).map((m) => m.user?.id).filter(Boolean);
-  if (memberIds.length) {
-    state.selectedPicIds = memberIds;
-  } else {
-    const names = String(project.pic || "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-    state.selectedPicIds = state.users
-      .filter((u) => names.includes(u.name.toLowerCase()))
-      .map((u) => u.id);
-  }
-  syncPicField();
-}
-
-function formatBytes(n) {
-  const size = Number(n) || 0;
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function fileExt(name) {
-  const m = String(name || "").toLowerCase().match(/\.[a-z0-9]+$/);
-  return m ? m[0] : "";
-}
-
-function totalDocSlotsUsed() {
-  return state.existingDocs.length + state.pendingDocs.length;
-}
-
-function setDocMode(mode) {
-  const next = mode === "url" ? "url" : "file";
-  document.querySelectorAll("[data-doc-mode]").forEach((btn) => {
-    const active = btn.dataset.docMode === next;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-selected", active ? "true" : "false");
-  });
-  document.querySelectorAll("[data-doc-panel]").forEach((panel) => {
-    panel.hidden = panel.dataset.docPanel !== next;
-  });
-}
-
-function renderDocList() {
-  if (!els.docList) return;
-  const items = [
-    ...state.existingDocs.map((d) => ({
-      kind: "existing",
-      id: d.id,
-      name: d.original_name,
-      meta: d.kind === "url" ? "URL / Drive" : formatBytes(d.size_bytes),
-      url: d.open_url || d.download_url || d.external_url,
-      actionLabel: d.kind === "url" ? "Buka" : "Download",
-    })),
-    ...state.pendingDocs.map((item, idx) => ({
-      kind: "pending",
-      id: idx,
-      name: item.type === "url" ? (item.title || item.url) : item.file.name,
-      meta: item.type === "url" ? "URL · siap ditambah" : `${formatBytes(item.file.size)} · siap diunggah`,
-      url: item.type === "url" ? item.url : null,
-      actionLabel: item.type === "url" ? "Buka" : null,
-    })),
-  ];
-
-  if (!items.length) {
-    els.docList.hidden = true;
-    els.docList.innerHTML = "";
-  } else {
-    els.docList.hidden = false;
-    els.docList.innerHTML = items.map((item) => `
-      <li class="doc-file-item" data-kind="${item.kind}" data-id="${item.id}">
-        <div class="doc-file-meta">
-          <strong title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</strong>
-          <span>${escapeHtml(item.meta)}</span>
-        </div>
-        <div class="doc-file-actions">
-          ${item.url && item.actionLabel ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${item.actionLabel}</a>` : ""}
-          <button type="button" class="is-danger" data-remove-doc="${item.kind}:${item.id}">Hapus</button>
-        </div>
-      </li>
-    `).join("");
-  }
-  els.docDropzone?.classList.toggle("is-full", totalDocSlotsUsed() >= MAX_DOCS);
-}
-
-function resetDocs() {
-  state.pendingDocs = [];
-  state.existingDocs = [];
-  if (els.docInput) els.docInput.value = "";
-  if (els.docUrl) els.docUrl.value = "";
-  if (els.docUrlTitle) els.docUrlTitle.value = "";
-  setDocMode("file");
-  renderDocList();
-}
-
-function addPendingFiles(fileList) {
-  const incoming = Array.from(fileList || []);
-  if (!incoming.length) return;
-  const remaining = MAX_DOCS - totalDocSlotsUsed();
-  if (remaining <= 0) {
-    els.formError.hidden = false;
-    els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
-    return;
-  }
-  const accepted = [];
-  for (const file of incoming.slice(0, remaining)) {
-    const ext = fileExt(file.name);
-    if (!DOC_EXT.has(ext)) {
-      els.formError.hidden = false;
-      els.formError.textContent = `Tipe file tidak diizinkan: ${file.name}`;
-      continue;
-    }
-    if (file.size > MAX_DOC_BYTES) {
-      els.formError.hidden = false;
-      els.formError.textContent = `File terlalu besar (maks 10 MB): ${file.name}`;
-      continue;
-    }
-    accepted.push({ type: "file", file });
-  }
-  if (accepted.length) {
-    els.formError.hidden = true;
-    state.pendingDocs.push(...accepted);
-    renderDocList();
-  }
-  if (els.docInput) els.docInput.value = "";
-}
-
-function addPendingUrl() {
-  const url = (els.docUrl?.value || "").trim();
-  const title = (els.docUrlTitle?.value || "").trim();
-  if (!url) {
-    els.formError.hidden = false;
-    els.formError.textContent = "Isi URL dokumen terlebih dahulu.";
-    return;
-  }
-  if (!/^https?:\/\//i.test(url)) {
-    els.formError.hidden = false;
-    els.formError.textContent = "URL harus dimulai dengan http:// atau https://";
-    return;
-  }
-  if (totalDocSlotsUsed() >= MAX_DOCS) {
-    els.formError.hidden = false;
-    els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
-    return;
-  }
-  const exists = state.pendingDocs.some((d) => d.type === "url" && d.url === url)
-    || state.existingDocs.some((d) => d.kind === "url" && d.external_url === url);
-  if (exists) {
-    els.formError.hidden = false;
-    els.formError.textContent = "URL tersebut sudah ditambahkan.";
-    return;
-  }
-  els.formError.hidden = true;
-  state.pendingDocs.push({ type: "url", url, title });
-  if (els.docUrl) els.docUrl.value = "";
-  if (els.docUrlTitle) els.docUrlTitle.value = "";
-  renderDocList();
-}
-
-async function removeExistingDoc(docId) {
-  const projectId = document.getElementById("project-id").value;
-  if (!projectId) return;
-  await api(`/api/projects/${projectId}/documents/${docId}`, { method: "DELETE" });
-  state.existingDocs = state.existingDocs.filter((d) => d.id !== docId);
-  renderDocList();
-}
-
-async function uploadPendingDocs(projectId) {
-  if (!state.pendingDocs.length) return;
-  const files = state.pendingDocs.filter((d) => d.type === "file").map((d) => d.file);
-  const urls = state.pendingDocs.filter((d) => d.type === "url");
-  const created = [];
-
-  if (files.length) {
-    const body = new FormData();
-    files.forEach((file) => body.append("files", file, file.name));
-    const res = await fetch(`/api/projects/${projectId}/documents`, { method: "POST", body });
+    if (res.status === 204) return null;
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const detail = data.detail;
-      throw new Error(
+      const message =
         typeof detail === "string"
           ? detail
           : Array.isArray(detail)
             ? detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
-            : `Upload gagal (${res.status})`
-      );
+            : `Request failed (${res.status})`;
+      throw new Error(message);
     }
-    if (Array.isArray(data)) created.push(...data);
-  }
-
-  for (const item of urls) {
-    const row = await api(`/api/projects/${projectId}/documents/url`, {
-      method: "POST",
-      body: JSON.stringify({ url: item.url, title: item.title || null }),
-    });
-    created.push(row);
-  }
-
-  state.pendingDocs = [];
-  state.existingDocs = [...state.existingDocs, ...created];
-}
-
-function wireDocEvents() {
-  document.querySelectorAll("[data-doc-mode]").forEach((btn) => {
-    btn.addEventListener("click", () => setDocMode(btn.dataset.docMode));
-  });
-  els.btnAddDocUrl?.addEventListener("click", addPendingUrl);
-  els.docUrl?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addPendingUrl();
-    }
-  });
-  els.docUrlTitle?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addPendingUrl();
-    }
-  });
-
-  if (els.docDropzone && els.docInput) {
-    els.docDropzone.addEventListener("click", () => {
-      if (totalDocSlotsUsed() >= MAX_DOCS) {
-        els.formError.hidden = false;
-        els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
-        return;
-      }
-      els.docInput.click();
-    });
-    ["dragenter", "dragover"].forEach((evt) => {
-      els.docDropzone.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        els.docDropzone.classList.add("dragover");
-      });
-    });
-    ["dragleave", "drop"].forEach((evt) => {
-      els.docDropzone.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        els.docDropzone.classList.remove("dragover");
-      });
-    });
-    els.docDropzone.addEventListener("drop", (e) => addPendingFiles(e.dataTransfer?.files));
-    els.docInput.addEventListener("change", () => addPendingFiles(els.docInput.files));
-  }
-
-  els.docList?.addEventListener("click", async (e) => {
-    const btn = e.target.closest("[data-remove-doc]");
-    if (!btn) return;
-    const [kind, idRaw] = String(btn.dataset.removeDoc || "").split(":");
-    if (kind === "pending") {
-      state.pendingDocs = state.pendingDocs.filter((_, i) => i !== Number(idRaw));
-      renderDocList();
-      return;
-    }
-    if (kind === "existing") {
-      try {
-        await removeExistingDoc(Number(idRaw));
-      } catch (err) {
-        els.formError.hidden = false;
-        els.formError.textContent = err.message || "Gagal menghapus dokumen.";
-      }
-    }
-  });
-}
-
-function ownershipLabel(project) {
-  const kind = String(project.owner_type || "unassigned");
-  if (kind === "division") {
-    return project.owner_division_name
-      ? `Divisi · ${project.owner_division_name}`
-      : "Divisi";
-  }
-  if (kind === "bidang") {
-    const bidang = project.owner_bidang_name || "";
-    const division = project.owner_division_name || "";
-    if (bidang && division) return `Bidang · ${bidang} (${division})`;
-    if (bidang) return `Bidang · ${bidang}`;
-    return "Bidang";
-  }
-  return "Belum diklasifikasi";
-}
-
-function syncOwnershipFields() {
-  const kind = els.ownerType?.value || "unassigned";
-  if (els.ownerDivisionField) els.ownerDivisionField.hidden = kind === "unassigned";
-  if (els.ownerBidangField) els.ownerBidangField.hidden = kind !== "bidang";
-  if (kind === "unassigned") {
-    if (els.ownerDivision) els.ownerDivision.value = "";
-    if (els.ownerBidang) els.ownerBidang.value = "";
-  }
-  if (kind === "division" && els.ownerBidang) els.ownerBidang.value = "";
-}
-
-function fillDivisionOptions(selectedId = "") {
-  if (!els.ownerDivision) return;
-  els.ownerDivision.innerHTML = ['<option value="">— Pilih Divisi —</option>']
-    .concat(
-      state.divisions.map(
-        (d) =>
-          `<option value="${d.id}" ${String(d.id) === String(selectedId) ? "selected" : ""}>${escapeHtml(d.name)}</option>`
-      )
-    )
-    .join("");
-}
-
-async function loadBidangsForDivision(divisionId, selectedBidangId = "") {
-  if (!els.ownerBidang) return;
-  if (!divisionId) {
-    els.ownerBidang.innerHTML = '<option value="">— Pilih Bidang —</option>';
-    return;
-  }
-  let items = state.bidangsByDivision[divisionId] || state.bidangsByDivision[String(divisionId)];
-  if (!items) {
-    try {
-      const data = await api("/api/organization/ownership-options");
-      state.divisions = Array.isArray(data.divisions) ? data.divisions : [];
-      state.bidangsByDivision = {};
-      for (const b of Array.isArray(data.bidangs) ? data.bidangs : []) {
-        const key = String(b.division_id);
-        if (!state.bidangsByDivision[key]) state.bidangsByDivision[key] = [];
-        state.bidangsByDivision[key].push(b);
-      }
-      items = state.bidangsByDivision[String(divisionId)] || [];
-    } catch {
-      items = [];
-    }
-  }
-  els.ownerBidang.innerHTML = ['<option value="">— Pilih Bidang —</option>']
-    .concat(
-      items.map(
-        (b) =>
-          `<option value="${b.id}" ${String(b.id) === String(selectedBidangId) ? "selected" : ""}>${escapeHtml(b.name)}</option>`
-      )
-    )
-    .join("");
-}
-
-async function applyOwnershipToForm(project) {
-  const kind = project?.owner_type || "unassigned";
-  if (els.ownerType) els.ownerType.value = kind;
-  fillDivisionOptions(project?.owner_division_id || "");
-  syncOwnershipFields();
-  if (kind === "bidang") {
-    await loadBidangsForDivision(project?.owner_division_id || "", project?.owner_bidang_id || "");
-  } else if (els.ownerBidang) {
-    els.ownerBidang.innerHTML = '<option value="">— Pilih Bidang —</option>';
-  }
-}
-
-async function openModal(project) {
-  els.form.reset();
-  els.formError.hidden = true;
-  els.formError.textContent = "";
-  state.selectedPicIds = [];
-  state.picSearch = "";
-  els.picSearch.value = "";
-  closePicDropdown();
-  resetDocs();
-
-  els.modalTitle.textContent = "Edit Project";
-  document.getElementById("project-id").value = project.id;
-  document.getElementById("field-name").value = project.name || "";
-  document.getElementById("field-description").value = project.description || "";
-  document.getElementById("field-start").value = project.start_date || "";
-  document.getElementById("field-end").value = project.end_date || "";
-  document.getElementById("field-status").value = STATUS_VALUES.includes(project.status)
-    ? project.status
-    : "backlog";
-  setSelectedPicsFromProject(project);
-  await applyOwnershipToForm(project);
-  try {
-    const docs = project.documents?.length
-      ? project.documents
-      : await api(`/api/projects/${project.id}/documents`);
-    state.existingDocs = Array.isArray(docs) ? docs : [];
-    renderDocList();
-  } catch {
-    state.existingDocs = [];
-    renderDocList();
-  }
-  els.modal.hidden = false;
-  document.getElementById("field-name").focus();
-}
-
-function closeModal() {
-  closePicDropdown();
-  resetDocs();
-  els.modal.hidden = true;
-}
-
-async function saveProject(event) {
-  event.preventDefault();
-  els.formError.hidden = true;
-  syncPicField();
-
-  const id = document.getElementById("project-id").value;
-  const ownerType = els.ownerType?.value || "unassigned";
-  const ownerDivisionId = els.ownerDivision?.value ? Number(els.ownerDivision.value) : null;
-  const ownerBidangId = els.ownerBidang?.value ? Number(els.ownerBidang.value) : null;
-  const payload = {
-    name: document.getElementById("field-name").value.trim(),
-    description: document.getElementById("field-description").value.trim() || null,
-    pic: els.fieldPic.value.trim(),
-    start_date: document.getElementById("field-start").value,
-    end_date: document.getElementById("field-end").value,
-    status: document.getElementById("field-status").value,
-    member_ids: state.selectedPicIds.slice(),
-    owner_type: ownerType,
-    owner_division_id: ownerType === "division" || ownerType === "bidang" ? ownerDivisionId : null,
-    owner_bidang_id: ownerType === "bidang" ? ownerBidangId : null,
+    return data;
   };
 
-  if (!payload.name || !payload.pic || !payload.start_date || !payload.end_date) {
-    els.formError.hidden = false;
-    els.formError.textContent = "Lengkapi field wajib, termasuk minimal 1 PIC.";
-    return;
-  }
-  if (ownerType === "division" && !ownerDivisionId) {
-    els.formError.hidden = false;
-    els.formError.textContent = "Pilih Divisi pemilik.";
-    return;
-  }
-  if (ownerType === "bidang" && !ownerBidangId) {
-    els.formError.hidden = false;
-    els.formError.textContent = "Pilih Bidang pemilik.";
-    return;
+  const STATUS_LABEL = {
+    backlog: "Backlog",
+    dev: "Dev",
+    sit: "SIT",
+    uat: "UAT",
+    to: "TO",
+    izin: "Izin",
+    release: "Release",
+  };
+
+  const DEVELOPED_BY_LABEL = {
+    internal: "Internal Bank",
+    vendor: "Pihak Ketiga (Vendor)",
+    blanket_mandays: "Blanket Mandays",
+  };
+
+  const TASK_STATUS_LABEL = {
+    todo: "To Do",
+    in_progress: "In Progress",
+    review: "Review",
+    done: "Done",
+  };
+
+  const REACTION_EMOJIS = ["👍", "❤️", "😄", "🎉", "✅", "👀", "🔥", "🙏"];
+  const COMPOSER_EMOJIS = [...REACTION_EMOJIS, "😊", "👏", "💡", "⚠️", "📌", "🚀"];
+  const POLL_MS = 12000;
+
+  const page = document.getElementById("project-detail-page");
+  const state = {
+    projectId: Number(page?.dataset.projectId || 0),
+    currentUserId: Number(page?.dataset.userId || 0),
+    canManage: page?.dataset.canManage === "1",
+    project: null,
+    tasks: [],
+    notes: [],
+    users: [],
+    messages: [],
+    replyTo: null,
+    pendingFiles: [],
+    mentionIds: new Set(),
+    mentionQuery: "",
+    mentionOpen: false,
+    mentionIndex: 0,
+    emojiOpen: false,
+    reactionPickerFor: null,
+    pollTimer: null,
+    sending: false,
+  };
+
+  const els = {
+    root: document.getElementById("project-detail-root"),
+    pageTitle: document.getElementById("detail-page-title"),
+    pageSubtitle: document.getElementById("detail-page-subtitle"),
+    btnEdit: document.getElementById("btn-edit-project"),
+    btnTasks: document.getElementById("btn-open-tasks"),
+  };
+
+  function escapeHtml(text) {
+    return String(text ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
   }
 
-  try {
-    state.project = await api(`/api/projects/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    });
-    if (state.pendingDocs.length) {
-      await uploadPendingDocs(id);
-      state.project.documents = state.existingDocs.slice();
+  function stripHtml(html) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = String(html || "");
+    return (tmp.textContent || tmp.innerText || "").trim();
+  }
+
+  function formatBudgetId(value) {
+    if (value == null || value === "") return "—";
+    const digits = String(value).replace(/\D/g, "");
+    if (!digits) return "—";
+    return `Rp ${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+  }
+
+  function formatDate(value) {
+    if (!value) return "—";
+    const d = new Date(`${value}T00:00:00`);
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function formatNoteTime(value) {
+    if (!value) return "";
+    try {
+      return new Date(value).toLocaleString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
     }
-    closeModal();
-    renderDetail();
-  } catch (err) {
-    els.formError.hidden = false;
-    els.formError.textContent = err.message || "Failed to save project.";
   }
-}
 
-function wirePicEvents() {
-  els.picWrap.addEventListener("click", (e) => {
-    if (e.target.closest("[data-remove-pic]")) return;
-    els.picSearch.focus();
-    openPicDropdown();
-  });
-  els.picSearch.addEventListener("focus", openPicDropdown);
-  els.picSearch.addEventListener("input", () => {
-    state.picSearch = els.picSearch.value;
-    state.highlightIndex = 0;
-    openPicDropdown();
-  });
-  els.picOptions.addEventListener("mousedown", (e) => {
-    const option = e.target.closest("[data-pic-id]");
-    if (!option) return;
-    e.preventDefault();
-    addPic(option.dataset.picId);
-  });
-  els.picChips.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-remove-pic]");
-    if (!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    removePic(btn.dataset.removePic);
-    els.picSearch.focus();
-  });
-  document.addEventListener("click", (e) => {
-    const box = document.getElementById("pic-multiselect");
-    if (!box || els.picDropdown.hidden) return;
-    if (!box.contains(e.target)) closePicDropdown();
-  });
-}
-
-function wireEvents() {
-  els.btnEdit?.addEventListener("click", () => {
-    if (state.projectId) window.location.href = `/projects/${state.projectId}/edit`;
-  });
-}
-
-async function boot() {
-  wireEvents();
-  if (!state.projectId) {
-    els.root.innerHTML = `<div class="details-empty"><div class="details-empty-icon">!</div>Project ID tidak valid.</div>`;
-    return;
-  }
-  try {
-    const [project, tasks, notes, users, divisions] = await Promise.all([
-      api(`/api/projects/${state.projectId}`),
-      api(`/api/tasks?project_id=${state.projectId}`),
-      api(`/api/projects/${state.projectId}/notes`),
-      api("/api/team?active_only=true"),
-      api("/api/organization/ownership-options").catch(() => ({ divisions: [], bidangs: [] })),
-    ]);
-    state.project = project;
-    state.tasks = Array.isArray(tasks) ? tasks : [];
-    state.notes = Array.isArray(notes) ? notes : [];
-    state.users = Array.isArray(users) ? users : users.items || [];
-    state.divisions = Array.isArray(divisions.divisions) ? divisions.divisions : [];
-    state.bidangsByDivision = {};
-    for (const b of Array.isArray(divisions.bidangs) ? divisions.bidangs : []) {
-      const key = String(b.division_id);
-      if (!state.bidangsByDivision[key]) state.bidangsByDivision[key] = [];
-      state.bidangsByDivision[key].push(b);
+  function formatMsgTime(value) {
+    if (!value) return "";
+    try {
+      const d = new Date(value);
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      if (sameDay) {
+        return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      }
+      return d.toLocaleString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
     }
-    renderDetail();
-  } catch (err) {
+  }
+
+  function hasPhoto(url) {
+    return Boolean(String(url || "").trim());
+  }
+
+  function initials(name) {
+    return String(name || "?")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() || "")
+      .join("");
+  }
+
+  function avatarHtml(user, sizeClass = "") {
+    const name = user?.name || "User";
+    const url = user?.avatar_url;
+    if (hasPhoto(url)) {
+      return `<img class="pw-msg-avatar ${sizeClass}" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" />`;
+    }
+    return `<span class="pw-msg-avatar-fallback ${sizeClass}" aria-hidden="true">${escapeHtml(initials(name))}</span>`;
+  }
+
+  function picIcon(title = "") {
+    return `
+      <span class="pic-avatar pic-avatar-icon" title="${escapeHtml(title)}" role="img" aria-label="${escapeHtml(title || "PIC")}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-6.75 1.8-6.75 4.05V20h13.5v-1.7c0-2.25-3.15-4.05-6.75-4.05Z"/>
+        </svg>
+      </span>`;
+  }
+
+  function picPeople(project) {
+    return (project.members || []).map((m) => m.user).filter(Boolean);
+  }
+
+  function renderPicStack(project) {
+    const people = picPeople(project);
+    const label = people.map((u) => u.name).join(", ") || project.pic || "Tidak ada PIC";
+    if (!people.length) {
+      return `<div class="pic-avatar-stack" title="${escapeHtml(label)}">${picIcon(label)}</div>
+        <div class="detail-pic-names">${escapeHtml(label)}</div>`;
+    }
+    const shown = people.slice(0, 6);
+    const extra = people.length - shown.length;
+    return `
+      <div class="pic-avatar-stack" title="${escapeHtml(label)}">
+        ${shown
+          .map((u) =>
+            hasPhoto(u.avatar_url)
+              ? `<img class="pic-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`
+              : picIcon(u.name)
+          )
+          .join("")}
+        ${extra > 0 ? `<span class="pic-avatar-extra">+${extra}</span>` : ""}
+      </div>
+      <div class="detail-pic-names">${escapeHtml(label)}</div>`;
+  }
+
+  function ownershipLabel(project) {
+    if (project.owner_type === "bidang") {
+      return project.owner_bidang_name
+        ? `Bidang · ${project.owner_bidang_name}`
+        : "Bidang";
+    }
+    if (project.owner_type === "division") {
+      return project.owner_division_name
+        ? `Divisi · ${project.owner_division_name}`
+        : "Divisi";
+    }
+    return "Belum diklasifikasi";
+  }
+
+  function taskCounts(tasks) {
+    const counts = { todo: 0, in_progress: 0, review: 0, done: 0 };
+    for (const t of tasks) {
+      if (counts[t.status] != null) counts[t.status] += 1;
+    }
+    return counts;
+  }
+
+  function renderDescriptionBlock(description) {
+    const raw = String(description || "").trim();
+    if (!raw) return `<div class="pw-desc pw-empty" style="padding:8px 0;text-align:left">Belum ada deskripsi.</div>`;
+    if (/<[a-z][\s\S]*>/i.test(raw)) {
+      return `<div class="pw-desc">${raw}</div>`;
+    }
+    return `<div class="pw-desc">${escapeHtml(raw)}</div>`;
+  }
+
+  function linkifyAndMentions(text, mentions = []) {
+    let html = escapeHtml(text || "");
+    html = html.replace(
+      /(https?:\/\/[^\s<]+)/g,
+      '<a href="$1" target="_blank" rel="noopener">$1</a>'
+    );
+    const names = [...mentions]
+      .map((m) => m.name)
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
+    for (const name of names) {
+      const pattern = new RegExp(`@${escapeRegExp(name)}\\b`, "gi");
+      html = html.replace(
+        pattern,
+        `<span class="pw-mention">@${escapeHtml(name)}</span>`
+      );
+    }
+    return html;
+  }
+
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function formatBytes(n) {
+    const size = Number(n) || 0;
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function renderMessage(msg) {
+    const canDelete =
+      !msg.is_deleted &&
+      (msg.author?.id === state.currentUserId || state.canManage);
+    const files = (msg.attachments || [])
+      .map((att) => {
+        if (att.kind === "image") {
+          return `<a href="${escapeHtml(att.url)}" target="_blank" rel="noopener"><img class="pw-msg-image" src="${escapeHtml(att.url)}" alt="${escapeHtml(att.original_name)}" /></a>`;
+        }
+        return `<a class="pw-msg-file" href="${escapeHtml(att.url)}" target="_blank" rel="noopener">📎 ${escapeHtml(att.original_name)} · ${escapeHtml(formatBytes(att.size_bytes))}</a>`;
+      })
+      .join("");
+
+    const reactions = (msg.reactions || [])
+      .map(
+        (r) => `
+      <button type="button" class="pw-reaction${r.reacted_by_me ? " is-mine" : ""}" data-react="${msg.id}:${escapeHtml(r.emoji)}" title="${r.count} reaksi">
+        ${escapeHtml(r.emoji)} ${r.count}
+      </button>`
+      )
+      .join("");
+
+    return `
+      <article class="pw-msg" data-msg-id="${msg.id}">
+        ${avatarHtml(msg.author)}
+        <div class="pw-msg-bubble">
+          <div class="pw-msg-top">
+            <span class="pw-msg-name">${escapeHtml(msg.author?.name || "Pengguna")}</span>
+            <span class="pw-msg-role">${escapeHtml(msg.author?.role || "")}</span>
+            <span class="pw-msg-time">${escapeHtml(formatMsgTime(msg.created_at))}</span>
+          </div>
+          ${
+            msg.parent
+              ? `<div class="pw-msg-reply"><strong>${escapeHtml(msg.parent.author_name)}</strong>${escapeHtml(msg.parent.body_preview || "")}</div>`
+              : ""
+          }
+          ${
+            msg.is_deleted
+              ? `<p class="pw-msg-deleted">Pesan dihapus</p>`
+              : `<p class="pw-msg-body">${linkifyAndMentions(msg.body, msg.mentions)}</p>`
+          }
+          ${files ? `<div class="pw-msg-files">${files}</div>` : ""}
+          ${
+            msg.is_deleted
+              ? ""
+              : `<div class="pw-msg-actions">
+                  <div class="pw-reactions">${reactions}</div>
+                  <button type="button" data-reply="${msg.id}">Balas</button>
+                  <button type="button" data-open-react="${msg.id}">Reaksi</button>
+                  ${canDelete ? `<button type="button" data-delete-msg="${msg.id}">Hapus</button>` : ""}
+                </div>`
+          }
+        </div>
+      </article>`;
+  }
+
+  function renderDiscussionPanel() {
+    const reply = state.replyTo;
+    const mentionUsers = availableMentions(state.mentionQuery);
+    return `
+      <aside class="pw-discussion" id="pw-discussion">
+        <div class="pw-discussion-head">
+          <div>
+            <h3>Project Discussion</h3>
+            <p>Ruang komunikasi pihak berwenang pada project ini</p>
+          </div>
+          <span class="pw-discussion-count">${state.messages.length}</span>
+        </div>
+        <div class="pw-discussion-feed" id="pw-discussion-feed">
+          ${
+            state.messages.length
+              ? state.messages.map(renderMessage).join("")
+              : `<div class="pw-empty">Belum ada diskusi. Mulai percakapan pertama untuk project ini.</div>`
+          }
+        </div>
+        <div class="pw-composer" id="pw-composer">
+          <p class="pw-error" id="pw-discussion-error" hidden></p>
+          ${
+            reply
+              ? `<div class="pw-reply-bar">
+                  <div>Membalas <strong>${escapeHtml(reply.author?.name || "")}</strong></div>
+                  <button type="button" id="pw-cancel-reply" aria-label="Batalkan balasan">×</button>
+                </div>`
+              : ""
+          }
+          <div class="pw-composer-wrap">
+            <div class="pw-composer-box">
+              <textarea
+                id="pw-composer-input"
+                class="pw-composer-input"
+                placeholder="Tulis update, pertanyaan, atau @sebutkan rekan…"
+                maxlength="8000"
+              ></textarea>
+              ${
+                state.pendingFiles.length
+                  ? `<div class="pw-pending-files">${state.pendingFiles
+                      .map(
+                        (f, idx) => `
+                    <span class="pw-pending-file">
+                      ${escapeHtml(f.name)}
+                      <button type="button" data-remove-pending="${idx}" aria-label="Hapus file">×</button>
+                    </span>`
+                      )
+                      .join("")}</div>`
+                  : ""
+              }
+              <div class="pw-composer-toolbar">
+                <div class="pw-composer-tools">
+                  <button type="button" class="pw-tool-btn" id="pw-btn-emoji" title="Emoji">😊</button>
+                  <button type="button" class="pw-tool-btn" id="pw-btn-mention" title="Mention">@</button>
+                  <button type="button" class="pw-tool-btn" id="pw-btn-attach" title="Lampirkan">📎</button>
+                  <input type="file" id="pw-file-input" multiple hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.zip" />
+                </div>
+                <button type="button" class="pw-send-btn" id="pw-btn-send">Kirim</button>
+              </div>
+            </div>
+            ${
+              state.emojiOpen
+                ? `<div class="pw-popover" id="pw-emoji-popover" style="bottom:74px;left:8px">
+                    <div class="pw-emoji-grid">
+                      ${COMPOSER_EMOJIS.map((e) => `<button type="button" data-insert-emoji="${e}">${e}</button>`).join("")}
+                    </div>
+                  </div>`
+                : ""
+            }
+            ${
+              state.mentionOpen
+                ? `<div class="pw-popover" id="pw-mention-popover" style="bottom:74px;left:40px">
+                    <div class="pw-mention-list">
+                      ${
+                        mentionUsers.length
+                          ? mentionUsers
+                              .map(
+                                (u, idx) => `
+                            <button type="button" class="pw-mention-item${idx === state.mentionIndex ? " active" : ""}" data-mention-id="${u.id}">
+                              ${avatarHtml(u)}
+                              <span><strong>${escapeHtml(u.name)}</strong><small>${escapeHtml(u.role || "")}</small></span>
+                            </button>`
+                              )
+                              .join("")
+                          : `<div class="pw-empty" style="padding:10px">Tidak ada user</div>`
+                      }
+                    </div>
+                  </div>`
+                : ""
+            }
+            ${
+              state.reactionPickerFor
+                ? `<div class="pw-popover" id="pw-react-popover" style="bottom:auto;top:40%;right:16px">
+                    <div class="pw-emoji-grid">
+                      ${REACTION_EMOJIS.map(
+                        (e) =>
+                          `<button type="button" data-pick-react="${state.reactionPickerFor}:${e}">${e}</button>`
+                      ).join("")}
+                    </div>
+                  </div>`
+                : ""
+            }
+          </div>
+        </div>
+      </aside>`;
+  }
+
+  function renderWorkspace() {
+    const p = state.project;
+    if (!p) {
+      els.root.innerHTML = `
+        <div class="details-empty">
+          <div class="details-empty-icon">!</div>
+          Project tidak ditemukan.
+        </div>`;
+      return;
+    }
+
+    const pct = Math.round(p.progress || 0);
+    const counts = taskCounts(state.tasks);
+    const related = state.tasks.slice(0, 10);
+    const color = p.color || "#4F7CFF";
+
+    els.pageTitle.textContent = p.name;
+    els.pageSubtitle.textContent =
+      stripHtml(p.description) || "Collaborative Project Workspace";
+    els.btnEdit.hidden = false;
+    els.btnTasks.href = `/tasks?project_id=${p.id}`;
+
     els.root.innerHTML = `
-      <div class="details-empty">
-        <div class="details-empty-icon">!</div>
-        Gagal memuat detail: ${escapeHtml(err.message)}
-        <div style="margin-top:12px"><a class="btn btn-ghost btn-sm" href="/projects">Kembali ke Projects</a></div>
-      </div>`;
-  }
-}
+      <div class="pw-workspace">
+        <section class="pw-header">
+          <div class="pw-header-top">
+            <div class="pw-header-main">
+              <div class="project-card-icon lg" style="background:${escapeHtml(color)}20;color:${escapeHtml(color)}">▣</div>
+              <div class="pw-header-text">
+                <h2>${escapeHtml(p.name)}</h2>
+                <div class="pw-header-meta">
+                  <span class="status-badge ${escapeHtml(p.status)}">${STATUS_LABEL[p.status] || p.status}</span>
+                  <span class="pw-meta-chip">PIC <strong>${escapeHtml(p.pic || "—")}</strong></span>
+                  <span class="pw-meta-chip">Target <strong>${formatDate(p.end_date)}</strong></span>
+                  <span class="pw-meta-chip">Mulai <strong>${formatDate(p.start_date)}</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="pw-header-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-edit-inline">Edit</button>
+              <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}">Open Tasks</a>
+              <a class="btn btn-ghost btn-sm" href="/timeline">Timeline</a>
+            </div>
+          </div>
+          <div class="pw-progress-row">
+            <div class="pw-progress-track"><span style="width:${Math.min(100, Math.max(0, pct))}%;background:${escapeHtml(color)}"></span></div>
+            <div class="pw-progress-pct">${pct}%</div>
+          </div>
+        </section>
 
-document.addEventListener("DOMContentLoaded", boot);
+        <div class="pw-body">
+          <div class="pw-info">
+            <section class="pw-panel">
+              <div class="pw-panel-head"><h3>Overview</h3></div>
+              <div class="pw-overview-grid">
+                <div class="pw-overview-item"><span>PIC</span>${renderPicStack(p)}</div>
+                <div class="pw-overview-item"><span>Kepemilikan</span><strong>${escapeHtml(ownershipLabel(p))}</strong></div>
+                <div class="pw-overview-item"><span>Dikembangkan oleh</span><strong>${escapeHtml(DEVELOPED_BY_LABEL[p.developed_by] || p.developed_by || "—")}</strong></div>
+                <div class="pw-overview-item"><span>Anggaran</span><strong>${escapeHtml(formatBudgetId(p.budget))}</strong></div>
+                <div class="pw-overview-item"><span>Tasks</span><strong>${Number(p.task_count || state.tasks.length || 0)}</strong></div>
+                <div class="pw-overview-item"><span>Status</span><strong>${STATUS_LABEL[p.status] || p.status}</strong></div>
+              </div>
+              ${renderDescriptionBlock(p.description)}
+              ${
+                Array.isArray(p.documents) && p.documents.length
+                  ? `<div class="pw-docs"><span>Dokumen</span><ul>${p.documents
+                      .map(
+                        (d) =>
+                          `<li><a href="${escapeHtml(d.open_url || d.download_url || d.external_url || "#")}" target="_blank" rel="noopener">${escapeHtml(d.original_name)}${d.kind === "url" ? " ↗" : ""}</a></li>`
+                      )
+                      .join("")}</ul></div>`
+                  : ""
+              }
+            </section>
+
+            <section class="pw-panel">
+              <div class="pw-panel-head"><h3>Task breakdown</h3></div>
+              <div class="pw-breakdown">
+                ${Object.entries(TASK_STATUS_LABEL)
+                  .map(
+                    ([key, label]) => `
+                  <div class="pw-breakdown-item">
+                    <span>${label}</span>
+                    <strong>${counts[key] || 0}</strong>
+                  </div>`
+                  )
+                  .join("")}
+              </div>
+            </section>
+
+            <section class="pw-panel">
+              <div class="pw-panel-head">
+                <h3>Related tasks</h3>
+                <a href="/tasks?project_id=${p.id}">Lihat semua →</a>
+              </div>
+              ${
+                related.length
+                  ? `<ul class="pw-task-list">${related
+                      .map(
+                        (t) => `
+                    <li>
+                      <div>
+                        <strong>${escapeHtml(t.title)}</strong>
+                        <small>${escapeHtml(t.category || "General")}${t.due_date ? ` · due ${formatDate(t.due_date)}` : ""}${
+                          t.notes_count > 0 ? ` · ${t.notes_count} catatan` : ""
+                        }</small>
+                      </div>
+                      <span class="pw-task-status">${TASK_STATUS_LABEL[t.status] || t.status}</span>
+                    </li>`
+                      )
+                      .join("")}</ul>`
+                  : `<div class="pw-empty">Belum ada task untuk project ini.</div>`
+              }
+            </section>
+
+            <section class="pw-panel">
+              <div class="pw-panel-head">
+                <h3>Catatan / Problem</h3>
+                <span class="project-notes-count">${state.notes.length}</span>
+              </div>
+              ${
+                state.notes.length
+                  ? `<div class="pw-notes-list">${state.notes
+                      .map(
+                        (note) => `
+                    <article class="pw-note kind-${escapeHtml(note.kind || "problem")}">
+                      <div class="pw-note-meta">
+                        <span class="pw-note-kind">${note.kind === "note" ? "Catatan" : "Problem"}</span>
+                        <a href="/tasks?project_id=${p.id}">${escapeHtml(note.task_title || `Task #${note.task_id}`)}</a>
+                        <span>${escapeHtml(formatNoteTime(note.created_at))}</span>
+                      </div>
+                      <p>${escapeHtml(note.body)}</p>
+                    </article>`
+                      )
+                      .join("")}</div>`
+                  : `<div class="pw-empty">Belum ada catatan pada task di project ini.</div>`
+              }
+            </section>
+          </div>
+
+          ${renderDiscussionPanel()}
+        </div>
+      </div>
+    `;
+
+    document.getElementById("btn-edit-inline")?.addEventListener("click", () => {
+      window.location.href = `/projects/${p.id}/edit`;
+    });
+    wireDiscussionEvents();
+    scrollDiscussionToBottom(false);
+  }
+
+  function availableMentions(query = "") {
+    const q = query.trim().toLowerCase();
+    return state.users
+      .filter((u) => u.id !== state.currentUserId)
+      .filter((u) => {
+        if (!q) return true;
+        return (
+          String(u.name || "").toLowerCase().includes(q) ||
+          String(u.role || "").toLowerCase().includes(q)
+        );
+      })
+      .slice(0, 8);
+  }
+
+  function showDiscussionError(message) {
+    const el = document.getElementById("pw-discussion-error");
+    if (!el) return;
+    el.hidden = !message;
+    el.textContent = message || "";
+  }
+
+  function scrollDiscussionToBottom(smooth = true) {
+    const feed = document.getElementById("pw-discussion-feed");
+    if (!feed) return;
+    feed.scrollTo({
+      top: feed.scrollHeight,
+      behavior: smooth ? "smooth" : "auto",
+    });
+  }
+
+  function preserveComposerValue() {
+    return document.getElementById("pw-composer-input")?.value || "";
+  }
+
+  function restoreComposerValue(value) {
+    const input = document.getElementById("pw-composer-input");
+    if (!input) return;
+    input.value = value || "";
+    input.focus();
+    const len = input.value.length;
+    input.setSelectionRange(len, len);
+  }
+
+  function refreshDiscussionUi(keepText = true) {
+    const draft = keepText ? preserveComposerValue() : "";
+    const feed = document.getElementById("pw-discussion-feed");
+    const nearBottom = feed
+      ? feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80
+      : true;
+    renderWorkspace();
+    if (keepText) restoreComposerValue(draft);
+    if (nearBottom) scrollDiscussionToBottom(false);
+  }
+
+  function insertAtCursor(text) {
+    const input = document.getElementById("pw-composer-input");
+    if (!input) return;
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const value = input.value || "";
+    input.value = `${value.slice(0, start)}${text}${value.slice(end)}`;
+    const pos = start + text.length;
+    input.focus();
+    input.setSelectionRange(pos, pos);
+  }
+
+  function insertMention(user) {
+    const input = document.getElementById("pw-composer-input");
+    if (!input || !user) return;
+    const value = input.value || "";
+    const caret = input.selectionStart || value.length;
+    const before = value.slice(0, caret);
+    const after = value.slice(caret);
+    const atMatch = before.match(/@([^\s@]*)$/);
+    const nextBefore = atMatch ? before.slice(0, atMatch.index) : before;
+    const mentionText = `@${user.name} `;
+    input.value = `${nextBefore}${mentionText}${after}`;
+    const pos = (nextBefore + mentionText).length;
+    state.mentionIds.add(user.id);
+    state.mentionOpen = false;
+    state.mentionQuery = "";
+    refreshDiscussionUi(true);
+    restoreComposerValue(input.value);
+    const restored = document.getElementById("pw-composer-input");
+    if (restored) {
+      restored.focus();
+      restored.setSelectionRange(pos, pos);
+    }
+  }
+
+  async function loadDiscussion({ silent = false } = {}) {
+    const data = await api(`/api/projects/${state.projectId}/discussion?limit=80`);
+    const items = Array.isArray(data.items) ? data.items : [];
+    const prevLast = state.messages[state.messages.length - 1]?.id;
+    const nextLast = items[items.length - 1]?.id;
+    state.messages = items;
+    if (!silent) {
+      refreshDiscussionUi(true);
+    } else if (nextLast && nextLast !== prevLast) {
+      refreshDiscussionUi(true);
+    } else {
+      // still update reaction counts without full redraw if lengths match
+      const feed = document.getElementById("pw-discussion-feed");
+      if (feed && items.length) {
+        // light update via full refresh when count changes
+        if (items.length !== feed.querySelectorAll(".pw-msg").length) {
+          refreshDiscussionUi(true);
+        }
+      }
+    }
+  }
+
+  async function sendMessage() {
+    if (state.sending) return;
+    const input = document.getElementById("pw-composer-input");
+    const body = (input?.value || "").trim();
+    if (!body && !state.pendingFiles.length) {
+      showDiscussionError("Tulis pesan atau lampirkan file terlebih dahulu.");
+      return;
+    }
+    showDiscussionError("");
+    state.sending = true;
+    const sendBtn = document.getElementById("pw-btn-send");
+    if (sendBtn) sendBtn.disabled = true;
+    try {
+      const form = new FormData();
+      form.append("body", body);
+      if (state.replyTo?.id) form.append("parent_id", String(state.replyTo.id));
+      form.append("mention_ids", JSON.stringify([...state.mentionIds]));
+      for (const file of state.pendingFiles) form.append("files", file, file.name);
+      const res = await fetch(`/api/projects/${state.projectId}/discussion`, {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof data.detail === "string" ? data.detail : `Gagal mengirim (${res.status})`
+        );
+      }
+      state.messages.push(data);
+      state.replyTo = null;
+      state.pendingFiles = [];
+      state.mentionIds = new Set();
+      state.emojiOpen = false;
+      state.mentionOpen = false;
+      state.reactionPickerFor = null;
+      refreshDiscussionUi(false);
+      scrollDiscussionToBottom(true);
+    } catch (err) {
+      showDiscussionError(err.message || "Gagal mengirim pesan.");
+    } finally {
+      state.sending = false;
+      const btn = document.getElementById("pw-btn-send");
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function toggleReaction(messageId, emoji) {
+    try {
+      const updated = await api(`/api/projects/${state.projectId}/discussion/${messageId}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+      });
+      const idx = state.messages.findIndex((m) => m.id === messageId);
+      if (idx >= 0) state.messages[idx] = updated;
+      state.reactionPickerFor = null;
+      refreshDiscussionUi(true);
+    } catch (err) {
+      showDiscussionError(err.message || "Gagal menambah reaksi.");
+    }
+  }
+
+  async function deleteMessage(messageId) {
+    const ok = window.confirm("Hapus pesan ini dari diskusi project?");
+    if (!ok) return;
+    try {
+      const updated = await api(`/api/projects/${state.projectId}/discussion/${messageId}`, {
+        method: "DELETE",
+      });
+      const idx = state.messages.findIndex((m) => m.id === messageId);
+      if (idx >= 0) state.messages[idx] = updated;
+      refreshDiscussionUi(true);
+    } catch (err) {
+      showDiscussionError(err.message || "Gagal menghapus pesan.");
+    }
+  }
+
+  function wireDiscussionEvents() {
+    const input = document.getElementById("pw-composer-input");
+    document.getElementById("pw-btn-send")?.addEventListener("click", () => sendMessage());
+    document.getElementById("pw-cancel-reply")?.addEventListener("click", () => {
+      state.replyTo = null;
+      refreshDiscussionUi(true);
+    });
+    document.getElementById("pw-btn-emoji")?.addEventListener("click", () => {
+      state.emojiOpen = !state.emojiOpen;
+      state.mentionOpen = false;
+      state.reactionPickerFor = null;
+      refreshDiscussionUi(true);
+    });
+    document.getElementById("pw-btn-mention")?.addEventListener("click", () => {
+      state.mentionOpen = !state.mentionOpen;
+      state.emojiOpen = false;
+      state.reactionPickerFor = null;
+      state.mentionQuery = "";
+      state.mentionIndex = 0;
+      refreshDiscussionUi(true);
+      insertAtCursor("@");
+    });
+    document.getElementById("pw-btn-attach")?.addEventListener("click", () => {
+      document.getElementById("pw-file-input")?.click();
+    });
+    document.getElementById("pw-file-input")?.addEventListener("change", (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      const room = 5 - state.pendingFiles.length;
+      state.pendingFiles.push(...files.slice(0, Math.max(0, room)));
+      e.target.value = "";
+      refreshDiscussionUi(true);
+    });
+
+    document.querySelectorAll("[data-remove-pending]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.removePending);
+        state.pendingFiles = state.pendingFiles.filter((_, i) => i !== idx);
+        refreshDiscussionUi(true);
+      });
+    });
+
+    document.querySelectorAll("[data-insert-emoji]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        insertAtCursor(btn.dataset.insertEmoji || "");
+        state.emojiOpen = false;
+        refreshDiscussionUi(true);
+      });
+    });
+
+    document.querySelectorAll("[data-mention-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const user = state.users.find((u) => u.id === Number(btn.dataset.mentionId));
+        if (user) insertMention(user);
+      });
+    });
+
+    document.querySelectorAll("[data-reply]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.reply);
+        state.replyTo = state.messages.find((m) => m.id === id) || null;
+        state.reactionPickerFor = null;
+        refreshDiscussionUi(true);
+      });
+    });
+
+    document.querySelectorAll("[data-open-react]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.openReact);
+        state.reactionPickerFor = state.reactionPickerFor === id ? null : id;
+        state.emojiOpen = false;
+        state.mentionOpen = false;
+        refreshDiscussionUi(true);
+      });
+    });
+
+    document.querySelectorAll("[data-react]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const [id, emoji] = String(btn.dataset.react || "").split(":");
+        if (id && emoji) toggleReaction(Number(id), emoji);
+      });
+    });
+
+    document.querySelectorAll("[data-pick-react]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const [id, emoji] = String(btn.dataset.pickReact || "").split(":");
+        if (id && emoji) toggleReaction(Number(id), emoji);
+      });
+    });
+
+    document.querySelectorAll("[data-delete-msg]").forEach((btn) => {
+      btn.addEventListener("click", () => deleteMessage(Number(btn.dataset.deleteMsg)));
+    });
+
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        if (state.mentionOpen) {
+          e.preventDefault();
+          const picks = availableMentions(state.mentionQuery);
+          const pick = picks[state.mentionIndex] || picks[0];
+          if (pick) insertMention(pick);
+          return;
+        }
+        e.preventDefault();
+        sendMessage();
+        return;
+      }
+      if (state.mentionOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+        e.preventDefault();
+        const picks = availableMentions(state.mentionQuery);
+        if (!picks.length) return;
+        state.mentionIndex =
+          e.key === "ArrowDown"
+            ? (state.mentionIndex + 1) % picks.length
+            : (state.mentionIndex - 1 + picks.length) % picks.length;
+        refreshDiscussionUi(true);
+      }
+      if (e.key === "Escape") {
+        state.mentionOpen = false;
+        state.emojiOpen = false;
+        state.reactionPickerFor = null;
+        refreshDiscussionUi(true);
+      }
+    });
+
+    input?.addEventListener("input", () => {
+      const value = input.value || "";
+      const caret = input.selectionStart || 0;
+      const before = value.slice(0, caret);
+      const match = before.match(/@([^\s@]*)$/);
+      if (match) {
+        const wasOpen = state.mentionOpen;
+        state.mentionOpen = true;
+        state.mentionQuery = match[1] || "";
+        state.mentionIndex = 0;
+        state.emojiOpen = false;
+        if (!wasOpen) {
+          refreshDiscussionUi(true);
+        } else {
+          updateMentionPopover();
+        }
+      } else if (state.mentionOpen) {
+        state.mentionOpen = false;
+        document.getElementById("pw-mention-popover")?.remove();
+      }
+    });
+  }
+
+  function updateMentionPopover() {
+    const pop = document.getElementById("pw-mention-popover");
+    if (!pop) {
+      refreshDiscussionUi(true);
+      return;
+    }
+    const mentionUsers = availableMentions(state.mentionQuery);
+    pop.innerHTML = `<div class="pw-mention-list">${
+      mentionUsers.length
+        ? mentionUsers
+            .map(
+              (u, idx) => `
+          <button type="button" class="pw-mention-item${idx === state.mentionIndex ? " active" : ""}" data-mention-id="${u.id}">
+            ${avatarHtml(u)}
+            <span><strong>${escapeHtml(u.name)}</strong><small>${escapeHtml(u.role || "")}</small></span>
+          </button>`
+            )
+            .join("")
+        : `<div class="pw-empty" style="padding:10px">Tidak ada user</div>`
+    }</div>`;
+    pop.querySelectorAll("[data-mention-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const user = state.users.find((u) => u.id === Number(btn.dataset.mentionId));
+        if (user) insertMention(user);
+      });
+    });
+  }
+
+  function startPolling() {
+    if (state.pollTimer) clearInterval(state.pollTimer);
+    state.pollTimer = setInterval(() => {
+      loadDiscussion({ silent: true }).catch(() => {});
+    }, POLL_MS);
+  }
+
+  function wireHeaderEvents() {
+    els.btnEdit?.addEventListener("click", () => {
+      if (state.projectId) window.location.href = `/projects/${state.projectId}/edit`;
+    });
+  }
+
+  async function boot() {
+    wireHeaderEvents();
+    if (!state.projectId) {
+      els.root.innerHTML = `<div class="details-empty"><div class="details-empty-icon">!</div>Project ID tidak valid.</div>`;
+      return;
+    }
+    try {
+      const [project, tasks, notes, users, discussion] = await Promise.all([
+        api(`/api/projects/${state.projectId}`),
+        api(`/api/tasks?project_id=${state.projectId}`),
+        api(`/api/projects/${state.projectId}/notes`),
+        api("/api/team?active_only=true"),
+        api(`/api/projects/${state.projectId}/discussion?limit=80`),
+      ]);
+      state.project = project;
+      state.tasks = Array.isArray(tasks) ? tasks : [];
+      state.notes = Array.isArray(notes) ? notes : [];
+      state.users = Array.isArray(users) ? users : users.items || [];
+      state.messages = Array.isArray(discussion.items) ? discussion.items : [];
+      renderWorkspace();
+      startPolling();
+    } catch (err) {
+      els.root.innerHTML = `
+        <div class="details-empty">
+          <div class="details-empty-icon">!</div>
+          Gagal memuat workspace: ${escapeHtml(err.message)}
+          <div style="margin-top:12px"><a class="btn btn-ghost btn-sm" href="/projects">Kembali ke Projects</a></div>
+        </div>`;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", boot);
+})();

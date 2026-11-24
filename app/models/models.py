@@ -361,6 +361,11 @@ class Project(Base):
     )
     owner_division: Mapped["Division | None"] = relationship("Division", foreign_keys=[owner_division_id])
     owner_bidang: Mapped["Bidang | None"] = relationship("Bidang", foreign_keys=[owner_bidang_id])
+    discussion_messages: Mapped[list["ProjectDiscussionMessage"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="ProjectDiscussionMessage.created_at",
+    )
 
 
 class ProjectDocument(Base):
@@ -552,6 +557,99 @@ class TicketAttachment(Base):
 
     ticket: Mapped[Ticket] = relationship(back_populates="attachments")
     uploaded_by: Mapped[User | None] = relationship()
+
+
+class ProjectDiscussionMessage(Base):
+    """Collaborative discussion thread for a project workspace."""
+
+    __tablename__ = "project_discussion_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    body: Mapped[str] = mapped_column(Text, default="")
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("project_discussion_messages.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    project: Mapped[Project] = relationship(back_populates="discussion_messages")
+    author: Mapped[User] = relationship("User", foreign_keys=[author_id])
+    parent: Mapped["ProjectDiscussionMessage | None"] = relationship(
+        "ProjectDiscussionMessage",
+        remote_side="ProjectDiscussionMessage.id",
+        foreign_keys=[parent_id],
+    )
+    attachments: Mapped[list["ProjectDiscussionAttachment"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+    )
+    reactions: Mapped[list["ProjectDiscussionReaction"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+    )
+    mentions: Mapped[list["ProjectDiscussionMention"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+    )
+
+
+class ProjectDiscussionAttachment(Base):
+    __tablename__ = "project_discussion_attachments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("project_discussion_messages.id", ondelete="CASCADE"),
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(20), default="file")  # image | file
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    message: Mapped[ProjectDiscussionMessage] = relationship(back_populates="attachments")
+
+
+class ProjectDiscussionReaction(Base):
+    __tablename__ = "project_discussion_reactions"
+    __table_args__ = (UniqueConstraint("message_id", "user_id", "emoji", name="uq_discussion_reaction"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("project_discussion_messages.id", ondelete="CASCADE"),
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    emoji: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    message: Mapped[ProjectDiscussionMessage] = relationship(back_populates="reactions")
+    user: Mapped[User] = relationship("User")
+
+
+class ProjectDiscussionMention(Base):
+    __tablename__ = "project_discussion_mentions"
+    __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_discussion_mention"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("project_discussion_messages.id", ondelete="CASCADE"),
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+    message: Mapped[ProjectDiscussionMessage] = relationship(back_populates="mentions")
+    user: Mapped[User] = relationship("User")
 
 
 class AuditLog(Base):

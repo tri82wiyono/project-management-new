@@ -6,8 +6,20 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import Project, ProjectDocument, ProjectStatus, Task, TaskNote, TeamMember, User
+from app.models.models import (
+    Project,
+    ProjectDiscussionAttachment,
+    ProjectDocument,
+    ProjectStatus,
+    Task,
+    TaskNote,
+    TeamMember,
+    User,
+)
 from app.schemas.schemas import (
+    DiscussionListResponse,
+    DiscussionMessageOut,
+    DiscussionReactionCreate,
     ProjectCreate,
     ProjectDocumentOut,
     ProjectDocumentUrlCreate,
@@ -20,6 +32,7 @@ from app.schemas.schemas import (
 )
 from app.services.auth import require_permission, require_user
 from app.services import project_documents as docs_svc
+from app.services import project_discussion as discussion_svc
 from app.services.audit import write_audit_log
 from app.services import org_scope
 from app.services.project_progress import (
@@ -27,7 +40,8 @@ from app.services.project_progress import (
     recalculate_project_progress,
     release_allowed,
 )
-from fastapi import Request
+from fastapi import Form, Request
+import json
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -639,3 +653,139 @@ def delete_project_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Dokumen tidak ditemukan")
     docs_svc.delete_document(db, doc)
+
+
+def _require_project_for_discussion(db: Session, user: User, project_id: int) -> Project:
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    org_scope.require_project_view(db, user, project)
+    return project
+
+
+@router.get("/{project_id}/discussion", response_model=DiscussionListResponse)
+def list_project_discussion(
+    project_id: int,
+    after_id: int | None = Query(default=None),
+    before_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.view")),
+) -> DiscussionListResponse:
+    _require_project_for_discussion(db, user, project_id)
+    return discussion_svc.list_messages(
+        db,
+        project_id=project_id,
+        current_user_id=user.id,
+        after_id=after_id,
+        before_id=before_id,
+        limit=limit,
+    )
+
+
+@router.post(
+    "/{project_id}/discussion",
+    response_model=DiscussionMessageOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def post_project_discussion(
+    project_id: int,
+    body: str = Form(default=""),
+    parent_id: str | None = Form(default=None),
+    mention_ids: str = Form(default="[]"),
+    files: list[UploadFile] | None = File(default=None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.view")),
+) -> DiscussionMessageOut:
+    _require_project_for_discussion(db, user, project_id)
+    parsed_parent: int | None = None
+    if parent_id not in (None, ""):
+        try:
+            parsed_parent = int(parent_id)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="parent_id tidak valid") from None
+    try:
+        parsed_mentions = json.loads(mention_ids or "[]")
+        if not isinstance(parsed_mentions, list):
+            raise ValueError("mention_ids must be a list")
+        mention_list = [int(x) for x in parsed_mentions]
+    except (TypeError, ValueError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Format mention_ids tidak valid") from None
+    return await discussion_svc.create_message(
+        db,
+        project_id=project_id,
+        author=user,
+        body=body,
+        parent_id=parsed_parent,
+        mention_ids=mention_list,
+        files=files or [],
+    )
+
+
+@router.delete("/{project_id}/discussion/{message_id}", response_model=DiscussionMessageOut)
+def delete_project_discussion_message(
+    project_id: int,
+    message_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.view")),
+) -> DiscussionMessageOut:
+    _require_project_for_discussion(db, user, project_id)
+    can_manage = org_scope.can_manage_project(db, user, db.get(Project, project_id))
+    return discussion_svc.soft_delete_message(
+        db,
+        project_id=project_id,
+        message_id=message_id,
+        actor=user,
+        can_manage=can_manage,
+    )
+
+
+@router.post(
+    "/{project_id}/discussion/{message_id}/reactions",
+    response_model=DiscussionMessageOut,
+)
+def react_project_discussion_message(
+    project_id: int,
+    message_id: int,
+    payload: DiscussionReactionCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.view")),
+) -> DiscussionMessageOut:
+    _require_project_for_discussion(db, user, project_id)
+    return discussion_svc.toggle_reaction(
+        db,
+        project_id=project_id,
+        message_id=message_id,
+        user=user,
+        emoji=payload.emoji,
+    )
+
+
+@router.get("/{project_id}/discussion/attachments/{attachment_id}")
+def download_discussion_attachment(
+    project_id: int,
+    attachment_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.view")),
+):
+    _require_project_for_discussion(db, user, project_id)
+    att = db.get(ProjectDiscussionAttachment, attachment_id)
+    if not att:
+        raise HTTPException(status_code=404, detail="Lampiran tidak ditemukan")
+    message = discussion_svc.get_message(db, project_id, att.message_id)
+    if not message or message.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Lampiran tidak ditemukan")
+    path = discussion_svc.resolve_attachment_path(att, project_id)
+    safe_name = quote(att.original_name or "attachment")
+    inline = (att.kind or "") == "image"
+    return FileResponse(
+        path=path,
+        filename=att.original_name,
+        media_type=att.content_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": (
+                f"{'inline' if inline else 'attachment'}; filename*=UTF-8''{safe_name}"
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

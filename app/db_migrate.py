@@ -397,3 +397,64 @@ def ensure_schema() -> None:
                 """
             )
         )
+        conn.execute(
+            text(
+                """
+    CREATE TABLE IF NOT EXISTS project_discussion_messages (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT DEFAULT '',
+      parent_id INTEGER REFERENCES project_discussion_messages(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      deleted_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_messages_project_id
+      ON project_discussion_messages(project_id);
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_messages_author_id
+      ON project_discussion_messages(author_id);
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_messages_parent_id
+      ON project_discussion_messages(parent_id);
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_messages_created_at
+      ON project_discussion_messages(created_at);
+
+    CREATE TABLE IF NOT EXISTS project_discussion_attachments (
+      id SERIAL PRIMARY KEY,
+      message_id INTEGER NOT NULL REFERENCES project_discussion_messages(id) ON DELETE CASCADE,
+      kind VARCHAR(20) DEFAULT 'file',
+      original_name VARCHAR(255) NOT NULL,
+      stored_name VARCHAR(255) NOT NULL,
+      content_type VARCHAR(120) DEFAULT 'application/octet-stream',
+      size_bytes INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_attachments_message_id
+      ON project_discussion_attachments(message_id);
+
+    CREATE TABLE IF NOT EXISTS project_discussion_reactions (
+      id SERIAL PRIMARY KEY,
+      message_id INTEGER NOT NULL REFERENCES project_discussion_messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      emoji VARCHAR(16) NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      CONSTRAINT uq_discussion_reaction UNIQUE (message_id, user_id, emoji)
+    );
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_reactions_message_id
+      ON project_discussion_reactions(message_id);
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_reactions_user_id
+      ON project_discussion_reactions(user_id);
+
+    CREATE TABLE IF NOT EXISTS project_discussion_mentions (
+      id SERIAL PRIMARY KEY,
+      message_id INTEGER NOT NULL REFERENCES project_discussion_messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT uq_discussion_mention UNIQUE (message_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_mentions_message_id
+      ON project_discussion_mentions(message_id);
+    CREATE INDEX IF NOT EXISTS ix_project_discussion_mentions_user_id
+      ON project_discussion_mentions(user_id);
+                """
+            )
+        )
