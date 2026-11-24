@@ -472,7 +472,7 @@
   }
 
   async function loadMessages(projectId, { silent = false } = {}) {
-    const data = await api(`/api/projects/${projectId}/discussion?limit=120`);
+    const data = await api(`/api/projects/${projectId}/discussion?limit=100`);
     const items = Array.isArray(data.items) ? data.items : [];
     const prevLast = state.messages[state.messages.length - 1]?.id;
     const nextLast = items[items.length - 1]?.id;
@@ -520,6 +520,11 @@
       return;
     }
     try {
+      els.roomEmpty.hidden = true;
+      els.roomActive.hidden = false;
+      if (els.feed) {
+        els.feed.innerHTML = `<div class="pw-empty">Memuat percakapan…</div>`;
+      }
       await loadMessages(state.activeProjectId);
       await markThreadRead(state.activeProjectId);
       if (updateUrl) {
@@ -528,9 +533,27 @@
         window.history.replaceState({}, "", url.toString());
       }
     } catch (err) {
+      els.roomEmpty.hidden = true;
+      els.roomActive.hidden = false;
+      const thread = activeThread();
+      if (els.roomHead && thread) {
+        els.roomHead.innerHTML = `
+          <div class="chat-room-head-main">
+            <div class="chat-avatar" style="background:${escapeHtml(thread.project_color || "#4F7CFF")}">
+              ${escapeHtml(initials(thread.project_name))}
+            </div>
+            <div class="chat-room-head-text">
+              <h3>${escapeHtml(thread.project_name)}</h3>
+              <p>Gagal memuat pesan</p>
+            </div>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="/projects/${thread.project_id}">Buka Project</a>
+        `;
+      }
       if (els.feed) {
         els.feed.innerHTML = `<div class="pw-empty">${escapeHtml(err.message || "Gagal memuat chat.")}</div>`;
       }
+      if (els.composer) els.composer.innerHTML = "";
     }
   }
 
