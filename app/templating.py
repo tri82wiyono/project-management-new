@@ -8,6 +8,7 @@ from app.services.identity import get_identity_dict
 NAV_ITEMS = [
     {"key": "dashboard", "label": "Dashboard", "icon": "▦", "href": "/", "permissions": ["dashboard.view"]},
     {"key": "projects", "label": "Projects", "icon": "▣", "href": "/projects", "permissions": ["projects.view"]},
+    {"key": "chat", "label": "Chat", "icon": "💬", "href": "/chat", "permissions": ["projects.view"]},
     {
         "key": "tickets",
         "label": "Ticket Management",
@@ -47,6 +48,7 @@ NAV_ITEMS = [
 MOBILE_NAV_ITEMS = [
     {"key": "dashboard", "label": "Home", "icon": "⌂", "href": "/", "permissions": ["dashboard.view"]},
     {"key": "projects", "label": "Project", "icon": "▣", "href": "/projects", "permissions": ["projects.view"]},
+    {"key": "chat", "label": "Chat", "icon": "◌", "href": "/chat", "permissions": ["projects.view"]},
     {"key": "tasks", "label": "Task", "icon": "☰", "href": "/tasks", "permissions": ["tasks.view"]},
     # Account is available to any authenticated user (no module permission).
     {"key": "account", "label": "Account", "icon": "◎", "href": "/account", "permissions": []},

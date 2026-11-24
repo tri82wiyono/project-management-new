@@ -463,3 +463,24 @@ class MentionNotificationListResponse(BaseModel):
     items: list[MentionNotificationOut]
     unread_count: int
     total: int
+
+
+class ChatThreadOut(BaseModel):
+    project_id: int
+    project_name: str
+    project_status: str = ""
+    project_color: str = "#4F7CFF"
+    last_message_id: int | None = None
+    last_message_preview: str = ""
+    last_message_at: datetime | None = None
+    last_author_name: str = ""
+    last_author_avatar_url: str = ""
+    unread_mentions: int = 0
+    message_count: int = 0
+    open_url: str
+
+
+class ChatThreadListResponse(BaseModel):
+    items: list[ChatThreadOut]
+    total: int
+    unread_threads: int = 0

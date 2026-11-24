@@ -15,6 +15,7 @@ from app.db_migrate import ensure_schema
 from app.routers import audit as audit_router
 from app.routers import auth as auth_router
 from app.routers import dashboard, projects, roles as roles_router
+from app.routers import chat as chat_router
 from app.routers import notifications as notifications_router
 from app.routers import organization as organization_router
 from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
@@ -215,6 +216,7 @@ app.include_router(organization_router.router)
 app.include_router(timeline_router.router)
 app.include_router(audit_router.router)
 app.include_router(notifications_router.router)
+app.include_router(chat_router.router)
 
 
 def _user_context(request: Request, db: Session) -> dict:
@@ -344,6 +346,22 @@ def project_new_page(request: Request, db: Session = Depends(get_db)) -> HTMLRes
         },
     )
     return templates.TemplateResponse(request, "pages/project_form.html", context)
+
+
+@app.get("/chat", response_class=HTMLResponse)
+def chat_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    denied = _require_page_permission(request, db, "projects.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
+        active_page="chat",
+        page_title="Chat",
+        page_subtitle="Daftar percakapan project yang dapat Anda akses.",
+        extra={"search_placeholder": "Cari chat project…"},
+    )
+    return templates.TemplateResponse(request, "pages/chat.html", context)
 
 
 @app.get("/tickets", response_class=HTMLResponse)

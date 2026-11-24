@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Chat · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/chat.css?v=1" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Chat</h1>
+      <p>Ruang diskusi project yang menjadi tanggung jawab atau akses Anda.</p>
+    </div>
+    <div class="top-actions">
+      <label class="search">
+        <span>⌕</span>
+        <input id="chat-search" type="search" placeholder="{{ search_placeholder }}" autocomplete="off" />
+      </label>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="chat-page" id="chat-page">
+    <section class="chat-shell">
+      <div class="chat-shell-head">
+        <div>
+          <h2>Percakapan Saya</h2>
+          <p id="chat-summary">Memuat daftar chat…</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="chat-refresh">Refresh</button>
+      </div>
+      <div class="chat-list" id="chat-list">
+        <div class="chat-empty">Memuat chat…</div>
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/chat.js?v=1" defer></script>
+{% endblock %}
