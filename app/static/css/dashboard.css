@@ -1206,18 +1206,53 @@ body.tk-modal-open .app-shell.sidebar-collapsed > .app-main {
   align-content: start;
 }
 .team-avatars { display: flex; flex-wrap: wrap; align-items: center; gap: 0; }
-.team-avatars img,
+.team-avatar,
 .team-extra {
+  position: relative;
   width: 34px;
   height: 34px;
   border-radius: 50%;
   border: 2px solid #fff;
   margin-left: -8px;
-  object-fit: cover;
   box-shadow: 0 1px 3px rgba(24, 34, 51, 0.08);
+  flex: 0 0 auto;
 }
-.team-avatars img:first-child,
+.team-avatar:first-child,
 .team-extra:first-child { margin-left: 0; }
+.team-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.team-avatar-initials {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #4f7cff, #3558c7);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.team-online-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+.team-avatar.is-online .team-online-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25);
+}
 .team-extra {
   display: grid;
   place-items: center;

@@ -275,6 +275,20 @@ def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
     }
 
 
+@router.post("/api/auth/heartbeat")
+def auth_heartbeat(request: Request, db: Session = Depends(get_db)) -> dict:
+    """Lightweight presence ping used for online indicators."""
+    from datetime import datetime, timezone
+
+    user = get_optional_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user.last_active_at = datetime.now(timezone.utc)
+    db.add(user)
+    db.commit()
+    return {"ok": True, "last_active_at": user.last_active_at.isoformat()}
+
+
 @router.post("/api/auth/login")
 def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     if not verify_captcha(payload.captcha_id, payload.captcha_answer):

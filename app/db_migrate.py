@@ -16,6 +16,8 @@ def ensure_schema() -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_count INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ",
+        "CREATE INDEX IF NOT EXISTS ix_users_last_active_at ON users(last_active_at)",
         """
         UPDATE projects SET pic = 'Farah Nabila'
         WHERE (pic IS NULL OR pic = '') AND name = 'Payment Platform'

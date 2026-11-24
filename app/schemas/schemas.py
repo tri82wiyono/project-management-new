@@ -24,6 +24,8 @@ class UserOut(BaseModel):
     role: str
     avatar_url: str
     is_active: bool
+    is_online: bool = False
+    last_active_at: datetime | None = None
 
 
 class TeamMemberOut(BaseModel):

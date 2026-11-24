@@ -624,6 +624,19 @@ def get_calendar(
     return CalendarResponse(year=year, month=month, days=days, upcoming=upcoming)
 
 
+ONLINE_WINDOW = timedelta(minutes=3)
+
+
+def _user_is_online(user: User, *, now: datetime | None = None) -> bool:
+    stamp = getattr(user, "last_active_at", None) or user.last_login_at
+    if not stamp:
+        return False
+    current = now or datetime.now(timezone.utc)
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return stamp >= current - ONLINE_WINDOW
+
+
 def get_team_overview(db: Session, limit: int = 5) -> TeamOverview:
     total = (
         db.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))) or 0
@@ -634,6 +647,12 @@ def get_team_overview(db: Session, limit: int = 5) -> TeamOverview:
         .order_by(User.id.asc())
         .limit(limit)
     ).all()
-    visible = [UserOut.model_validate(u) for u in users]
+    now = datetime.now(timezone.utc)
+    visible = []
+    for u in users:
+        item = UserOut.model_validate(u)
+        item.is_online = _user_is_online(u, now=now)
+        item.last_active_at = getattr(u, "last_active_at", None)
+        visible.append(item)
     extra = max(0, int(total) - len(visible))
     return TeamOverview(total=int(total), visible=visible, extra=extra)

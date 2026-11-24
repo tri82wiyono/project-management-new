@@ -200,6 +200,7 @@ class User(Base):
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     # Phase 2 — primary org placement (Division derived from Bidang.parent). Leadership ≠ placement.
     primary_bidang_id: Mapped[int | None] = mapped_column(
         ForeignKey("bidangs.id", ondelete="SET NULL"),

@@ -57,6 +57,18 @@
     timerId = setTimeout(() => forceLogout("expired"), remaining);
   }
 
+  async function pingPresence() {
+    if (document.visibilityState === "hidden") return;
+    try {
+      await fetch("/api/auth/heartbeat", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function init() {
     try {
       const res = await fetch("/api/auth/me", { credentials: "same-origin" });
@@ -64,6 +76,7 @@
       if (!res.ok) return;
       const data = await res.json();
       schedule(data.session_expires_at);
+      pingPresence();
     } catch {
       /* ignore */
     }
@@ -74,7 +87,9 @@
     if (document.visibilityState !== "visible") return;
     // If timer already scheduled, nothing to do; only recover if missing.
     if (!timerId) init();
+    else pingPresence();
   });
 
   init();
+  window.setInterval(pingPresence, 60000);
 })();

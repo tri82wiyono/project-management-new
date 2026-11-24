@@ -241,10 +241,42 @@ function renderKanban(board) {
   }).join("");
 }
 
+function nameInitials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
+}
+
+function hasRealPhoto(url) {
+  const value = String(url || "").trim().toLowerCase();
+  if (!value) return false;
+  if (value.includes("dicebear.com")) return false;
+  if (value.startsWith("data:image/svg")) return false;
+  return true;
+}
+
+function renderTeamAvatar(user) {
+  const name = user?.name || "User";
+  const online = Boolean(user?.is_online);
+  const title = `${name}${online ? " · Online" : ""}`;
+  const photo = hasRealPhoto(user?.avatar_url)
+    ? `<img src="${escapeHtml(safeUrl(user.avatar_url))}" alt="${escapeHtml(name)}" />`
+    : `<span class="team-avatar-initials" aria-hidden="true">${escapeHtml(nameInitials(name))}</span>`;
+  return `
+    <div class="team-avatar${online ? " is-online" : ""}" title="${escapeHtml(title)}" role="img" aria-label="${escapeHtml(title)}">
+      ${photo}
+      <span class="team-online-dot" aria-hidden="true"></span>
+    </div>`;
+}
+
 function renderTeam(team) {
   document.getElementById("team-count").textContent = `${team.total} members`;
   document.getElementById("team-avatars").innerHTML = `
-    ${team.visible.map((u) => `<img src="${escapeHtml(safeUrl(u.avatar_url))}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`).join("")}
+    ${(team.visible || []).map(renderTeamAvatar).join("")}
     ${team.extra > 0 ? `<div class="team-extra">+${team.extra}</div>` : ""}
   `;
 }

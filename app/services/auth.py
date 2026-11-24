@@ -84,9 +84,11 @@ def register_failed_login(db: Session, user: User) -> None:
 
 
 def register_successful_login(db: Session, user: User) -> None:
+    now = datetime.now(timezone.utc)
     user.failed_login_count = 0
     user.locked_until = None
-    user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_at = now
+    user.last_active_at = now
     db.commit()
 
 
