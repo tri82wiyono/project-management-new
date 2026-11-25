@@ -390,8 +390,11 @@ def create_project(
     db.add(project)
     db.flush()
 
-    if payload.member_ids:
-        users = db.scalars(select(User).where(User.id.in_(payload.member_ids))).all()
+    # Always include the creator so the project stays visible under org-scope
+    # even when they only selected other users as PIC/members.
+    member_ids = list(dict.fromkeys([*(payload.member_ids or []), current.id]))
+    if member_ids:
+        users = db.scalars(select(User).where(User.id.in_(member_ids))).all()
         for member in users:
             if not member.is_active:
                 continue
@@ -413,7 +416,7 @@ def create_project(
             "owner_type": loaded.owner_type,
             "owner_division_id": loaded.owner_division_id,
             "owner_bidang_id": loaded.owner_bidang_id,
-            "member_ids": payload.member_ids,
+            "member_ids": member_ids,
         },
     )
     return _to_out(loaded, counts.get(loaded.id, 0))
