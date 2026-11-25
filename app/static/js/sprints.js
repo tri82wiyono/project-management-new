@@ -288,33 +288,42 @@
     return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
   }
 
+  function avatarChip(user) {
+    const name = user?.name || user?.full_name || user?.username || "?";
+    const url = String(user?.avatar_url || "").trim();
+    // Follow account profile photo (uploaded file or generated avatar URL)
+    if (url) {
+      return `<img class="sp-avatar" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
+    }
+    return `<span class="sp-avatar sp-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`;
+  }
+
   function renderAvatars(users) {
     if (!users.length) return `<span style="font-size:0.76rem;color:var(--sp-muted)">Belum ada assignee</span>`;
     const shown = users.slice(0, 4);
     const extra = users.length - shown.length;
     return `
       <div class="sp-avatar-row">
-        ${shown
-          .map((u) => {
-            const name = u.name || u.full_name || u.username || "?";
-            if (u.avatar_url) {
-              return `<img class="sp-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
-            }
-            return `<span class="sp-avatar sp-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`;
-          })
-          .join("")}
+        ${shown.map(avatarChip).join("")}
         ${extra > 0 ? `<span class="sp-avatar-more">+${extra}</span>` : ""}
       </div>`;
   }
 
   function renderAssigneeChip(user) {
     if (!user) return "";
-    const name = user.name || user.full_name || user.username || "?";
-    if (user.avatar_url) {
-      return `<img class="sp-avatar" src="${escapeHtml(user.avatar_url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
-    }
-    return `<span class="sp-avatar sp-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`;
+    return avatarChip(user);
   }
+
+  const COL_ICONS = {
+    todo: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 7h11M8 12h11M8 17h11M5 7h.01M5 12h.01M5 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    in_progress: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.8"/><path d="M10.2 8.8v6.4L16 12l-5.8-3.2z" fill="currentColor"/></svg>`,
+    review: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.25" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    done: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.8"/><path d="M8.2 12.2l2.4 2.4 5.2-5.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  };
+
+  const LINK_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 14l4-4M8.5 12.5l-1.2 1.2a3.2 3.2 0 004.5 4.5l1.2-1.2M15.5 11.5l1.2-1.2a3.2 3.2 0 00-4.5-4.5L11 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  const CAL_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+  const PRIO_ARROW = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V6M7.5 10.5 12 6l4.5 4.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
   function renderTaskCard(task) {
     const prio = task.priority || "medium";
@@ -324,46 +333,39 @@
         ? [task.assignee]
         : [];
     const avatar = people[0];
+    const dragAttrs = state.canManage
+      ? ` draggable="true" data-task-status="${escapeHtml(task.status || "todo")}"`
+      : "";
     return `
-      <article class="sp-task" data-task-id="${task.id}">
+      <article class="sp-task${state.canManage ? " is-draggable" : ""}" data-task-id="${task.id}"${dragAttrs}>
         <div class="sp-task-top">
           <span class="sp-task-code">${escapeHtml(taskCode(task))}</span>
-          <a class="sp-task-link" href="/tasks?project_id=${state.projectId}">↗ Dari Tasks Project</a>
+          <a class="sp-task-link" href="/tasks?project_id=${state.projectId}" draggable="false">${LINK_ICON}<span>Dari Tasks Project</span></a>
         </div>
         <h4>${escapeHtml(task.title)}</h4>
         <div class="sp-task-foot">
-          <span class="sp-prio ${escapeHtml(prio)}">${PRIO_LABEL[prio] || prio}</span>
-          <span class="sp-due">📅 ${task.due_date ? formatDateShort(task.due_date) : "Tanpa due"}</span>
+          <span class="sp-prio ${escapeHtml(prio)}">${PRIO_ARROW}${PRIO_LABEL[prio] || prio}</span>
+          <span class="sp-due">${CAL_ICON}${task.due_date ? formatDateShort(task.due_date) : "Tanpa due"}</span>
           ${renderAssigneeChip(avatar)}
         </div>
-        ${
-          state.canManage
-            ? `<select class="sp-task-status" data-task-status="${task.id}" title="Ubah status">
-                ${TASK_STATUS.map(
-                  (s) =>
-                    `<option value="${s.value}"${s.value === task.status ? " selected" : ""}>${s.label}</option>`
-                ).join("")}
-              </select>`
-            : ""
-        }
       </article>`;
   }
 
   function renderBoard(tasks) {
     const filter = state.boardFilter || "all";
     return `
-      <div class="sp-alert"><strong>Informasi:</strong> Task tetap ada di Tasks project dan juga muncul di Sprint. Ubah status di sini = berubah juga di Tasks.</div>
+      <div class="sp-alert"><strong>Informasi:</strong> Task tetap ada di Tasks project dan juga muncul di Sprint. Seret kartu antar kolom untuk ubah status (ikut berubah di Tasks).</div>
       <div class="sp-board">
         ${TASK_STATUS.map((col) => {
           const items = (tasks || []).filter((t) => t.status === col.value);
           const hidden = filter !== "all" && filter !== col.value ? " hidden" : "";
           return `
-            <div class="sp-col ${col.value}"${hidden}>
+            <div class="sp-col ${col.value}"${hidden} data-drop-status="${col.value}">
               <div class="sp-col-head">
-                <span class="sp-col-head-left"><span class="sp-col-dot"></span>${col.label}</span>
+                <span class="sp-col-head-left"><span class="sp-col-ico">${COL_ICONS[col.value] || ""}</span>${col.label}</span>
                 <span class="n">${items.length}</span>
               </div>
-              <div class="sp-col-body">
+              <div class="sp-col-body" data-drop-status="${col.value}">
                 ${items.length ? items.map(renderTaskCard).join("") : `<div class="sp-col-empty">Kosong</div>`}
               </div>
             </div>`;
@@ -747,7 +749,7 @@
       renderDetail();
       return;
     }
-    const select = event.target.closest("[data-task-status]");
+    const select = event.target.closest("select[data-task-status]");
     if (!select || !state.detail) return;
     try {
       await api(`/api/tasks/${Number(select.dataset.taskStatus)}`, {
@@ -759,6 +761,79 @@
       alert(err.message || "Gagal mengubah status task");
       await selectSprint(state.detail.id);
     }
+  }
+
+  async function moveTaskStatus(taskId, nextStatus) {
+    if (!state.detail || !state.canManage) return;
+    const task = (state.detail.tasks || []).find((t) => Number(t.id) === Number(taskId));
+    if (!task || task.status === nextStatus) return;
+    const prev = task.status;
+    task.status = nextStatus;
+    renderDetail();
+    try {
+      await api(`/api/tasks/${Number(taskId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      await selectSprint(state.detail.id, false);
+    } catch (err) {
+      task.status = prev;
+      renderDetail();
+      alert(err.message || "Gagal mengubah status task");
+    }
+  }
+
+  function onBoardDragStart(event) {
+    const card = event.target.closest(".sp-task.is-draggable");
+    if (!card || !state.canManage) return;
+    if (event.target.closest("a, button, select, input")) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/task-id", card.dataset.taskId || "");
+    event.dataTransfer.setData("text/plain", card.dataset.taskId || "");
+    card.classList.add("is-dragging");
+    els.detailBody?.querySelectorAll(".sp-col").forEach((col) => col.classList.add("is-drop-ready"));
+  }
+
+  function onBoardDragEnd(event) {
+    const card = event.target.closest(".sp-task");
+    card?.classList.remove("is-dragging");
+    els.detailBody?.querySelectorAll(".sp-col.is-drop-ready, .sp-col.is-drag-over").forEach((col) => {
+      col.classList.remove("is-drop-ready", "is-drag-over");
+    });
+  }
+
+  function onBoardDragOver(event) {
+    const col = event.target.closest("[data-drop-status]");
+    if (!col || !state.canManage) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    els.detailBody?.querySelectorAll(".sp-col.is-drag-over").forEach((node) => {
+      if (node !== col.closest(".sp-col")) node.classList.remove("is-drag-over");
+    });
+    col.closest(".sp-col")?.classList.add("is-drag-over");
+  }
+
+  function onBoardDragLeave(event) {
+    const col = event.target.closest(".sp-col");
+    if (!col) return;
+    if (col.contains(event.relatedTarget)) return;
+    col.classList.remove("is-drag-over");
+  }
+
+  async function onBoardDrop(event) {
+    const dropZone = event.target.closest("[data-drop-status]");
+    if (!dropZone || !state.canManage) return;
+    event.preventDefault();
+    const nextStatus = dropZone.dataset.dropStatus;
+    const taskId = event.dataTransfer.getData("text/task-id") || event.dataTransfer.getData("text/plain");
+    els.detailBody?.querySelectorAll(".sp-col.is-drag-over, .sp-col.is-drop-ready").forEach((col) => {
+      col.classList.remove("is-drag-over", "is-drop-ready");
+    });
+    if (!taskId || !nextStatus) return;
+    await moveTaskStatus(taskId, nextStatus);
   }
 
   async function boot() {
@@ -792,6 +867,13 @@
     });
     els.detailBody?.addEventListener("change", (e) => {
       onDetailChange(e).catch((err) => alert(err.message || "Gagal"));
+    });
+    els.detailBody?.addEventListener("dragstart", onBoardDragStart);
+    els.detailBody?.addEventListener("dragend", onBoardDragEnd);
+    els.detailBody?.addEventListener("dragover", onBoardDragOver);
+    els.detailBody?.addEventListener("dragleave", onBoardDragLeave);
+    els.detailBody?.addEventListener("drop", (e) => {
+      onBoardDrop(e).catch((err) => alert(err.message || "Gagal memindahkan task"));
     });
     els.modal?.addEventListener("click", (e) => {
       if (e.target === els.modal) closeForm();

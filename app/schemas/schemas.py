@@ -335,6 +335,48 @@ class DashboardKPI(BaseModel):
     on_time_delivery_growth: float
 
 
+class DashSprintProject(BaseModel):
+    project_id: int
+    project_name: str
+    sprint_count: int
+    active_sprint_name: str | None = None
+
+
+class DashSprintDueModule(BaseModel):
+    task_id: int
+    title: str
+    status: TaskStatus
+
+
+class DashSprintDueItem(BaseModel):
+    sprint_id: int
+    sprint_name: str
+    project_id: int
+    project_name: str
+    end_date: date
+    days_left: int
+    overdue: bool
+    modules: list[DashSprintDueModule] = []
+
+
+class DashSprintDoneItem(BaseModel):
+    sprint_id: int
+    sprint_name: str
+    project_id: int
+    project_name: str
+    end_date: date
+    task_count: int = 0
+    done_count: int = 0
+
+
+class DashboardSprintOverview(BaseModel):
+    total_sprints: int = 0
+    projects_with_sprints: list[DashSprintProject] = []
+    due_soon: list[DashSprintDueItem] = []
+    completed: list[DashSprintDoneItem] = []
+    due_soon_window_days: int = 14
+
+
 class TeamOverview(BaseModel):
     total: int
     visible: list[UserOut]

@@ -17,7 +17,7 @@
     </button>
   </div>
 
-  <nav class="nav">
+  <nav class="nav" id="sidebar-nav" data-nav-root>
     {% for item in nav_items %}
       <a
         class="nav-item{% if item.key == active_page %} active{% endif %}"
@@ -30,6 +30,27 @@
       </a>
     {% endfor %}
   </nav>
+  <script>
+    (function () {
+      try {
+        var uid = document.body && document.body.getAttribute("data-user-id");
+        var key = uid ? "pm_nav_order_" + uid : "pm_nav_order";
+        var raw = localStorage.getItem(key);
+        if (!raw) return;
+        var order = JSON.parse(raw);
+        if (!Array.isArray(order) || !order.length) return;
+        var nav = document.getElementById("sidebar-nav");
+        if (!nav) return;
+        var map = {};
+        Array.prototype.forEach.call(nav.querySelectorAll(".nav-item[data-section]"), function (el) {
+          map[el.getAttribute("data-section")] = el;
+        });
+        order.forEach(function (k) {
+          if (map[k]) nav.appendChild(map[k]);
+        });
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
 
   <div class="sidebar-foot">
     <p>{{ workspace.label }}</p>

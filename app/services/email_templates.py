@@ -167,13 +167,21 @@ def welcome_user_email(
     email: str,
     temporary_password: str,
     login_url: str | None = None,
+    setup_url: str | None = None,
 ) -> EmailContent:
     branding = _branding()
-    if login_url and login_url.strip().lower().startswith(("http://", "https://")):
+    base = resolve_public_app_url(branding["app_url"]).rstrip("/")
+    if setup_url and setup_url.strip().lower().startswith(("http://", "https://")):
+        url = setup_url.strip()
+    elif login_url and login_url.strip().lower().startswith(("http://", "https://")):
+        # Legacy callers may still pass a login URL; prefer setup-password path.
         raw = login_url.strip().rstrip("/")
-        url = raw if raw.endswith("/login") else f"{resolve_public_app_url(raw)}/login"
+        if "/setup-password" in raw:
+            url = raw
+        else:
+            url = f"{base}/setup-password"
     else:
-        url = f"{resolve_public_app_url(branding['app_url'])}/login"
+        url = f"{base}/setup-password"
     safe_name = name.strip() or "Pengguna"
     brand_name = branding["brand_name"]
     app_name = branding["app_name"]
@@ -184,7 +192,9 @@ def welcome_user_email(
         f"Akun Anda di {app_name} telah dibuat.\n\n"
         f"Email: {email}\n"
         f"Password sementara: {temporary_password}\n\n"
-        f"Silakan masuk di {url} dan segera ganti password Anda.\n\n"
+        f"Buka tautan berikut untuk mengatur password baru (tanpa login dulu):\n{url}\n\n"
+        f"Di halaman itu, masukkan password sementara, lalu buat password baru Anda.\n"
+        f"Setelah tersimpan, masuk ke halaman login dengan email dan password baru.\n\n"
         f"Salam,\nTim {brand_name}"
     )
 
@@ -193,8 +203,8 @@ def welcome_user_email(
         Selamat datang, {escape(safe_name)}
       </h1>
       <p style="margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.65;color:{MUTED};">
-        Akun Anda di <strong style="color:{INK};">{escape(app_name)}</strong> sudah siap digunakan.
-        Gunakan kredensial di bawah ini untuk masuk pertama kali.
+        Akun Anda di <strong style="color:{INK};">{escape(app_name)}</strong> sudah siap.
+        Klik tombol di bawah untuk mengatur password baru — tidak perlu login dulu.
       </p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{BG}"
         style="width:100%;background-color:{BG};border:1px solid {LINE};border-collapse:separate;">
@@ -202,15 +212,16 @@ def welcome_user_email(
         {_detail_row("Email", email)}
         {_detail_row("Password sementara", temporary_password, last=True)}
       </table>
-      {_cta_button("Silahkan Login", url)}
+      {_cta_button("Atur Password Baru", url)}
       <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:{MUTED};">
-        Demi keamanan, segera ganti password setelah login berhasil.
+        Di halaman pengaturan, masukkan password sementara dari email ini, lalu buat password baru
+        (dan konfirmasinya). Setelah disimpan, Anda akan diarahkan ke halaman login.
       </p>
     """
 
     html = _base_layout(
         title=subject,
-        preheader=f"Akun {brand_name} Anda telah dibuat. Login dengan password sementara.",
+        preheader=f"Akun {brand_name} Anda telah dibuat. Atur password baru lewat tautan ini.",
         body_html=body,
         footer_note="Jika Anda tidak merasa didaftarkan, abaikan email ini atau hubungi administrator.",
     )

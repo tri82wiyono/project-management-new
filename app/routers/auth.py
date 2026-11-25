@@ -48,7 +48,15 @@ from app.services.mfa import (
     qr_svg_for_uri,
     verify_totp,
 )
-from app.services.security import create_captcha, default_avatar, hash_password, verify_captcha, verify_password
+from app.services.security import (
+    create_captcha,
+    default_avatar,
+    hash_password,
+    password_fingerprint,
+    verify_captcha,
+    verify_password,
+    verify_setup_password_token,
+)
 
 router = APIRouter(tags=["auth"])
 
@@ -71,6 +79,13 @@ class LoginRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class SetupPasswordRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=800)
+    temporary_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
 
 
 class MfaCodeRequest(BaseModel):
@@ -594,6 +609,89 @@ def change_password(
     db.commit()
     set_session_user(request, user, db)
     return {"ok": True, "message": "Password berhasil diubah"}
+
+
+@router.get("/api/auth/setup-password")
+def setup_password_preview(
+    token: str,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Validate setup token and return masked account info for the setup page."""
+    from app.models.models import User
+
+    payload = verify_setup_password_token(token)
+    if not payload:
+        raise HTTPException(status_code=400, detail="Tautan tidak valid atau sudah kedaluwarsa")
+    user = db.get(User, payload["user_id"])
+    if (
+        not user
+        or not user.is_active
+        or (user.email or "").strip().lower() != payload["email"]
+        or password_fingerprint(user.password_hash) != payload["fingerprint"]
+    ):
+        raise HTTPException(status_code=400, detail="Tautan tidak valid atau sudah digunakan")
+    if not user.must_change_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Password sudah diatur. Silakan masuk lewat halaman login.",
+        )
+    return {
+        "ok": True,
+        "email": user.email,
+        "name": user.name,
+        "must_change_password": True,
+    }
+
+
+@router.post("/api/auth/setup-password")
+def setup_password(
+    payload: SetupPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Complete first-login password setup from welcome/reset email (no session yet)."""
+    from app.models.models import User
+
+    token_data = verify_setup_password_token(payload.token)
+    if not token_data:
+        raise HTTPException(status_code=400, detail="Tautan tidak valid atau sudah kedaluwarsa")
+
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Konfirmasi password baru tidak cocok")
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password baru minimal 8 karakter")
+    if payload.new_password == payload.temporary_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Password baru harus berbeda dari password sementara",
+        )
+
+    user = db.get(User, token_data["user_id"])
+    if (
+        not user
+        or not user.is_active
+        or (user.email or "").strip().lower() != token_data["email"]
+        or password_fingerprint(user.password_hash) != token_data["fingerprint"]
+    ):
+        raise HTTPException(status_code=400, detail="Tautan tidak valid atau sudah digunakan")
+    if not user.must_change_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Password sudah diatur. Silakan masuk lewat halaman login.",
+        )
+    if not verify_password(payload.temporary_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Password sementara salah")
+
+    user.password_hash = hash_password(payload.new_password)
+    user.must_change_password = False
+    user.failed_login_count = 0
+    user.locked_until = None
+    db.commit()
+    return {
+        "ok": True,
+        "email": user.email,
+        "message": "Password berhasil disimpan. Silakan masuk dengan password baru.",
+        "redirect": "/login?setup=ok",
+    }
 
 
 @router.patch("/api/auth/profile")

@@ -3,14 +3,14 @@
 {% block title %}Settings · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/settings.css?v=5" />
+  <link rel="stylesheet" href="/static/css/settings.css?v=6" />
 {% endblock %}
 
 {% block header %}
   <header class="topbar">
     <div class="greeting">
       <h1>Settings</h1>
-      <p>Configure identity, security, notifications, and system preferences.</p>
+      <p>Configure identity, security, notifications, menu, and system preferences.</p>
     </div>
     <div class="top-actions">
       <button class="icon-btn" type="button" aria-label="Notifications">●</button>
@@ -24,7 +24,7 @@
     <section class="settings-hero">
       <div>
         <h2 class="settings-title">Pengaturan Sistem</h2>
-        <p class="settings-subtitle">Kelola identitas, keamanan login/sesi, dan notifikasi email SMTP.</p>
+        <p class="settings-subtitle">Kelola identitas, keamanan login/sesi, urutan menu, dan notifikasi email SMTP.</p>
       </div>
     </section>
 
@@ -34,6 +34,9 @@
       </button>
       <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab="security" id="tab-security">
         Keamanan
+      </button>
+      <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab="menu" id="tab-menu">
+        Menu Sidebar
       </button>
       <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab="email" id="tab-email">
         Email (SMTP)
@@ -144,6 +147,37 @@
             <span class="settings-status" id="security-save-status" aria-live="polite"></span>
           </div>
         </form>
+      </section>
+    </div>
+
+    <!-- Tab: Menu Sidebar -->
+    <div class="settings-tab-panel" id="panel-menu" role="tabpanel" aria-labelledby="tab-menu" hidden>
+      <section class="settings-panel">
+        <h3 class="settings-panel-title">Urutan Menu Sidebar</h3>
+        <p class="settings-panel-desc">
+          Seret menu atau pakai tombol ↑ ↓ untuk mengatur urutan. Perubahan langsung diterapkan di sidebar.
+        </p>
+        <ol class="nav-order-list" id="nav-order-list" aria-label="Urutan menu sidebar">
+          {% for item in nav_items %}
+            <li
+              class="nav-order-item"
+              draggable="true"
+              data-nav-key="{{ item.key }}"
+              data-default-index="{{ loop.index0 }}"
+            >
+              <span class="nav-order-handle" aria-hidden="true">⋮⋮</span>
+              <span class="nav-order-label">{{ item.label }}</span>
+              <span class="nav-order-controls">
+                <button type="button" class="nav-order-btn" data-nav-move="up" aria-label="Naikkan {{ item.label }}">↑</button>
+                <button type="button" class="nav-order-btn" data-nav-move="down" aria-label="Turunkan {{ item.label }}">↓</button>
+              </span>
+            </li>
+          {% endfor %}
+        </ol>
+        <div class="settings-actions nav-order-actions">
+          <button type="button" class="btn btn-ghost" id="btn-nav-order-reset">Reset default</button>
+          <span class="settings-status" id="nav-order-status" aria-live="polite"></span>
+        </div>
       </section>
     </div>
 
@@ -281,5 +315,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/settings.js?v=7" defer></script>
+  <script src="/static/js/settings.js?v=8" defer></script>
 {% endblock %}

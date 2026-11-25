@@ -4,6 +4,32 @@
   const shell = document.querySelector(".app-shell");
   const sidebar = document.querySelector(".sidebar");
 
+  // Apply saved sidebar menu order (also applied inline in sidebar for first paint)
+  (function applySavedNavOrder() {
+    const nav = document.getElementById("sidebar-nav");
+    if (!nav) return;
+    try {
+      const uid = document.body?.dataset?.userId;
+      const key = uid ? `pm_nav_order_${uid}` : "pm_nav_order";
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const order = JSON.parse(raw);
+      if (!Array.isArray(order) || !order.length) return;
+      const map = new Map(
+        [...nav.querySelectorAll(".nav-item[data-section]")].map((el) => [
+          el.getAttribute("data-section"),
+          el,
+        ])
+      );
+      order.forEach((k) => {
+        const el = map.get(k);
+        if (el) nav.appendChild(el);
+      });
+    } catch (_) {
+      /* ignore */
+    }
+  })();
+
   // Remove old floating / bar toggles from previous version
   document.querySelectorAll(
     "[data-sidebar-toggle='float'], [data-sidebar-toggle='bar'], [data-sidebar-toggle='top'], .sidebar-reopen"

@@ -45,6 +45,53 @@ def generate_temp_password(length: int = 12) -> str:
             return pwd
 
 
+SETUP_PASSWORD_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
+
+
+def password_fingerprint(password_hash: str | None) -> str:
+    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
+
+
+def create_setup_password_token(
+    *,
+    user_id: int,
+    email: str,
+    password_hash: str | None,
+    ttl_seconds: int = SETUP_PASSWORD_TTL_SECONDS,
+) -> str:
+    """Signed link token for first-login / reset password setup page."""
+    exp = int(time.time()) + max(300, int(ttl_seconds))
+    return _sign(
+        {
+            "p": "setup_password",
+            "uid": int(user_id),
+            "em": (email or "").strip().lower(),
+            "fp": password_fingerprint(password_hash),
+            "e": exp,
+        }
+    )
+
+
+def verify_setup_password_token(token: str) -> dict | None:
+    payload = _unsign(token or "")
+    if not payload:
+        return None
+    if payload.get("p") != "setup_password":
+        return None
+    now = time.time()
+    if int(payload.get("e", 0) or 0) < now:
+        return None
+    try:
+        uid = int(payload.get("uid"))
+    except (TypeError, ValueError):
+        return None
+    email = str(payload.get("em") or "").strip().lower()
+    fp = str(payload.get("fp") or "")
+    if not uid or not email or not fp:
+        return None
+    return {"user_id": uid, "email": email, "fingerprint": fp, "expires_at": int(payload.get("e") or 0)}
+
+
 def _b64encode(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
@@ -159,5 +206,9 @@ def render_captcha_svg(answer: str) -> str:
 
 
 def default_avatar(name: str) -> str:
-    seed = _b64encode(name.encode("utf-8"))[:12]
+    # Use the real name as seed so DiceBear initials match the person (e.g. "Tri Wiyono" → TW).
+    # Avoid base64 seeds — those produce unrelated letters (e.g. VU).
+    from urllib.parse import quote
+
+    seed = quote((name or "User").strip() or "User", safe="")
     return f"https://api.dicebear.com/7.x/initials/svg?seed={seed}&backgroundColor=453a82,4f7cff"

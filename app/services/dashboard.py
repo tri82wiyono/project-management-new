@@ -7,13 +7,18 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.models import Project, ProjectStatus, Task, TaskAssignee, TaskStatus, User
+from app.models.models import Project, ProjectStatus, Sprint, SprintStatus, Task, TaskAssignee, TaskStatus, User
 from app.schemas.schemas import (
     AnalyticsPoint,
     AnalyticsResponse,
     CalendarDay,
     CalendarResponse,
     DashboardKPI,
+    DashboardSprintOverview,
+    DashSprintDoneItem,
+    DashSprintDueItem,
+    DashSprintDueModule,
+    DashSprintProject,
     DeadlineItem,
     KanbanBoard,
     KanbanColumn,
@@ -331,13 +336,22 @@ def get_kanban(
     limit_per_column: int | None = None,
     user: User | None = None,
 ) -> KanbanBoard:
-    load_opts = (
-        joinedload(Task.assignee),
-        joinedload(Task.assignees).joinedload(TaskAssignee.user),
-        joinedload(Task.project),
-        joinedload(Task.sprint),
-        joinedload(Task.notes),
-    )
+    # Dashboard light mode: skip sprint join (unused in cards) to cut payload/joins.
+    if limit_per_column:
+        load_opts = (
+            joinedload(Task.assignee),
+            joinedload(Task.assignees).joinedload(TaskAssignee.user),
+            joinedload(Task.project),
+            joinedload(Task.notes),
+        )
+    else:
+        load_opts = (
+            joinedload(Task.assignee),
+            joinedload(Task.assignees).joinedload(TaskAssignee.user),
+            joinedload(Task.project),
+            joinedload(Task.sprint),
+            joinedload(Task.notes),
+        )
     t_scope = _task_scope(db, user)
     if project_id and user is not None:
         project = db.get(Project, project_id)
@@ -470,17 +484,112 @@ def get_overdue_alert(db: Session, *, limit: int = 3, user: User | None = None) 
     return OverdueAlert(count=int(count), items=items)
 
 
+def get_sprint_overview(
+    db: Session,
+    *,
+    due_soon_days: int = 14,
+    user: User | None = None,
+) -> DashboardSprintOverview:
+    """Project yang punya sprint + sprint yang mendekati / lewat SLA."""
+    today = date.today()
+    horizon = today + timedelta(days=due_soon_days)
+    p_scope = _project_scope(db, user)
+
+    sprint_stmt = (
+        select(Sprint)
+        .options(
+            joinedload(Sprint.project),
+            joinedload(Sprint.tasks),
+        )
+        .join(Project, Project.id == Sprint.project_id)
+    )
+    if p_scope is not None:
+        sprint_stmt = sprint_stmt.where(p_scope)
+
+    sprints = db.scalars(sprint_stmt.order_by(Sprint.end_date.asc(), Sprint.id.asc())).unique().all()
+    by_project: dict[int, list[Sprint]] = defaultdict(list)
+    for sprint in sprints:
+        by_project[sprint.project_id].append(sprint)
+
+    projects_with_sprints: list[DashSprintProject] = []
+    for project_id, items in sorted(
+        by_project.items(),
+        key=lambda pair: ((pair[1][0].project.name if pair[1][0].project else "") or "").lower(),
+    ):
+        project = items[0].project
+        active = next((s for s in items if s.status == SprintStatus.active), None)
+        projects_with_sprints.append(
+            DashSprintProject(
+                project_id=project_id,
+                project_name=project.name if project else f"Project #{project_id}",
+                sprint_count=len(items),
+                active_sprint_name=active.name if active else None,
+            )
+        )
+
+    due_soon: list[DashSprintDueItem] = []
+    completed: list[DashSprintDoneItem] = []
+    for sprint in sprints:
+        project_name = sprint.project.name if sprint.project else f"Project #{sprint.project_id}"
+        tasks = list(sprint.tasks or [])
+        if sprint.status == SprintStatus.done:
+            done_count = sum(1 for t in tasks if t.status == TaskStatus.done)
+            completed.append(
+                DashSprintDoneItem(
+                    sprint_id=sprint.id,
+                    sprint_name=sprint.name,
+                    project_id=sprint.project_id,
+                    project_name=project_name,
+                    end_date=sprint.end_date,
+                    task_count=len(tasks),
+                    done_count=done_count,
+                )
+            )
+            continue
+        if sprint.end_date > horizon:
+            continue
+        days_left = (sprint.end_date - today).days
+        modules = [
+            DashSprintDueModule(task_id=t.id, title=t.title, status=t.status)
+            for t in tasks
+            if t.status != TaskStatus.done
+        ][:4]
+        due_soon.append(
+            DashSprintDueItem(
+                sprint_id=sprint.id,
+                sprint_name=sprint.name,
+                project_id=sprint.project_id,
+                project_name=project_name,
+                end_date=sprint.end_date,
+                days_left=days_left,
+                overdue=days_left < 0,
+                modules=modules,
+            )
+        )
+
+    due_soon.sort(key=lambda item: (not item.overdue, item.days_left, item.sprint_name.lower()))
+    completed.sort(key=lambda item: (item.end_date, item.sprint_name.lower()), reverse=True)
+    return DashboardSprintOverview(
+        total_sprints=len(sprints),
+        projects_with_sprints=projects_with_sprints,
+        due_soon=due_soon[:8],
+        completed=completed[:8],
+        due_soon_window_days=due_soon_days,
+    )
+
+
 def get_dashboard_summary(db: Session, user: User | None = None) -> dict:
     """Satu payload untuk bootstrap dashboard (hindari 7 round-trip HTTP)."""
     return {
         "kpi": get_kpi(db, user=user),
         "progress": get_project_progress(db, user=user),
-        "kanban": get_kanban(db, limit_per_column=6, user=user),
-        "timeline": get_timeline(db, limit=25, user=user),
+        "kanban": get_kanban(db, limit_per_column=4, user=user),
+        "timeline": get_timeline(db, limit=16, user=user),
         "analytics": get_analytics(db, 30, user=user),
         "calendar": get_calendar(db, light=True, user=user),
         "team": get_team_overview(db),
         "overdue": get_overdue_alert(db, user=user),
+        "sprints": get_sprint_overview(db, user=user),
     }
 
 

@@ -192,10 +192,13 @@ def preview_email_template(
     _: User = Depends(require_permission("settings.manage")),
 ) -> HTMLResponse:
     if template_key == "welcome":
+        from app.services.identity import resolve_public_app_url
+
         content = welcome_user_email(
             name="Budi Santoso",
             email="budi.santoso@banksumut.co.id",
-            temporary_password="Temp@12345",
+            temporary_password="TempPass1234",
+            setup_url=f"{resolve_public_app_url().rstrip('/')}/setup-password?token=preview-token-demo",
         )
     elif template_key == "reset_password":
         content = reset_password_email(

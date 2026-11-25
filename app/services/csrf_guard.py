@@ -50,7 +50,11 @@ class CsrfOriginMiddleware(BaseHTTPMiddleware):
         if not path.startswith("/api/"):
             return await call_next(request)
         # Establishing authentication: captcha + credentials remain required.
-        if path.startswith("/api/auth/login") or path.startswith("/api/auth/captcha"):
+        if (
+            path.startswith("/api/auth/login")
+            or path.startswith("/api/auth/captcha")
+            or path.startswith("/api/auth/setup-password")
+        ):
             return await call_next(request)
 
         origin = _host_from_url(request.headers.get("origin"))

@@ -10,9 +10,10 @@
   let lastExtendAt = 0;
   let extendInFlight = false;
 
-  const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll", "touchstart", "mousemove"];
+  // Skip mousemove — too chatty for the main thread; pointer/keyboard/scroll are enough.
+  const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll", "touchstart"];
   const EXTEND_EVERY_MS = 45 * 1000; // throttle server slides
-  const PRESENCE_EVERY_MS = 60 * 1000;
+  const PRESENCE_EVERY_MS = 90 * 1000;
   const WARN_BEFORE_MS = 2 * 60 * 1000;
 
   function clearTimer() {

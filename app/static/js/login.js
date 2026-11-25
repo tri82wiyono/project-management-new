@@ -157,6 +157,23 @@
     /* ignore */
   }
 
+  // After first-login password setup from welcome email
+  (() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("setup") === "ok") {
+      const email = params.get("email");
+      if (email && emailEl) {
+        emailEl.value = email;
+        passwordEl?.focus();
+      }
+      setStatus(
+        statusEl,
+        "Password berhasil diatur. Masuk dengan email dan password baru Anda.",
+        "ok"
+      );
+    }
+  })();
+
   formEl?.addEventListener("submit", async (event) => {
     event.preventDefault();
     btnLogin.disabled = true;

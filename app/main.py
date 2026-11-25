@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
@@ -29,7 +30,13 @@ from app.services.config_safety import validate_runtime_settings
 from app.services.csrf_guard import CsrfOriginMiddleware
 from app.services.email import ensure_smtp_profiles
 from app.services.identity import get_or_create_app_identity
-from app.services.roles import ensure_default_roles, permission_catalog, user_has_permission
+from app.services.roles import (
+    ensure_default_roles,
+    get_role_permissions,
+    known_permission_keys,
+    user_has_permission,
+)
+from app.services.security_headers import SecurityHeadersMiddleware
 from app.services.security_settings import (
     DEFAULT_SESSION_TIMEOUT_MINUTES,
     get_or_create_security_settings,
@@ -44,12 +51,14 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 PUBLIC_PATHS = {
     "/login",
     "/logout",
+    "/setup-password",
     "/favicon.ico",
     "/api/auth/login",
     "/api/auth/captcha",
     "/api/auth/mfa/verify-login",
     "/api/auth/device/confirm",
     "/api/auth/device/resend",
+    "/api/auth/setup-password",
     "/api/health",
 }
 
@@ -192,9 +201,26 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class StaticCacheMiddleware(BaseHTTPMiddleware):
+    """Long-cache fingerprinted static assets (?v=…) for lighter repeat visits."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith("/static/"):
+            # Query-string cache busting is used across templates (js/css?v=N).
+            response.headers.setdefault(
+                "Cache-Control",
+                "public, max-age=604800, immutable",
+            )
+        elif path.startswith("/api/"):
+            response.headers.setdefault("Cache-Control", "no-store")
+        return response
+
+
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 # Order matters: last added runs first.
-# ForceHttps → CSRF Origin → Session → AuthGuard (outermost first).
+# GZip → SecurityHeaders → StaticCache → ForceHttps → CSRF → Session → AuthGuard.
 app.add_middleware(AuthGuardMiddleware)
 app.add_middleware(
     SessionMiddleware,
@@ -206,6 +232,9 @@ app.add_middleware(
 )
 app.add_middleware(CsrfOriginMiddleware)
 app.add_middleware(ForceHttpsMiddleware)
+app.add_middleware(StaticCacheMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 app.include_router(auth_router.router)
@@ -245,10 +274,12 @@ def _user_context(request: Request, db: Session) -> dict:
 
 
 def _allowed_permissions(db: Session, user) -> set[str]:
-    """Resolve permission keys via the existing RBAC helper (includes Admin bypass)."""
+    """Resolve permission keys once per request (Admin bypass + role cache)."""
     if not user:
         return set()
-    return {item["key"] for item in permission_catalog() if user_has_permission(db, user, item["key"])}
+    if user.role == "Admin":
+        return known_permission_keys()
+    return get_role_permissions(db, user.role)
 
 
 def _page_context(
@@ -301,6 +332,21 @@ def login_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/", status_code=303)
     context = build_page_context(active_page="login", page_title="Login", allowed_permissions=set())
     return templates.TemplateResponse(request, "pages/login.html", context)
+
+
+@app.get("/setup-password", response_class=HTMLResponse)
+def setup_password_page(request: Request, db: Session = Depends(get_db)):
+    """Public first-login / reset password page opened from welcome email."""
+    if request.session.get("user_id"):
+        return RedirectResponse(url="/", status_code=303)
+    token = (request.query_params.get("token") or "").strip()
+    context = build_page_context(
+        active_page="login",
+        page_title="Atur Password",
+        allowed_permissions=set(),
+        extra={"setup_token": token},
+    )
+    return templates.TemplateResponse(request, "pages/setup_password.html", context)
 
 
 @app.get("/", response_class=HTMLResponse)

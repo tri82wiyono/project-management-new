@@ -31,3 +31,4 @@ tmp/
 .mypy_cache/
 *.log
 backups/
+.tmp/

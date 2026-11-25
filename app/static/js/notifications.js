@@ -1,5 +1,6 @@
 (() => {
-  const POLL_MS = 20000;
+  const POLL_MS = 30000;
+  const POLL_HIDDEN_MS = 120000;
 
   const menu = document.querySelector("[data-notif-menu]");
   if (!menu) return;
@@ -20,6 +21,13 @@
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;");
+  }
+
+  function hasRealPhoto(url) {
+    const value = String(url || "").trim().toLowerCase();
+    if (!value) return false;
+        if (value.startsWith("data:image/svg")) return false;
+    return true;
   }
 
   function initials(name) {
@@ -66,7 +74,7 @@
     }
     list.innerHTML = items
       .map((item) => {
-        const avatar = item.actor_avatar_url
+        const avatar = hasRealPhoto(item.actor_avatar_url)
           ? `<img src="${escapeHtml(item.actor_avatar_url)}" alt="" />`
           : `<span class="notif-avatar-fallback">${escapeHtml(initials(item.actor_name))}</span>`;
         return `
@@ -199,6 +207,22 @@
     if (e.key === "Escape") closePanel();
   });
 
+  let pollTimer = null;
+
+  function schedulePoll() {
+    if (pollTimer) window.clearInterval(pollTimer);
+    const ms = document.visibilityState === "hidden" ? POLL_HIDDEN_MS : POLL_MS;
+    pollTimer = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      refresh({ silent: true });
+    }, ms);
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    schedulePoll();
+    if (document.visibilityState === "visible") refresh({ silent: true });
+  });
+
   refresh({ silent: true });
-  window.setInterval(() => refresh({ silent: true }), POLL_MS);
+  schedulePoll();
 })();

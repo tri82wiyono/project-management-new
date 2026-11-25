@@ -517,7 +517,7 @@
 
       if (!id && data.temporary_password) {
         const mailNote = data.email_sent
-          ? "Email welcome terkirim."
+          ? "Email welcome terkirim — user membuka tautan untuk atur password baru."
           : data.email_error
             ? `Email gagal: ${data.email_error}`
             : "Email tidak dikirim.";
@@ -594,7 +594,8 @@
       const userEmail = row.querySelector(".user-cell small")?.textContent?.trim() || "";
       const ok = await askConfirm({
         title: "Reset password?",
-        message: "Password sementara baru akan dibuat dan dikirim ke email pengguna.",
+        message:
+          "Password sementara baru akan dibuat. User menerima email berisi tautan untuk mengatur password baru (bukan login langsung).",
         meta: userEmail ? `${userName}\n${userEmail}` : userName,
         tone: "warn",
         icon: "⌨",
@@ -607,8 +608,8 @@
       window.pmBusy?.show({
         title: "Mengirim email reset…",
         message: userEmail
-          ? `Sedang menghubungi SMTP dan mengirim password baru ke ${userEmail}. Mohon tunggu.`
-          : "Sedang menghubungi SMTP dan mengirim password baru. Mohon tunggu.",
+          ? `Sedang menghubungi SMTP dan mengirim tautan atur password ke ${userEmail}. Mohon tunggu.`
+          : "Sedang menghubungi SMTP dan mengirim tautan atur password. Mohon tunggu.",
       });
       try {
         const res = await fetch(`/api/users/${id}/reset-password`, {
@@ -630,10 +631,10 @@
         await showNotice({
           title: "Password berhasil direset",
           message: data.email_sent
-            ? "Password sementara sudah dibuat dan email berhasil dikirim."
+            ? "Email terkirim. User membuka tautan untuk atur password baru, lalu login."
             : "Password sementara sudah dibuat, tetapi email belum terkirim. Salin password di bawah.",
           meta: data.temporary_password
-            ? `Password baru: ${data.temporary_password}${
+            ? `Password sementara: ${data.temporary_password}${
                 data.email_error ? `\nCatatan: ${data.email_error}` : ""
               }`
             : data.email_error || "",

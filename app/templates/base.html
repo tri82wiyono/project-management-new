@@ -7,8 +7,11 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=36" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+  </noscript>
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=43" />
   {# Critical layout fallback — ensures no right-side clipping even if CSS cache is stale #}
   <style>
     html, body { margin: 0; width: 100%; }
@@ -79,7 +82,11 @@
   </script>
   {% block head_extra %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" data-layout="v6">
+<body
+  class="{% block body_class %}{% endblock %}"
+  data-layout="v6"
+  {% if current_user and current_user.id %}data-user-id="{{ current_user.id }}"{% endif %}
+>
   <div class="app-shell" id="app-shell">
     <script>
       (function () {
@@ -122,10 +129,10 @@
   {% include "partials/confirm_modal.html" %}
 
   <script src="/static/js/confirm.js?v=2" defer></script>
-  <script src="/static/js/shell.js?v=7" defer></script>
+  <script src="/static/js/shell.js?v=8" defer></script>
   {% if active_page != 'login' %}
-    <script src="/static/js/session-watch.js?v=4" defer></script>
-    <script src="/static/js/notifications.js?v=1" defer></script>
+    <script src="/static/js/session-watch.js?v=5" defer></script>
+    <script src="/static/js/notifications.js?v=4" defer></script>
   {% endif %}
   {% block scripts %}{% endblock %}
 </body>

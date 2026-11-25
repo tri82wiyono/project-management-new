@@ -7,13 +7,15 @@ from email.message import EmailMessage
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.models import SmtpSetting
+from app.models.models import SmtpSetting, User
 from app.services.email_templates import (
     EmailContent,
     new_device_confirmation_email,
     reset_password_email,
     welcome_user_email,
 )
+from app.services.identity import resolve_public_app_url
+from app.services.security import create_setup_password_token
 
 SMTP_PROVIDERS = ("zimbra", "gmail")
 
@@ -218,6 +220,16 @@ def send_templated_email(db: Session, *, to_email: str, content: EmailContent) -
     )
 
 
+def build_setup_password_url(user: User) -> str:
+    token = create_setup_password_token(
+        user_id=user.id,
+        email=user.email,
+        password_hash=user.password_hash,
+    )
+    base = resolve_public_app_url().rstrip("/")
+    return f"{base}/setup-password?token={token}"
+
+
 def send_welcome_user_email(
     db: Session,
     *,
@@ -225,12 +237,18 @@ def send_welcome_user_email(
     name: str,
     temporary_password: str,
     login_url: str | None = None,
+    setup_url: str | None = None,
+    user: User | None = None,
 ) -> dict:
+    resolved_setup = setup_url
+    if not resolved_setup and user is not None:
+        resolved_setup = build_setup_password_url(user)
     content = welcome_user_email(
         name=name,
         email=to_email,
         temporary_password=temporary_password,
         login_url=login_url,
+        setup_url=resolved_setup,
     )
     return send_templated_email(db, to_email=to_email, content=content)
 

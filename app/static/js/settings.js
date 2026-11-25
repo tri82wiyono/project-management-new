@@ -5,6 +5,7 @@
   const panels = {
     identity: $("panel-identity"),
     security: $("panel-security"),
+    menu: $("panel-menu"),
     email: $("panel-email"),
   };
 
@@ -36,6 +37,154 @@
     el.textContent = message || "";
     el.classList.remove("ok", "err");
     if (kind) el.classList.add(kind);
+  }
+
+  // —— Menu Sidebar order ——
+  const navOrderList = $("nav-order-list");
+  const navOrderStatus = $("nav-order-status");
+  const navOrderReset = $("btn-nav-order-reset");
+
+  function navOrderStorageKey() {
+    const uid = document.body?.dataset?.userId;
+    return uid ? `pm_nav_order_${uid}` : "pm_nav_order";
+  }
+
+  function readNavOrder() {
+    try {
+      const raw = localStorage.getItem(navOrderStorageKey());
+      const order = raw ? JSON.parse(raw) : null;
+      return Array.isArray(order) ? order.filter((k) => typeof k === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeNavOrder(keys) {
+    try {
+      localStorage.setItem(navOrderStorageKey(), JSON.stringify(keys));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function currentNavKeys() {
+    return [...(navOrderList?.querySelectorAll(".nav-order-item[data-nav-key]") || [])].map(
+      (el) => el.dataset.navKey
+    );
+  }
+
+  function applyOrderToList(order) {
+    if (!navOrderList || !order.length) return;
+    const map = new Map(
+      [...navOrderList.querySelectorAll(".nav-order-item[data-nav-key]")].map((el) => [
+        el.dataset.navKey,
+        el,
+      ])
+    );
+    order.forEach((key) => {
+      const el = map.get(key);
+      if (el) navOrderList.appendChild(el);
+    });
+  }
+
+  function applyOrderToSidebar(order) {
+    const nav = document.getElementById("sidebar-nav");
+    if (!nav || !order.length) return;
+    const map = new Map(
+      [...nav.querySelectorAll(".nav-item[data-section]")].map((el) => [
+        el.getAttribute("data-section"),
+        el,
+      ])
+    );
+    order.forEach((key) => {
+      const el = map.get(key);
+      if (el) nav.appendChild(el);
+    });
+  }
+
+  function persistNavOrder(message) {
+    const keys = currentNavKeys();
+    writeNavOrder(keys);
+    applyOrderToSidebar(keys);
+    setStatus(navOrderStatus, message || "Urutan menu disimpan.", "ok");
+  }
+
+  function moveNavItem(item, direction) {
+    if (!navOrderList || !item) return;
+    if (direction === "up" && item.previousElementSibling) {
+      navOrderList.insertBefore(item, item.previousElementSibling);
+      persistNavOrder("Urutan diperbarui.");
+    } else if (direction === "down" && item.nextElementSibling) {
+      navOrderList.insertBefore(item.nextElementSibling, item);
+      persistNavOrder("Urutan diperbarui.");
+    }
+  }
+
+  if (navOrderList) {
+    const saved = readNavOrder();
+    if (saved.length) applyOrderToList(saved);
+
+    let dragEl = null;
+
+    navOrderList.addEventListener("dragstart", (event) => {
+      const item = event.target.closest(".nav-order-item");
+      if (!item) return;
+      dragEl = item;
+      item.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      try {
+        event.dataTransfer.setData("text/plain", item.dataset.navKey || "");
+      } catch {
+        /* ignore */
+      }
+    });
+
+    navOrderList.addEventListener("dragend", () => {
+      dragEl?.classList.remove("is-dragging");
+      navOrderList.querySelectorAll(".nav-order-item.is-over").forEach((el) => {
+        el.classList.remove("is-over");
+      });
+      dragEl = null;
+    });
+
+    navOrderList.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      const over = event.target.closest(".nav-order-item");
+      if (!over || !dragEl || over === dragEl) return;
+      const rect = over.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      navOrderList.insertBefore(dragEl, before ? over : over.nextSibling);
+      navOrderList.querySelectorAll(".nav-order-item.is-over").forEach((el) => {
+        el.classList.remove("is-over");
+      });
+      over.classList.add("is-over");
+    });
+
+    navOrderList.addEventListener("drop", (event) => {
+      event.preventDefault();
+      persistNavOrder("Urutan diperbarui.");
+    });
+
+    navOrderList.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-nav-move]");
+      if (!btn) return;
+      const item = btn.closest(".nav-order-item");
+      moveNavItem(item, btn.getAttribute("data-nav-move"));
+    });
+
+    navOrderReset?.addEventListener("click", () => {
+      const items = [...navOrderList.querySelectorAll(".nav-order-item")].sort(
+        (a, b) => Number(a.dataset.defaultIndex) - Number(b.dataset.defaultIndex)
+      );
+      items.forEach((el) => navOrderList.appendChild(el));
+      try {
+        localStorage.removeItem(navOrderStorageKey());
+      } catch {
+        /* ignore */
+      }
+      applyOrderToSidebar(items.map((el) => el.dataset.navKey));
+      setStatus(navOrderStatus, "Urutan dikembalikan ke default.", "ok");
+    });
   }
 
   // —— Identity ——

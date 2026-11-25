@@ -372,7 +372,10 @@ function picPeople(project) {
 }
 
 function hasPhoto(url) {
-  return Boolean(String(url || "").trim());
+  const value = String(url || "").trim().toLowerCase();
+  if (!value) return false;
+    if (value.startsWith("data:image/svg")) return false;
+  return true;
 }
 
 function picIcon(title = "") {
@@ -382,6 +385,11 @@ function picIcon(title = "") {
         <path d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-6.75 1.8-6.75 4.05V20h13.5v-1.7c0-2.25-3.15-4.05-6.75-4.05Z"/>
       </svg>
     </span>`;
+}
+
+function picInitials(user) {
+  const name = user?.name || "?";
+  return `<span class="pic-avatar pic-avatar-initials" title="${escapeHtml(name)}" role="img" aria-label="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`;
 }
 
 function renderPicCell(project) {
@@ -403,7 +411,7 @@ function renderPicCell(project) {
         .map((u) =>
           hasPhoto(u.avatar_url)
             ? `<img class="pic-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`
-            : picIcon(u.name)
+            : picInitials(u)
         )
         .join("")}
       ${extra > 0 ? `<span class="pic-avatar-extra" title="+${extra} lagi">+${extra}</span>` : ""}

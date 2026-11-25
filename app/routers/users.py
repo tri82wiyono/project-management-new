@@ -169,6 +169,7 @@ def create_user(
                 to_email=user.email,
                 name=user.name,
                 temporary_password=temp_password,
+                user=user,
             )
             email_sent = True
             write_audit_log(
@@ -411,6 +412,7 @@ def reset_user_password(
                 to_email=user.email,
                 name=user.name,
                 temporary_password=temp_password,
+                user=user,
             )
             email_sent = True
             write_audit_log(
@@ -438,7 +440,7 @@ def reset_user_password(
         **_serialize(db, user),
         "email_sent": email_sent,
         "email_error": email_error,
-        "message": "Password direset. User harus login dengan password sementara.",
+        "message": "Password direset. User mengatur password baru lewat tautan di email.",
         # Always return to admin (email may be delayed / user may open older mail).
         "temporary_password": temp_password,
     }

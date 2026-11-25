@@ -439,17 +439,38 @@ async function loadSprintsForProject(projectId, selectedSprintId = "") {
   if (selectedSprintId) els.fieldSprint.value = String(selectedSprintId);
 }
 
+function nameInitials(name) {
+  const parts = String(name || "?")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+}
+
+function hasRealPhoto(url) {
+  const value = String(url || "").trim().toLowerCase();
+  if (!value) return false;
+    if (value.startsWith("data:image/svg")) return false;
+  return true;
+}
+
 function renderAssigneeAvatars(task) {
-  const people = taskAssignees(task).slice(0, 3);
+  const all = taskAssignees(task);
+  const people = all.slice(0, 3);
   if (!people.length) return "<span></span>";
-  const extra = Math.max(0, taskAssignees(task).length - people.length);
+  const extra = Math.max(0, all.length - people.length);
   return `
-    <div class="mini-avatar-stack" title="${escapeHtml(taskAssignees(task).map((u) => u.name).join(", "))}">
+    <div class="mini-avatar-stack" title="${escapeHtml(all.map((u) => u.name).join(", "))}">
       ${people
-        .map(
-          (u) =>
-            `<img class="mini-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`
-        )
+        .map((u) => {
+          const name = u.name || "?";
+          if (hasRealPhoto(u.avatar_url)) {
+            return `<img class="mini-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
+          }
+          return `<span class="mini-avatar mini-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(nameInitials(name))}</span>`;
+        })
         .join("")}
       ${extra ? `<span class="mini-avatar-extra">+${extra}</span>` : ""}
     </div>`;

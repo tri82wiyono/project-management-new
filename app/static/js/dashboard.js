@@ -61,25 +61,141 @@ function formatGrowth(value, suffix = "%") {
   return `${sign}${n}${suffix} vs. last period`;
 }
 
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+}
+
+function animateCount(el, target, { suffix = "", duration = 700 } = {}) {
+  if (!el) return;
+  const end = Number(target);
+  if (!Number.isFinite(end) || prefersReducedMotion()) {
+    el.textContent = `${target}${suffix}`;
+    return;
+  }
+  const start = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - (1 - t) ** 3;
+    el.textContent = `${Math.round(end * eased)}${suffix}`;
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 function renderKPI(data) {
   const cards = [
-    { label: "Total Projects", value: data.total_projects, growth: formatGrowth(data.total_projects_growth), icon: "▣", tone: "violet", down: data.total_projects_growth < 0 },
-    { label: "Completed Tasks", value: data.completed_tasks, growth: formatGrowth(data.completed_tasks_growth), icon: "✓", tone: "green", down: data.completed_tasks_growth < 0 },
-    { label: "In Progress", value: data.in_progress, growth: formatGrowth(data.in_progress_growth), icon: "⏱", tone: "amber", down: data.in_progress_growth < 0 },
-    { label: "On-Time Delivery", value: `${data.on_time_delivery}%`, growth: formatGrowth(data.on_time_delivery_growth, " pp"), icon: "◎", tone: "blue", down: data.on_time_delivery_growth < 0 },
+    { label: "Total Projects", value: data.total_projects, growth: formatGrowth(data.total_projects_growth), icon: "▣", tone: "violet", down: data.total_projects_growth < 0, numeric: data.total_projects, suffix: "" },
+    { label: "Completed Tasks", value: data.completed_tasks, growth: formatGrowth(data.completed_tasks_growth), icon: "✓", tone: "green", down: data.completed_tasks_growth < 0, numeric: data.completed_tasks, suffix: "" },
+    { label: "In Progress", value: data.in_progress, growth: formatGrowth(data.in_progress_growth), icon: "⏱", tone: "amber", down: data.in_progress_growth < 0, numeric: data.in_progress, suffix: "" },
+    { label: "On-Time Delivery", value: `${data.on_time_delivery}%`, growth: formatGrowth(data.on_time_delivery_growth, " pp"), icon: "◎", tone: "blue", down: data.on_time_delivery_growth < 0, numeric: data.on_time_delivery, suffix: "%" },
   ];
   document.getElementById("kpi-grid").innerHTML = cards.map((c) => `
     <article class="kpi-card">
       <div class="kpi-top">
         <div>
           <p class="kpi-label">${c.label}</p>
-          <p class="kpi-value">${c.value}</p>
+          <p class="kpi-value" data-kpi-num="${Number(c.numeric)}" data-kpi-suffix="${c.suffix}">0${c.suffix}</p>
         </div>
         <div class="kpi-icon ${c.tone}">${c.icon}</div>
       </div>
       <span class="kpi-growth${c.down ? " down" : ""}">${c.growth}</span>
     </article>
   `).join("");
+  requestAnimationFrame(() => {
+    document.querySelectorAll("#kpi-grid .kpi-value[data-kpi-num]").forEach((el, i) => {
+      setTimeout(() => {
+        animateCount(el, el.dataset.kpiNum, { suffix: el.dataset.kpiSuffix || "", duration: 720 });
+      }, 60 + i * 50);
+    });
+  });
+}
+
+function formatSprintDate(value) {
+  if (!value) return "—";
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return `${d.getDate()} ${shortMonths[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function sprintDueLabel(item) {
+  const days = Number(item.days_left);
+  if (item.overdue || days < 0) return `Terlambat ${Math.abs(days)} hari`;
+  if (days === 0) return "Jatuh tempo hari ini";
+  return `${days} hari lagi`;
+}
+
+function renderSprintOverview(data) {
+  const projects = Array.isArray(data?.projects_with_sprints) ? data.projects_with_sprints : [];
+  const dueSoon = Array.isArray(data?.due_soon) ? data.due_soon : [];
+  const completed = Array.isArray(data?.completed) ? data.completed : [];
+  const total = Number(data?.total_sprints || 0);
+  const windowDays = Number(data?.due_soon_window_days || 14);
+
+  const sub = document.getElementById("sprint-overview-sub");
+  const projectCount = document.getElementById("sprint-project-count");
+  const dueCount = document.getElementById("sprint-due-count");
+  const doneCount = document.getElementById("sprint-done-count");
+  const projectList = document.getElementById("sprint-project-list");
+  const dueList = document.getElementById("sprint-due-list");
+  const doneList = document.getElementById("sprint-done-list");
+  if (!projectList || !dueList || !doneList) return;
+
+  if (sub) {
+    sub.textContent = total
+      ? `${total} sprint di ${projects.length} project · selesai ${completed.length} · SLA ≤ ${windowDays} hari`
+      : "Belum ada sprint pada project yang terlihat";
+  }
+  if (projectCount) projectCount.textContent = String(projects.length);
+  if (dueCount) dueCount.textContent = String(dueSoon.length);
+  if (doneCount) doneCount.textContent = String(completed.length);
+
+  projectList.innerHTML = projects.length
+    ? projects
+        .map((p) => `
+        <a class="sprint-overview-item" href="/sprints?project_id=${p.project_id}">
+          <div class="sprint-overview-item-main">
+            <strong>${escapeHtml(p.project_name)}</strong>
+            <span>${p.active_sprint_name ? `Aktif: ${escapeHtml(p.active_sprint_name)}` : "Belum ada sprint aktif"}</span>
+          </div>
+          <span class="sprint-overview-pill">${Number(p.sprint_count || 0)} sprint</span>
+        </a>`)
+        .join("")
+    : `<div class="sprint-overview-empty">Belum ada project dengan sprint.</div>`;
+
+  dueList.innerHTML = dueSoon.length
+    ? dueSoon
+        .map((item) => {
+          const modules = Array.isArray(item.modules) ? item.modules : [];
+          const moduleHtml = modules.length
+            ? `<ul class="sprint-overview-modules">${modules
+                .map((m) => `<li>${escapeHtml(m.title)}</li>`)
+                .join("")}</ul>`
+            : `<p class="sprint-overview-modules-empty">Semua modul selesai / belum ada modul</p>`;
+          return `
+          <a class="sprint-overview-item ${item.overdue ? "is-overdue" : "is-soon"}" href="/sprints?project_id=${item.project_id}">
+            <div class="sprint-overview-item-main">
+              <strong>${escapeHtml(item.project_name)} · ${escapeHtml(item.sprint_name)}</strong>
+              <span>SLA ${formatSprintDate(item.end_date)} · ${sprintDueLabel(item)}</span>
+              ${moduleHtml}
+            </div>
+            <span class="sprint-overview-pill">${item.overdue ? "Overdue" : "Due soon"}</span>
+          </a>`;
+        })
+        .join("")
+    : `<div class="sprint-overview-empty">Tidak ada sprint jatuh tempo dalam ${windowDays} hari.</div>`;
+
+  doneList.innerHTML = completed.length
+    ? completed
+        .map((item) => `
+        <a class="sprint-overview-item is-done" href="/sprints?project_id=${item.project_id}">
+          <div class="sprint-overview-item-main">
+            <strong>${escapeHtml(item.project_name)} · ${escapeHtml(item.sprint_name)}</strong>
+            <span>Selesai ${formatSprintDate(item.end_date)} · ${Number(item.done_count || 0)}/${Number(item.task_count || 0)} modul</span>
+          </div>
+          <span class="sprint-overview-pill">Selesai</span>
+        </a>`)
+        .join("")
+    : `<div class="sprint-overview-empty">Belum ada sprint yang diselesaikan.</div>`;
 }
 
 function renderOverdueAlert(data) {
@@ -229,9 +345,13 @@ function renderKanban(board) {
                 : (task.assignee ? [task.assignee] : []);
               if (!people.length) return "<span></span>";
               return `<div class="mini-avatar-stack" title="${escapeHtml(people.map((u) => u.name).join(", "))}">${
-                people.slice(0, 3).map((u) =>
-                  `<img class="mini-avatar" src="${escapeHtml(safeUrl(u.avatar_url))}" alt="${escapeHtml(u.name)}" title="${escapeHtml(u.name)}" />`
-                ).join("")
+                people.slice(0, 3).map((u) => {
+                  const name = u.name || "?";
+                  if (hasRealPhoto(u.avatar_url)) {
+                    return `<img class="mini-avatar" src="${escapeHtml(safeUrl(u.avatar_url))}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
+                  }
+                  return `<span class="mini-avatar mini-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(nameInitials(name))}</span>`;
+                }).join("")
               }</div>`;
             })()}
           </div>
@@ -248,14 +368,13 @@ function nameInitials(name) {
     .filter(Boolean);
   if (!parts.length) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
 }
 
 function hasRealPhoto(url) {
-  const value = String(url || "").trim().toLowerCase();
+  const value = String(url || "").trim();
   if (!value) return false;
-  if (value.includes("dicebear.com")) return false;
-  if (value.startsWith("data:image/svg")) return false;
+  // Account profile photo: uploaded file or generated avatar URL
   return true;
 }
 
@@ -339,54 +458,75 @@ function renderAnalytics(data) {
   const ctx = document.getElementById("analytics-chart");
 
   if (analyticsChart) analyticsChart.destroy();
-  analyticsChart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Completed",
-          data: completed,
-          borderColor: "#1F5FD6",
-          backgroundColor: "rgba(79,124,255,0.12)",
-          fill: true,
-          tension: 0.35,
-          pointRadius: 0,
-          borderWidth: 2.5,
-        },
-        {
-          label: "Created",
-          data: created,
-          borderColor: "#94A3B8",
-          backgroundColor: "transparent",
-          tension: 0.35,
-          pointRadius: 0,
-          borderWidth: 2,
-          borderDash: [5, 5],
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: {
-            maxTicksLimit: 5,
-            color: "#7a8699",
-            font: { size: 10 },
+
+  const buildChart = () => {
+    if (typeof Chart === "undefined" || !ctx) return;
+    analyticsChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Completed",
+            data: completed,
+            borderColor: "#1F5FD6",
+            backgroundColor: "rgba(79,124,255,0.12)",
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            borderWidth: 2.5,
+          },
+          {
+            label: "Created",
+            data: created,
+            borderColor: "#94A3B8",
+            backgroundColor: "transparent",
+            tension: 0.35,
+            pointRadius: 0,
+            borderWidth: 2,
+            borderDash: [5, 5],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        animation: prefersReducedMotion() ? false : { duration: 420, easing: "easeOutQuart" },
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.75),
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              maxTicksLimit: 5,
+              color: "#7a8699",
+              font: { size: 10 },
+            },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: "#eef2f7" },
+            ticks: { precision: 0, color: "#7a8699", font: { size: 10 } },
           },
         },
-        y: {
-          beginAtZero: true,
-          grid: { color: "#eef2f7" },
-          ticks: { precision: 0, color: "#7a8699", font: { size: 10 } },
-        },
       },
-    },
-  });
+    });
+  };
+
+  // Defer chart work until the canvas is near the viewport.
+  if ("IntersectionObserver" in window && ctx) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        buildChart();
+      },
+      { rootMargin: "120px 0px" }
+    );
+    io.observe(ctx);
+  } else {
+    buildChart();
+  }
 }
 
 function buildMonthLabels(minTs, maxTs) {
@@ -444,23 +584,41 @@ function renderTimeline(items) {
   `;
 }
 
+function runWhenIdle(fn) {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => fn(), { timeout: 600 });
+  } else {
+    setTimeout(fn, 40);
+  }
+}
+
 async function boot() {
   setGreeting();
   try {
     // Satu request bootstrap — jauh lebih cepat daripada 7 parallel round-trip
     const data = await api("/api/dashboard/summary");
+    // Above-the-fold first for perceived speed
     renderKPI(data.kpi);
-    // Fallback bila summary belum memuat overdue (backend lama / cache)
-    const overdue = data.overdue && typeof data.overdue.count === "number"
-      ? data.overdue
-      : await api("/api/dashboard/overdue").catch(() => ({ count: 0, items: [] }));
-    renderOverdueAlert(overdue);
+    renderOverdueAlert(data.overdue || { count: 0, items: [] });
+    renderSprintOverview(
+      data.sprints || {
+        total_sprints: 0,
+        projects_with_sprints: [],
+        due_soon: [],
+        completed: [],
+        due_soon_window_days: 14,
+      }
+    );
     renderProgress(data.progress);
     renderKanban(data.kanban);
     renderTeam(data.team);
-    renderCalendar(data.calendar);
-    renderAnalytics(data.analytics);
-    renderTimeline(data.timeline);
+
+    runWhenIdle(() => {
+      renderCalendar(data.calendar);
+      renderTimeline(data.timeline);
+      renderAnalytics(data.analytics);
+      document.getElementById("dashboard")?.classList.add("dash-ready");
+    });
   } catch (err) {
     console.error(err);
     document.getElementById("kpi-grid").innerHTML = `<div class="panel">Gagal memuat dashboard. Pastikan API berjalan.</div>`;
