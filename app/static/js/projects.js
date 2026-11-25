@@ -465,6 +465,7 @@ function renderList() {
           <div class="table-actions">
             <button type="button" class="btn btn-ghost btn-sm" data-action="edit" data-id="${p.id}">Edit</button>
             <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}" data-action="tasks">Tasks</a>
+            <a class="btn btn-ghost btn-sm" href="/sprints?project_id=${p.id}" data-action="sprints">Sprints</a>
           </div>
         </td>
         <td class="col-delete">

@@ -3,18 +3,19 @@
 {% block title %}Sprints · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/sprints.css?v=1" />
+  <link rel="stylesheet" href="/static/css/sprints.css?v=2" />
 {% endblock %}
 
 {% block header %}
   <header class="topbar">
     <div class="greeting">
       <h1>Sprints</h1>
-      <p>Prioritaskan modul dalam jangka waktu tertentu (SLA).</p>
+      <p id="sprints-subtitle">Prioritaskan modul project dalam jangka waktu tertentu (SLA).</p>
     </div>
     <div class="top-actions">
-      <a class="btn btn-ghost btn-sm" href="/tasks">← Tasks</a>
-      <button type="button" class="btn btn-primary btn-sm" id="btn-new-sprint">+ New Sprint</button>
+      <a class="btn btn-ghost btn-sm" id="btn-back-project" href="/projects">← Project</a>
+      <a class="btn btn-ghost btn-sm" id="btn-open-tasks" href="/tasks">Tasks</a>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-new-sprint" hidden>+ New Sprint</button>
       {% include "partials/user_menu.html" %}
     </div>
   </header>
@@ -22,33 +23,39 @@
 
 {% block content %}
   <div class="sprints-page" id="sprints-page">
-    <section class="sprints-toolbar">
-      <select id="sprint-project-filter" aria-label="Filter project">
-        <option value="">Semua Project</option>
-      </select>
-      <select id="sprint-status-filter" aria-label="Filter status sprint">
-        <option value="">Semua status</option>
-        <option value="planned">Planned</option>
-        <option value="active">Active</option>
-        <option value="done">Done</option>
-      </select>
+    <section class="sprints-need-project" id="sprints-need-project" hidden>
+      <h2>Sprint selalu di dalam project</h2>
+      <p>Buka project dulu, lalu masuk ke Sprints untuk memilih modul prioritas (misalnya mingguan).</p>
+      <a class="btn btn-primary" href="/projects">Pilih Project</a>
     </section>
 
-    <div class="sprints-layout">
-      <section class="sprints-list-panel">
-        <div class="sprints-list-head">
-          <h2>Daftar Sprint</h2>
-          <span class="muted" id="sprints-count">0</span>
-        </div>
-        <div id="sprints-list" class="sprints-list"></div>
+    <div id="sprints-workspace" hidden>
+      <section class="sprints-toolbar">
+        <div class="sprints-project-chip" id="sprints-project-chip">—</div>
+        <select id="sprint-status-filter" aria-label="Filter status sprint">
+          <option value="">Semua status</option>
+          <option value="planned">Planned</option>
+          <option value="active">Active</option>
+          <option value="done">Done</option>
+        </select>
       </section>
 
-      <section class="sprints-detail-panel" id="sprint-detail">
-        <div class="sprints-empty" id="sprint-detail-empty">
-          Pilih sprint untuk melihat modul, SLA, dan progress.
-        </div>
-        <div id="sprint-detail-body" hidden></div>
-      </section>
+      <div class="sprints-layout">
+        <section class="sprints-list-panel">
+          <div class="sprints-list-head">
+            <h2>Daftar Sprint</h2>
+            <span class="muted" id="sprints-count">0</span>
+          </div>
+          <div id="sprints-list" class="sprints-list"></div>
+        </section>
+
+        <section class="sprints-detail-panel" id="sprint-detail">
+          <div class="sprints-empty" id="sprint-detail-empty">
+            Pilih sprint, atau buat sprint baru lalu centang modul prioritas dari task project ini.
+          </div>
+          <div id="sprint-detail-body" hidden></div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -57,19 +64,17 @@
       <div class="modal-head">
         <div>
           <h3 id="sprint-modal-title">New Sprint</h3>
-          <p>Tentukan periode fokus dan modul prioritas.</p>
+          <p id="sprint-modal-subtitle">Tentukan periode SLA dan modul mana yang diprioritaskan.</p>
         </div>
         <button type="button" class="modal-close" id="btn-close-sprint-modal" aria-label="Close">×</button>
       </div>
       <form id="sprint-form" class="sprint-form" novalidate>
         <input type="hidden" id="sprint-id" value="" />
-        <label class="field">
-          <span>Project <em>*</em></span>
-          <select id="field-sprint-project" required></select>
-        </label>
+        <input type="hidden" id="field-sprint-project" value="" />
+
         <label class="field">
           <span>Nama Sprint <em>*</em></span>
-          <input id="field-sprint-name" type="text" maxlength="160" required placeholder="mis. Sprint Prioritas UAT Mei" />
+          <input id="field-sprint-name" type="text" maxlength="160" required placeholder="mis. Sprint Mingguan 1" />
         </label>
         <label class="field">
           <span>Goal</span>
@@ -93,6 +98,15 @@
             <option value="done">Done</option>
           </select>
         </label>
+
+        <div class="field" id="sprint-task-picker-wrap">
+          <span>Modul prioritas (dari Tasks project ini)</span>
+          <div class="sprint-task-picker" id="sprint-task-picker">
+            <div class="sprints-empty" style="padding:16px">Memuat task…</div>
+          </div>
+          <small class="field-hint">Centang modul yang ingin dikerjakan di sprint ini. Bisa ditambah/dikurangi lagi nanti.</small>
+        </div>
+
         <p class="form-error" id="sprint-form-error" hidden></p>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="btn-cancel-sprint">Batal</button>
@@ -104,5 +118,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/sprints.js?v=1" defer></script>
+  <script src="/static/js/sprints.js?v=2" defer></script>
 {% endblock %}

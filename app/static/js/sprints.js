@@ -32,23 +32,32 @@
     { value: "done", label: "Done" },
   ];
 
+  const TASK_STATUS_LABEL = Object.fromEntries(TASK_STATUS.map((s) => [s.value, s.label]));
+
   const state = {
-    projects: [],
+    projectId: null,
+    project: null,
     sprints: [],
     selectedId: null,
     detail: null,
     backlog: [],
+    projectTasks: [],
     canManage: true,
   };
 
   const els = {
-    projectFilter: document.getElementById("sprint-project-filter"),
+    subtitle: document.getElementById("sprints-subtitle"),
+    needProject: document.getElementById("sprints-need-project"),
+    workspace: document.getElementById("sprints-workspace"),
+    projectChip: document.getElementById("sprints-project-chip"),
     statusFilter: document.getElementById("sprint-status-filter"),
     list: document.getElementById("sprints-list"),
     count: document.getElementById("sprints-count"),
     detailEmpty: document.getElementById("sprint-detail-empty"),
     detailBody: document.getElementById("sprint-detail-body"),
     btnNew: document.getElementById("btn-new-sprint"),
+    btnBack: document.getElementById("btn-back-project"),
+    btnTasks: document.getElementById("btn-open-tasks"),
     modal: document.getElementById("sprint-modal"),
     form: document.getElementById("sprint-form"),
     formError: document.getElementById("sprint-form-error"),
@@ -59,9 +68,12 @@
     fieldStart: document.getElementById("field-sprint-start"),
     fieldEnd: document.getElementById("field-sprint-end"),
     fieldStatus: document.getElementById("field-sprint-status"),
+    taskPickerWrap: document.getElementById("sprint-task-picker-wrap"),
+    taskPicker: document.getElementById("sprint-task-picker"),
     btnClose: document.getElementById("btn-close-sprint-modal"),
     btnCancel: document.getElementById("btn-cancel-sprint"),
     modalTitle: document.getElementById("sprint-modal-title"),
+    modalSubtitle: document.getElementById("sprint-modal-subtitle"),
   };
 
   function escapeHtml(text) {
@@ -107,24 +119,23 @@
     return `Sisa SLA ${left} hari`;
   }
 
-  function fillProjectSelects() {
-    const options = state.projects
-      .map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`)
-      .join("");
-    if (els.projectFilter) {
-      const current = els.projectFilter.value;
-      els.projectFilter.innerHTML = `<option value="">Semua Project</option>${options}`;
-      els.projectFilter.value = current;
+  function syncHeader() {
+    const name = state.project?.name || `Project #${state.projectId}`;
+    if (els.subtitle) {
+      els.subtitle.textContent = `Modul prioritas untuk “${name}” — pilih task yang dikerjakan dalam periode SLA.`;
     }
-    if (els.fieldProject) {
-      els.fieldProject.innerHTML = options || `<option value="">Tidak ada project</option>`;
+    if (els.projectChip) {
+      els.projectChip.innerHTML = `<strong>${escapeHtml(name)}</strong><span>Sprint hanya untuk project ini</span>`;
     }
+    if (els.btnBack) els.btnBack.href = `/projects/${state.projectId}`;
+    if (els.btnTasks) els.btnTasks.href = `/tasks?project_id=${state.projectId}`;
+    if (els.btnNew) els.btnNew.hidden = false;
   }
 
   function renderList() {
     if (!els.list) return;
     if (!state.sprints.length) {
-      els.list.innerHTML = `<div class="sprints-empty">Belum ada sprint. Buat sprint untuk mulai fokus modul prioritas.</div>`;
+      els.list.innerHTML = `<div class="sprints-empty">Belum ada sprint. Klik <strong>+ New Sprint</strong> lalu centang modul prioritas dari Tasks.</div>`;
       if (els.count) els.count.textContent = "0";
       return;
     }
@@ -138,7 +149,7 @@
           <div class="sprint-card-top">
             <div>
               <strong>${escapeHtml(s.name)}</strong>
-              <span class="muted">${escapeHtml(s.project_name || "Project")} · ${s.done_count}/${s.task_count} modul</span>
+              <span class="muted">${s.done_count}/${s.task_count} modul · ${formatDate(s.start_date)} → ${formatDate(s.end_date)}</span>
             </div>
             <span class="sprint-badge ${escapeHtml(s.status)}">${STATUS_LABEL[s.status] || s.status}</span>
           </div>
@@ -194,7 +205,6 @@
         <h2>${escapeHtml(s.name)}</h2>
         <div class="sprint-detail-meta">
           <span class="sprint-badge ${escapeHtml(s.status)}">${STATUS_LABEL[s.status] || s.status}</span>
-          <span>${escapeHtml(s.project_name || "")}</span>
           <span>${formatDate(s.start_date)} → ${formatDate(s.end_date)}</span>
           <span class="${s.sla_overdue ? "sprint-sla is-overdue" : ""}">${escapeHtml(slaText(s))}</span>
           <span>${s.done_count}/${s.task_count} selesai · ${pct}%</span>
@@ -210,45 +220,80 @@
       <div class="sprint-board">
         <div class="sprint-column">
           <div class="sprint-column-head">
-            <span>Di Sprint</span>
+            <span>Di Sprint (prioritas)</span>
             <span>${(s.tasks || []).length}</span>
           </div>
           <div class="sprint-column-body">
             ${(s.tasks || []).length
               ? (s.tasks || []).map((t) => renderTaskCard(t, { inSprint: true })).join("")
-              : `<div class="sprints-empty" style="padding:24px 12px">Belum ada modul. Geser dari backlog.</div>`}
+              : `<div class="sprints-empty" style="padding:24px 12px">Belum ada modul. Masukkan dari backlog kanan.</div>`}
           </div>
         </div>
         <div class="sprint-column">
           <div class="sprint-column-head">
-            <span>Backlog project (belum di sprint)</span>
+            <span>Belum di sprint</span>
             <span>${state.backlog.length}</span>
           </div>
           <div class="sprint-column-body">
             ${state.backlog.length
               ? state.backlog.map((t) => renderTaskCard(t, { inSprint: false })).join("")
-              : `<div class="sprints-empty" style="padding:24px 12px">Semua modul sudah masuk sprint atau belum ada task.</div>`}
+              : `<div class="sprints-empty" style="padding:24px 12px">Semua modul sudah masuk sprint, atau belum ada task di project ini.</div>`}
           </div>
         </div>
       </div>
     `;
   }
 
-  async function loadProjects() {
-    const data = await api("/api/projects?page_size=200");
-    state.projects = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [];
-    fillProjectSelects();
+  function renderTaskPicker(selectedIds = []) {
+    if (!els.taskPicker) return;
+    const selected = new Set(selectedIds.map(String));
+    const tasks = state.projectTasks || [];
+    if (!tasks.length) {
+      els.taskPicker.innerHTML = `<div class="sprints-empty" style="padding:16px">Belum ada task di project ini. Buat task dulu di menu Tasks.</div>`;
+      return;
+    }
+    els.taskPicker.innerHTML = tasks
+      .map((t) => {
+        const checked = selected.has(String(t.id)) ? " checked" : "";
+        const already = t.sprint_id && !selected.has(String(t.id));
+        return `
+          <label class="sprint-task-option${already ? " is-busy" : ""}">
+            <input type="checkbox" name="sprint_task_ids" value="${t.id}"${checked}${already ? " disabled" : ""} />
+            <span>
+              <strong>${escapeHtml(t.title)}</strong>
+              <small>${escapeHtml(TASK_STATUS_LABEL[t.status] || t.status)}${
+                already ? ` · sudah di sprint lain` : ""
+              }</small>
+            </span>
+          </label>`;
+      })
+      .join("");
+  }
+
+  function selectedTaskIdsFromPicker() {
+    return Array.from(
+      els.taskPicker?.querySelectorAll('input[name="sprint_task_ids"]:checked') || []
+    ).map((el) => Number(el.value));
+  }
+
+  async function loadProject() {
+    state.project = await api(`/api/projects/${state.projectId}`);
+    syncHeader();
+  }
+
+  async function loadProjectTasks() {
+    state.projectTasks = await api(`/api/tasks?project_id=${state.projectId}`);
   }
 
   async function loadSprints() {
-    const params = new URLSearchParams();
-    if (els.projectFilter?.value) params.set("project_id", els.projectFilter.value);
+    const params = new URLSearchParams({ project_id: String(state.projectId) });
     if (els.statusFilter?.value) params.set("status", els.statusFilter.value);
-    const qs = params.toString();
-    state.sprints = await api(`/api/sprints${qs ? `?${qs}` : ""}`);
+    state.sprints = await api(`/api/sprints?${params.toString()}`);
     if (state.selectedId && !state.sprints.some((s) => s.id === state.selectedId)) {
       state.selectedId = state.sprints[0]?.id || null;
       state.detail = null;
+    } else if (!state.selectedId && state.sprints.length) {
+      state.selectedId = state.sprints[0].id;
     }
     renderList();
     if (state.selectedId) await selectSprint(state.selectedId);
@@ -260,45 +305,48 @@
     renderList();
     state.detail = await api(`/api/sprints/${id}`);
     state.backlog = await api(
-      `/api/tasks?project_id=${state.detail.project_id}&unassigned_sprint=true`
+      `/api/tasks?project_id=${state.projectId}&unassigned_sprint=true`
     );
     renderDetail();
   }
 
-  function openModal(sprint = null) {
+  async function openModal(sprint = null) {
     els.formError.hidden = true;
-    fillProjectSelects();
+    els.fieldProject.value = String(state.projectId);
+    await loadProjectTasks();
+
     if (sprint) {
       els.modalTitle.textContent = "Edit Sprint";
+      els.modalSubtitle.textContent = "Ubah periode SLA. Modul bisa diatur di board sprint.";
       els.fieldId.value = String(sprint.id);
-      els.fieldProject.value = String(sprint.project_id);
-      els.fieldProject.disabled = true;
       els.fieldName.value = sprint.name || "";
       els.fieldGoal.value = sprint.goal || "";
       els.fieldStart.value = sprint.start_date || "";
       els.fieldEnd.value = sprint.end_date || "";
       els.fieldStatus.value = sprint.status || "active";
+      if (els.taskPickerWrap) els.taskPickerWrap.hidden = true;
     } else {
       els.modalTitle.textContent = "New Sprint";
+      els.modalSubtitle.textContent = "Centang modul dari Tasks project ini untuk prioritas periode ini.";
       els.fieldId.value = "";
-      els.fieldProject.disabled = false;
-      els.fieldProject.value =
-        els.projectFilter?.value || (state.projects[0] ? String(state.projects[0].id) : "");
       els.fieldName.value = "";
       els.fieldGoal.value = "";
       els.fieldStart.value = todayISO();
-      els.fieldEnd.value = plusDaysISO(14);
+      els.fieldEnd.value = plusDaysISO(7);
       els.fieldStatus.value = "active";
+      if (els.taskPickerWrap) els.taskPickerWrap.hidden = false;
+      renderTaskPicker([]);
     }
+
     if (els.modal.parentElement !== document.body) document.body.appendChild(els.modal);
     els.modal.hidden = false;
     document.body.classList.add("modal-open");
+    els.fieldName?.focus();
   }
 
   function closeModal() {
     els.modal.hidden = true;
     document.body.classList.remove("modal-open");
-    els.fieldProject.disabled = false;
   }
 
   async function saveSprint(event) {
@@ -306,7 +354,7 @@
     els.formError.hidden = true;
     const id = els.fieldId.value;
     const payload = {
-      project_id: Number(els.fieldProject.value),
+      project_id: Number(state.projectId),
       name: els.fieldName.value.trim(),
       goal: els.fieldGoal.value.trim() || null,
       start_date: els.fieldStart.value,
@@ -322,6 +370,9 @@
       els.formError.hidden = false;
       els.formError.textContent = "Tanggal selesai harus setelah tanggal mulai.";
       return;
+    }
+    if (!id) {
+      payload.task_ids = selectedTaskIdsFromPicker();
     }
     try {
       let saved;
@@ -343,7 +394,7 @@
   async function onDetailClick(event) {
     const editBtn = event.target.closest("#btn-edit-sprint");
     if (editBtn && state.detail) {
-      openModal(state.detail);
+      await openModal(state.detail);
       return;
     }
     const delBtn = event.target.closest("#btn-delete-sprint");
@@ -395,18 +446,28 @@
   }
 
   async function boot() {
-    if (!els.list) return;
     const params = new URLSearchParams(window.location.search);
-    const projectFromUrl = params.get("project_id");
-    await loadProjects();
-    if (projectFromUrl && els.projectFilter) els.projectFilter.value = projectFromUrl;
+    const projectFromUrl = Number(params.get("project_id") || 0);
+    if (!projectFromUrl) {
+      if (els.needProject) els.needProject.hidden = false;
+      if (els.workspace) els.workspace.hidden = true;
+      if (els.btnNew) els.btnNew.hidden = true;
+      return;
+    }
+
+    state.projectId = projectFromUrl;
+    if (els.needProject) els.needProject.hidden = true;
+    if (els.workspace) els.workspace.hidden = false;
+
+    await loadProject();
     await loadSprints();
 
-    els.btnNew?.addEventListener("click", () => openModal());
+    els.btnNew?.addEventListener("click", () => {
+      openModal().catch((err) => alert(err.message || "Gagal membuka form"));
+    });
     els.btnClose?.addEventListener("click", closeModal);
     els.btnCancel?.addEventListener("click", closeModal);
     els.form?.addEventListener("submit", saveSprint);
-    els.projectFilter?.addEventListener("change", () => loadSprints());
     els.statusFilter?.addEventListener("change", () => loadSprints());
     els.list?.addEventListener("click", (e) => {
       const card = e.target.closest("[data-sprint-id]");
@@ -427,6 +488,9 @@
     boot().catch((err) => {
       if (els.list) {
         els.list.innerHTML = `<div class="sprints-empty">${escapeHtml(err.message || "Gagal memuat sprint")}</div>`;
+      } else if (els.needProject) {
+        els.needProject.hidden = false;
+        els.needProject.querySelector("p").textContent = err.message || "Gagal memuat sprint.";
       }
     });
   });
