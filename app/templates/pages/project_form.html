@@ -4,7 +4,7 @@
 
 {% block head_extra %}
   <link rel="stylesheet" href="/static/css/projects.css?v=24" />
-  <link rel="stylesheet" href="/static/css/project-form.css?v=4" />
+  <link rel="stylesheet" href="/static/css/project-form.css?v=5" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" />
 {% endblock %}
 
@@ -188,19 +188,19 @@
                   type="text"
                   id="pic-search"
                   class="pic-search"
-                  placeholder="Ketik nama lalu pilih…"
+                  placeholder="Ketik nama PIC terdaftar…"
                   autocomplete="off"
                   aria-autocomplete="list"
                   aria-expanded="false"
                   aria-controls="pic-options"
                 />
               </div>
-              <div class="pic-dropdown" id="pic-dropdown" hidden>
-                <div class="pic-options" id="pic-options" role="listbox"></div>
-              </div>
+            </div>
+            <div class="pic-suggest" id="pic-dropdown" hidden>
+              <div class="pic-options" id="pic-options" role="listbox"></div>
             </div>
             <input type="hidden" id="field-pic" name="pic" value="" />
-            <small class="field-hint">Ketik nama untuk autocomplete, pilih beberapa sebagai tag.</small>
+            <small class="field-hint">Ketik minimal 1 huruf — saran nama muncul dari user terdaftar. Klik atau Enter untuk memilih.</small>
           </div>
         </div>
       </section>
@@ -217,5 +217,5 @@
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-  <script src="/static/js/project-form.js?v=4" defer></script>
+  <script src="/static/js/project-form.js?v=5" defer></script>
 {% endblock %}

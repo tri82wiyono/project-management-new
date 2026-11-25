@@ -177,8 +177,8 @@
   function syncPicField() {
     els.fieldPic.value = selectedUsers().map((u) => u.name).join(", ");
     els.picSearch.placeholder = state.selectedPicIds.length
-      ? "Tambah nama…"
-      : "Ketik nama lalu pilih…";
+      ? "Tambah PIC lain…"
+      : "Ketik nama PIC terdaftar…";
     renderPicChips();
   }
 
@@ -194,13 +194,38 @@
       .join("");
   }
 
+  function positionPicSuggest() {
+    if (!els.picDropdown || !els.picWrap || els.picDropdown.hidden) return;
+    const rect = els.picWrap.getBoundingClientRect();
+    const gap = 6;
+    const maxH = 220;
+    const spaceBelow = window.innerHeight - rect.bottom - gap - 12;
+    const spaceAbove = rect.top - gap - 12;
+    const openUp = spaceBelow < 140 && spaceAbove > spaceBelow;
+    const height = Math.min(maxH, Math.max(120, openUp ? spaceAbove : spaceBelow));
+    els.picDropdown.style.left = `${Math.round(rect.left)}px`;
+    els.picDropdown.style.width = `${Math.round(rect.width)}px`;
+    els.picDropdown.style.maxHeight = `${Math.round(height)}px`;
+    if (openUp) {
+      els.picDropdown.style.top = "auto";
+      els.picDropdown.style.bottom = `${Math.round(window.innerHeight - rect.top + gap)}px`;
+    } else {
+      els.picDropdown.style.bottom = "auto";
+      els.picDropdown.style.top = `${Math.round(rect.bottom + gap)}px`;
+    }
+  }
+
   function renderPicOptions() {
-    state.suggestions = availableUsers(state.picSearch).slice(0, 12);
+    const q = state.picSearch.trim();
+    state.suggestions = q ? availableUsers(q).slice(0, 8) : [];
+    if (!q) {
+      state.highlightIndex = -1;
+      els.picOptions.innerHTML = "";
+      return;
+    }
     if (!state.suggestions.length) {
       state.highlightIndex = -1;
-      els.picOptions.innerHTML = `<div class="pic-empty">${
-        state.picSearch.trim() ? "Tidak ada nama yang cocok." : "Semua user sudah dipilih."
-      }</div>`;
+      els.picOptions.innerHTML = `<div class="pic-empty">Tidak ada nama terdaftar yang cocok dengan “${escapeHtml(q)}”.</div>`;
       return;
     }
     if (state.highlightIndex < 0 || state.highlightIndex >= state.suggestions.length) {
@@ -217,18 +242,29 @@
       .join("");
   }
 
-  function openPicDropdown() {
+  function openPicSuggest() {
+    const q = (els.picSearch?.value || state.picSearch || "").trim();
+    if (!q) {
+      closePicDropdown();
+      return;
+    }
+    if (els.picDropdown.parentElement !== document.body) {
+      document.body.appendChild(els.picDropdown);
+    }
+    renderPicOptions();
     els.picDropdown.hidden = false;
     els.picWrap.classList.add("open");
     els.picSearch.setAttribute("aria-expanded", "true");
-    renderPicOptions();
+    positionPicSuggest();
   }
 
   function closePicDropdown() {
+    if (!els.picDropdown) return;
     els.picDropdown.hidden = true;
-    els.picWrap.classList.remove("open");
-    els.picSearch.setAttribute("aria-expanded", "false");
+    els.picWrap?.classList.remove("open");
+    els.picSearch?.setAttribute("aria-expanded", "false");
     state.highlightIndex = -1;
+    state.suggestions = [];
   }
 
   function addPic(id) {
@@ -238,22 +274,18 @@
     state.picSearch = "";
     els.picSearch.value = "";
     syncPicField();
-    openPicDropdown();
+    closePicDropdown();
   }
 
   /** Commit typed PIC text into a selection before validate/save. */
   function commitPendingPicSearch() {
     const typed = (els.picSearch?.value || state.picSearch || "").trim().toLowerCase();
     if (!typed) return false;
-    if (!state.suggestions.length) {
-      state.suggestions = availableUsers(typed).slice(0, 12);
-    }
-    const exact = state.suggestions.find((u) => String(u.name || "").toLowerCase() === typed)
-      || availableUsers(typed).find((u) => String(u.name || "").toLowerCase() === typed);
-    const pick = exact || state.suggestions[state.highlightIndex] || state.suggestions[0];
+    const matches = availableUsers(typed);
+    const exact = matches.find((u) => String(u.name || "").toLowerCase() === typed);
+    const pick = exact || state.suggestions[state.highlightIndex] || matches[0];
     if (!pick) return false;
     addPic(pick.id);
-    closePicDropdown();
     return true;
   }
 
@@ -658,25 +690,22 @@
     els.picWrap.addEventListener("click", (e) => {
       if (e.target.closest("[data-remove-pic]")) return;
       els.picSearch.focus();
-      openPicDropdown();
     });
-    els.picSearch.addEventListener("focus", openPicDropdown);
     els.picSearch.addEventListener("input", () => {
       state.picSearch = els.picSearch.value;
       state.highlightIndex = 0;
-      openPicDropdown();
+      openPicSuggest();
     });
     els.picSearch.addEventListener("keydown", (e) => {
       if (e.key === "Backspace" && !els.picSearch.value && state.selectedPicIds.length) {
         e.preventDefault();
         removePic(state.selectedPicIds[state.selectedPicIds.length - 1]);
-        openPicDropdown();
         return;
       }
       if (els.picDropdown.hidden) {
-        if (e.key === "ArrowDown") {
+        if (e.key === "ArrowDown" && els.picSearch.value.trim()) {
           e.preventDefault();
-          openPicDropdown();
+          openPicSuggest();
         }
         return;
       }
@@ -721,10 +750,19 @@
       els.picSearch.focus();
     });
     document.addEventListener("click", (e) => {
+      if (els.picDropdown.hidden) return;
       const box = document.getElementById("pic-multiselect");
-      if (!box || els.picDropdown.hidden) return;
-      if (!box.contains(e.target)) closePicDropdown();
+      if (box?.contains(e.target) || els.picDropdown.contains(e.target)) return;
+      closePicDropdown();
     });
+    window.addEventListener("resize", () => positionPicSuggest());
+    document.querySelector(".main-content")?.addEventListener(
+      "scroll",
+      () => {
+        if (!els.picDropdown.hidden) positionPicSuggest();
+      },
+      { passive: true }
+    );
   }
 
   function wireDocEvents() {

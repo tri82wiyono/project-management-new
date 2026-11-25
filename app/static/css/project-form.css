@@ -137,7 +137,6 @@
 
 .project-form-page .pic-tagbox {
   position: relative;
-  z-index: 2;
 }
 
 .project-form-page .pic-input-wrap {
@@ -151,13 +150,62 @@
   font-size: 0.84rem;
 }
 
-.project-form-page .pic-dropdown {
-  z-index: 80;
+/* Floating typeahead — fixed so it is never clipped by main scroll/footer */
+.pic-suggest {
+  position: fixed;
+  z-index: 1200;
+  margin: 0;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(28, 41, 71, 0.16);
+  box-sizing: border-box;
 }
 
-.project-form-page .form-section:has(.pic-dropdown:not([hidden])) {
-  position: relative;
-  z-index: 6;
+.pic-suggest[hidden] {
+  display: none !important;
+}
+
+.pic-suggest .pic-options {
+  max-height: 220px;
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+}
+
+.pic-suggest .pic-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 9px 11px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pic-suggest .pic-option:hover,
+.pic-suggest .pic-option.active {
+  background: #eef2ff;
+}
+
+.pic-suggest .pic-option small {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.68rem;
+}
+
+.pic-suggest .pic-empty {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 .form-page-actions {
