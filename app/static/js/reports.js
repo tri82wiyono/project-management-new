@@ -149,9 +149,10 @@
     }
     if (status) params.set("project_status", status);
 
+    const btnLabel = els.btn?.querySelector("span");
     if (els.btn) {
       els.btn.disabled = true;
-      els.btn.textContent = "Menyiapkan…";
+      if (btnLabel) btnLabel.textContent = "Menyiapkan…";
     }
     try {
       const res = await fetch(`/api/reports/projects.xlsx?${params.toString()}`, {
@@ -179,7 +180,7 @@
     } finally {
       if (els.btn) {
         els.btn.disabled = false;
-        els.btn.textContent = "Download Excel";
+        if (btnLabel) btnLabel.textContent = "Download Excel";
       }
     }
   }
