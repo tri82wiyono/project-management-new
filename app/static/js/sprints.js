@@ -44,6 +44,7 @@
     backlog: [],
     projectTasks: [],
     activeTab: "board",
+    boardFilter: "all",
     canManage: true,
   };
 
@@ -176,24 +177,25 @@
   function renderHero() {
     if (!els.hero) return;
     const projectName = state.project?.name || `Project #${state.projectId}`;
+    const projectDesc =
+      state.project?.description ||
+      "Sprint & modul prioritas project ini";
     const active = activeSprintSummary();
     const stats = taskStats(state.detail?.tasks || []);
     const pct = state.detail ? stats.pct : Math.round(Number(active?.progress) || 0);
 
     els.hero.innerHTML = `
       <div class="sp-hero-project">
-        <div class="sp-hero-icon" aria-hidden="true">▣</div>
+        <div class="sp-hero-icon" aria-hidden="true">📁</div>
         <div>
           <strong>Project: ${escapeHtml(projectName)}</strong>
-          <span>Sprint &amp; modul prioritas project ini</span>
+          <span>${escapeHtml(projectDesc)}</span>
         </div>
       </div>
       <div class="sp-hero-active">
-        <div class="sp-hero-icon" aria-hidden="true">◷</div>
-        <div>
-          <strong>Sprint Aktif: ${escapeHtml(active?.name || "—")}</strong>
-          <span>${active ? `${formatDateShort(active.start_date)} – ${formatDateShort(active.end_date)}` : "Belum ada sprint"}</span>
-        </div>
+        ${active ? `<span class="sp-pill-aktif">Sprint Aktif</span>` : `<span class="sp-pill-aktif" style="background:#f1f5f9;color:#64748b">Belum ada</span>`}
+        <strong>${escapeHtml(active?.name || "—")}</strong>
+        <span>${active ? `${formatDate(active.start_date)} – ${formatDate(active.end_date)}` : "Buat sprint untuk memulai"}</span>
       </div>
       <div class="sp-hero-stats">
         <div class="sp-stat-mini"><span>Total Task</span><strong>${stats.total}</strong></div>
@@ -225,13 +227,17 @@
         return `
         <button type="button" class="sp-sprint-card${active}" data-sprint-id="${s.id}">
           <div class="sp-sprint-card-top">
-            <div>
-              <strong>${escapeHtml(s.name)}</strong>
-              <span class="meta">${formatDateShort(s.start_date)} – ${formatDateShort(s.end_date)} · ${s.task_count || 0} task</span>
+            <div class="sp-sprint-card-title">
+              <span class="sp-sprint-bolt" aria-hidden="true">⚡</span>
+              <div>
+                <strong>${escapeHtml(s.name)}</strong>
+                <span class="meta">${formatDateShort(s.start_date)} – ${formatDateShort(s.end_date)}</span>
+                <span class="meta">${s.task_count || 0} Tasks</span>
+              </div>
             </div>
             <span class="sp-badge ${escapeHtml(s.status)}">${STATUS_LABEL[s.status] || s.status}</span>
           </div>
-          <div class="sp-bar"><span style="width:${pct}%"></span></div>
+          <div class="sp-bar${s.status === "done" ? " is-done" : ""}"><span style="width:${pct}%"></span></div>
         </button>`;
       })
       .join("");
@@ -263,6 +269,15 @@
       </div>`;
   }
 
+  function renderAssigneeChip(user) {
+    if (!user) return "";
+    const name = user.name || user.full_name || user.username || "?";
+    if (user.avatar_url) {
+      return `<img class="sp-avatar" src="${escapeHtml(user.avatar_url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
+    }
+    return `<span class="sp-avatar sp-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`;
+  }
+
   function renderTaskCard(task) {
     const prio = task.priority || "medium";
     const people = Array.isArray(task.assignees) && task.assignees.length
@@ -275,41 +290,43 @@
       <article class="sp-task" data-task-id="${task.id}">
         <div class="sp-task-top">
           <span class="sp-task-code">${escapeHtml(taskCode(task))}</span>
-          <a class="sp-task-link" href="/tasks?project_id=${state.projectId}">Dari Tasks</a>
+          <a class="sp-task-link" href="/tasks?project_id=${state.projectId}">↗ Dari Tasks Project</a>
         </div>
         <h4>${escapeHtml(task.title)}</h4>
         <div class="sp-task-foot">
           <span class="sp-prio ${escapeHtml(prio)}">${PRIO_LABEL[prio] || prio}</span>
-          <span class="sp-due">${task.due_date ? formatDateShort(task.due_date) : "Tanpa due"}</span>
-          ${
-            avatar
-              ? `<img class="sp-avatar" src="${escapeHtml(avatar.avatar_url || "")}" alt="${escapeHtml(avatar.name || "")}" title="${escapeHtml(avatar.name || "")}" />`
-              : ""
-          }
+          <span class="sp-due">📅 ${task.due_date ? formatDateShort(task.due_date) : "Tanpa due"}</span>
+          ${renderAssigneeChip(avatar)}
         </div>
-        <select data-task-status="${task.id}" ${state.canManage ? "" : "disabled"}>
-          ${TASK_STATUS.map(
-            (s) =>
-              `<option value="${s.value}"${s.value === task.status ? " selected" : ""}>${s.label}</option>`
-          ).join("")}
-        </select>
+        ${
+          state.canManage
+            ? `<select class="sp-task-status" data-task-status="${task.id}" title="Ubah status">
+                ${TASK_STATUS.map(
+                  (s) =>
+                    `<option value="${s.value}"${s.value === task.status ? " selected" : ""}>${s.label}</option>`
+                ).join("")}
+              </select>`
+            : ""
+        }
       </article>`;
   }
 
   function renderBoard(tasks) {
+    const filter = state.boardFilter || "all";
     return `
-      <div class="sp-alert">ℹ Task di sprint adalah task project yang sama. Ubah status di sini = berubah juga di Tasks.</div>
+      <div class="sp-alert"><strong>Informasi:</strong> Task tetap ada di Tasks project dan juga muncul di Sprint. Ubah status di sini = berubah juga di Tasks.</div>
       <div class="sp-board">
         ${TASK_STATUS.map((col) => {
           const items = (tasks || []).filter((t) => t.status === col.value);
+          const hidden = filter !== "all" && filter !== col.value ? " hidden" : "";
           return `
-            <div class="sp-col ${col.value}">
+            <div class="sp-col ${col.value}"${hidden}>
               <div class="sp-col-head">
-                <span>${col.label}</span>
+                <span class="sp-col-head-left"><span class="sp-col-dot"></span>${col.label}</span>
                 <span class="n">${items.length}</span>
               </div>
               <div class="sp-col-body">
-                ${items.length ? items.map(renderTaskCard).join("") : `<div class="sprints-empty" style="min-height:80px;padding:16px;font-size:0.74rem">Kosong</div>`}
+                ${items.length ? items.map(renderTaskCard).join("") : `<div class="sp-col-empty">Kosong</div>`}
               </div>
             </div>`;
         }).join("")}
@@ -331,7 +348,7 @@
               </div>`
                 )
                 .join("")
-            : `<div class="sprints-empty" style="min-height:auto;padding:12px;font-size:0.74rem">Semua task sudah masuk sprint, atau belum ada task.</div>`
+            : `<div class="sp-col-empty">Semua task sudah masuk sprint, atau belum ada task.</div>`
         }
       </div>`;
   }
@@ -358,7 +375,14 @@
             <tr>
               <td>${escapeHtml(taskCode(t))}</td>
               <td>${escapeHtml(t.title)}</td>
-              <td>${escapeHtml(TASK_STATUS_LABEL[t.status] || t.status)}</td>
+              <td>
+                <select data-task-status="${t.id}" ${state.canManage ? "" : "disabled"}>
+                  ${TASK_STATUS.map(
+                    (s) =>
+                      `<option value="${s.value}"${s.value === t.status ? " selected" : ""}>${s.label}</option>`
+                  ).join("")}
+                </select>
+              </td>
               <td>${escapeHtml(PRIO_LABEL[t.priority] || t.priority || "—")}</td>
               <td>${t.due_date ? formatDateShort(t.due_date) : "—"}</td>
             </tr>`
@@ -415,53 +439,68 @@
     els.detailBody.innerHTML = `
       <div class="sp-detail-head">
         <div class="sp-detail-title">
-          <div class="sp-detail-title-icon" aria-hidden="true">◷</div>
+          <div class="sp-detail-title-icon" aria-hidden="true">⚡</div>
           <div>
             <h2>${escapeHtml(s.name)}</h2>
-            <p>${formatDate(s.start_date)} – ${formatDate(s.end_date)} · <span class="sp-badge ${escapeHtml(s.status)}">${STATUS_LABEL[s.status] || s.status}</span></p>
+            <p>${formatDate(s.start_date)} – ${formatDate(s.end_date)} <span class="sp-badge ${escapeHtml(s.status)}">${STATUS_LABEL[s.status] || s.status}</span></p>
           </div>
         </div>
         <div class="sp-detail-actions">
           <button type="button" class="sp-btn sp-btn-outline" id="btn-edit-sprint">Edit Sprint</button>
           ${
             s.status !== "done"
-              ? `<button type="button" class="sp-btn sp-btn-primary" id="btn-complete-sprint">Selesaikan Sprint</button>`
+              ? `<button type="button" class="sp-btn sp-btn-primary" id="btn-complete-sprint">✓ Selesaikan Sprint</button>`
               : ""
           }
           <button type="button" class="sp-btn sp-btn-ghost" id="btn-delete-sprint">Hapus</button>
         </div>
       </div>
 
-      <div class="sp-info-grid">
-        <div class="sp-info-card">
+      <div class="sp-overview">
+        <div class="sp-goal-block">
           <h4>Tujuan Sprint</h4>
           <p>${escapeHtml(s.goal || "Belum ada tujuan. Edit sprint untuk menambahkan goal.")}</p>
         </div>
-        <div class="sp-info-card">
+        <div class="sp-progress-block">
           <h4>Progress Sprint</h4>
           <div class="sp-progress-big">
             <strong>${stats.pct}%</strong>
-            <span style="font-size:0.72rem;color:var(--sp-muted)">${stats.done}/${stats.total} selesai</span>
+            <span>${stats.done} dari ${stats.total} task selesai</span>
           </div>
           <div class="sp-bar"><span style="width:${stats.pct}%"></span></div>
         </div>
-        <div class="sp-info-card">
+      </div>
+
+      <div class="sp-meta-row">
+        <div class="sp-team-block">
           <h4>Tim Sprint</h4>
           ${renderAvatars(team)}
         </div>
+        <div class="sp-stats-row">
+          <div class="sp-stat-card"><div class="sp-stat-ico total">☰</div><div><span>Total Task</span><strong>${stats.total}</strong></div></div>
+          <div class="sp-stat-card"><div class="sp-stat-ico done">✓</div><div><span>Selesai</span><strong>${stats.done}</strong></div></div>
+          <div class="sp-stat-card"><div class="sp-stat-ico run">↻</div><div><span>Berjalan</span><strong>${stats.run}</strong></div></div>
+          <div class="sp-stat-card"><div class="sp-stat-ico wait">!</div><div><span>Tertunda</span><strong>${stats.wait}</strong></div></div>
+        </div>
       </div>
 
-      <div class="sp-stats-row">
-        <div class="sp-stat-card"><div class="sp-stat-ico total">☰</div><div><span>Total Task</span><strong>${stats.total}</strong></div></div>
-        <div class="sp-stat-card"><div class="sp-stat-ico done">✓</div><div><span>Selesai</span><strong>${stats.done}</strong></div></div>
-        <div class="sp-stat-card"><div class="sp-stat-ico run">↻</div><div><span>Berjalan</span><strong>${stats.run}</strong></div></div>
-        <div class="sp-stat-card"><div class="sp-stat-ico wait">!</div><div><span>Tertunda</span><strong>${stats.wait}</strong></div></div>
-      </div>
-
-      <div class="sp-tabs" role="tablist">
-        <button type="button" class="sp-tab${tab === "board" ? " is-active" : ""}" data-tab="board">Board</button>
-        <button type="button" class="sp-tab${tab === "list" ? " is-active" : ""}" data-tab="list">Daftar Task</button>
-        <button type="button" class="sp-tab${tab === "report" ? " is-active" : ""}" data-tab="report">Laporan</button>
+      <div class="sp-tabs-bar">
+        <div class="sp-tabs" role="tablist">
+          <button type="button" class="sp-tab${tab === "board" ? " is-active" : ""}" data-tab="board">Board</button>
+          <button type="button" class="sp-tab${tab === "list" ? " is-active" : ""}" data-tab="list">Daftar Task</button>
+          <button type="button" class="sp-tab${tab === "report" ? " is-active" : ""}" data-tab="report">Laporan</button>
+        </div>
+        ${
+          tab === "board"
+            ? `<select class="sp-board-filter" id="sp-board-filter" aria-label="Filter status">
+                <option value="all"${state.boardFilter === "all" ? " selected" : ""}>Semua status</option>
+                ${TASK_STATUS.map(
+                  (s) =>
+                    `<option value="${s.value}"${state.boardFilter === s.value ? " selected" : ""}>${s.label}</option>`
+                ).join("")}
+              </select>`
+            : ""
+        }
       </div>
 
       <div class="sp-tab-panel" data-panel="board" ${tab === "board" ? "" : "hidden"}>${renderBoard(tasks)}</div>
@@ -665,6 +704,11 @@
   }
 
   async function onDetailChange(event) {
+    if (event.target.id === "sp-board-filter") {
+      state.boardFilter = event.target.value || "all";
+      renderDetail();
+      return;
+    }
     const select = event.target.closest("[data-task-status]");
     if (!select || !state.detail) return;
     try {
