@@ -24,12 +24,19 @@
   font-size: 0.78rem;
 }
 
+.projects-hero-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .workspace-crumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 6px;
-  font-size: 0.72rem;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
   color: var(--muted);
 }
 .workspace-crumb-link {
@@ -44,9 +51,16 @@
 .workspace-crumb-link:hover {
   text-decoration: underline;
 }
-.workspace-crumb strong {
+.workspace-crumb-sep {
+  opacity: 0.55;
+}
+.workspace-crumb-current {
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 720;
+  min-width: 0;
+}
+.projects-hero.is-workspace .projects-title {
+  display: none;
 }
 
 .workspace-grid {

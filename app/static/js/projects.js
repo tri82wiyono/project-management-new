@@ -112,8 +112,8 @@ const els = {
   workspaceCrumbName: document.getElementById("workspace-crumb-name"),
   btnBackWorkspaces: document.getElementById("btn-back-workspaces"),
   projectsHeading: document.getElementById("projects-heading"),
-  projectsHeadingSub: document.getElementById("projects-heading-sub"),
   pageSubtitle: document.getElementById("projects-page-subtitle"),
+  projectsHero: document.querySelector("#projects-list-view .projects-hero"),
 };
 
 const WORKSPACE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M6 20V9.5L12 5l6 4.5V20"/><path d="M10 20v-4h4v4"/></svg>`;
@@ -961,33 +961,25 @@ function syncWorkspaceView() {
   if (els.listView) els.listView.hidden = usePicker;
 
   const ws = state.workspace;
-  if (els.workspaceCrumb) els.workspaceCrumb.hidden = !(state.workspacesEnabled && ws);
+  const inWorkspace = Boolean(state.workspacesEnabled && ws);
+  if (els.workspaceCrumb) els.workspaceCrumb.hidden = !inWorkspace;
   if (els.workspaceCrumbName && ws) {
     els.workspaceCrumbName.textContent = ws.label || ws.name;
   }
+  if (els.projectsHero) els.projectsHero.classList.toggle("is-workspace", inWorkspace);
   if (els.projectsHeading) {
-    els.projectsHeading.textContent = ws
-      ? `Projects · ${ws.label || ws.name}`
-      : "All Projects";
-  }
-  if (els.projectsHeadingSub) {
-    els.projectsHeadingSub.textContent = ws
-      ? `Project milik workspace Bidang ${ws.label || ws.name}.`
-      : "Create, edit, search projects, and open tasks per project.";
+    els.projectsHeading.textContent = "Semua Project";
+    els.projectsHeading.hidden = inWorkspace;
   }
   if (els.pageSubtitle) {
-    if (state.workspacesEnabled && !ws) {
-      const divName = state.workspaceDivision?.name || "Divisi Anda";
-      els.pageSubtitle.textContent = `Pilih workspace Bidang di ${divName}.`;
-    } else if (ws) {
-      els.pageSubtitle.textContent = `Workspace: ${ws.label || ws.name}`;
-    } else {
-      els.pageSubtitle.textContent = "Manage and monitor all projects in one place.";
-    }
+    els.pageSubtitle.textContent = usePicker
+      ? "Pilih workspace Bidang"
+      : "Kelola dan pantau project.";
   }
-  if (els.workspacePickerSub && state.workspaceDivision) {
-    els.workspacePickerSub.textContent =
-      `Workspace untuk ${state.workspaceDivision.name}. Klik Bidang untuk membuka project.`;
+  if (els.workspacePickerSub) {
+    els.workspacePickerSub.textContent = state.workspaceDivision?.name
+      ? state.workspaceDivision.name
+      : "Bidang di Divisi Anda";
   }
   if (els.btnNew) {
     const href = state.workspaceId

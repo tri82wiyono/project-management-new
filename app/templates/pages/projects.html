@@ -3,14 +3,14 @@
 {% block title %}Projects · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=24" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=25" />
 {% endblock %}
 
 {% block header %}
   <header class="topbar">
     <div class="greeting">
       <h1>Projects</h1>
-      <p id="projects-page-subtitle">Manage and monitor all projects in one place.</p>
+      <p id="projects-page-subtitle">Kelola dan pantau project.</p>
     </div>
     <div class="top-actions">
       <label class="search">
@@ -32,10 +32,8 @@
     <section class="workspace-picker" id="workspace-picker" hidden>
       <div class="projects-hero">
         <div>
-          <h2 class="projects-title">Workspace</h2>
-          <p class="projects-subtitle" id="workspace-picker-subtitle">
-            Pilih Bidang untuk melihat project di bawahnya.
-          </p>
+          <h2 class="projects-title">Pilih Workspace</h2>
+          <p class="projects-subtitle" id="workspace-picker-subtitle">Bidang di Divisi Anda</p>
         </div>
       </div>
       <div class="workspace-grid" id="workspace-grid" aria-label="Daftar workspace Bidang"></div>
@@ -43,14 +41,13 @@
 
     <section class="projects-list-view" id="projects-list-view">
       <section class="projects-hero">
-        <div>
+        <div class="projects-hero-copy">
           <nav class="workspace-crumb" id="workspace-crumb" hidden aria-label="Breadcrumb">
             <button type="button" class="workspace-crumb-link" id="btn-back-workspaces">Workspace</button>
-            <span aria-hidden="true">/</span>
-            <strong id="workspace-crumb-name">Bidang</strong>
+            <span class="workspace-crumb-sep" aria-hidden="true">/</span>
+            <span class="workspace-crumb-current" id="workspace-crumb-name">Bidang</span>
           </nav>
-          <h2 class="projects-title" id="projects-heading">All Projects</h2>
-          <p class="projects-subtitle" id="projects-heading-sub">Create, edit, search projects, and open tasks per project.</p>
+          <h2 class="projects-title" id="projects-heading">Semua Project</h2>
         </div>
         <a class="btn btn-primary" id="btn-new-project" href="/projects/new">+ New Project</a>
       </section>
@@ -116,5 +113,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=28" defer></script>
+  <script src="/static/js/projects.js?v=29" defer></script>
 {% endblock %}
