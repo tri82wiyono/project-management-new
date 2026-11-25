@@ -173,18 +173,19 @@
 .projects-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 16px;
+  margin: 2px 0 4px;
 }
 .stat-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: var(--shadow);
-  padding: 12px 14px;
+  padding: 14px 16px;
   min-width: 0;
 }
 .stat-card strong {
