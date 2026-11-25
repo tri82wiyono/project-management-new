@@ -174,6 +174,22 @@
     if (els.btnTasks) els.btnTasks.href = `/tasks?project_id=${state.projectId}`;
   }
 
+  function daysLeftLabel(endDate) {
+    if (!endDate) return "";
+    try {
+      const end = new Date(`${endDate}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diff = Math.round((end - today) / 86400000);
+      if (Number.isNaN(diff)) return "";
+      if (diff > 0) return ` (${diff} hari lagi)`;
+      if (diff === 0) return " (hari ini)";
+      return ` (terlambat ${Math.abs(diff)} hari)`;
+    } catch {
+      return "";
+    }
+  }
+
   function renderHero() {
     if (!els.hero) return;
     const projectName = state.project?.name || `Project #${state.projectId}`;
@@ -183,6 +199,9 @@
     const active = activeSprintSummary();
     const stats = taskStats(state.detail?.tasks || []);
     const pct = state.detail ? stats.pct : Math.round(Number(active?.progress) || 0);
+    const dates = active
+      ? `${formatDate(active.start_date)} – ${formatDate(active.end_date)}${daysLeftLabel(active.end_date)}`
+      : "Buat sprint untuk memulai";
 
     els.hero.innerHTML = `
       <div class="sp-hero-project">
@@ -193,22 +212,22 @@
         </div>
       </div>
       <div class="sp-hero-active">
-        ${active ? `<span class="sp-pill-aktif">Sprint Aktif</span>` : `<span class="sp-pill-aktif" style="background:#f1f5f9;color:#64748b">Belum ada</span>`}
-        <strong>${escapeHtml(active?.name || "—")}</strong>
-        <span>${active ? `${formatDate(active.start_date)} – ${formatDate(active.end_date)}` : "Buat sprint untuk memulai"}</span>
+        <span class="sp-pill-aktif${active ? "" : " is-empty"}">${active ? "Sprint Aktif" : "Belum ada sprint"}</span>
+        <span class="sp-sprint-name-pill">${escapeHtml(active?.name || "—")}</span>
+        <span class="sp-hero-dates">📅 ${escapeHtml(dates)}</span>
       </div>
       <div class="sp-hero-stats">
-        <div class="sp-stat-mini"><span>Total Task</span><strong>${stats.total}</strong></div>
-        <div class="sp-stat-mini is-done"><span>Selesai</span><strong>${stats.done}</strong></div>
-        <div class="sp-stat-mini is-run"><span>Berjalan</span><strong>${stats.run}</strong></div>
-        <div class="sp-stat-mini is-wait"><span>Tertunda</span><strong>${stats.wait}</strong></div>
+        <div class="sp-stat-mini"><span class="sp-stat-mini-ico total" aria-hidden="true">▦</span><div><span>Total Task</span><strong>${stats.total}</strong></div></div>
+        <div class="sp-stat-mini is-done"><span class="sp-stat-mini-ico done" aria-hidden="true">✓</span><div><span>Selesai</span><strong>${stats.done}</strong></div></div>
+        <div class="sp-stat-mini is-run"><span class="sp-stat-mini-ico run" aria-hidden="true">↻</span><div><span>Berjalan</span><strong>${stats.run}</strong></div></div>
+        <div class="sp-stat-mini is-wait"><span class="sp-stat-mini-ico wait" aria-hidden="true">⏱</span><div><span>Tertunda</span><strong>${stats.wait}</strong></div></div>
       </div>
       <div class="sp-hero-progress">
-        <div class="sp-hero-progress-top">
-          <span>Progress Sprint</span>
+        <div class="sp-hero-progress-label">Progress Sprint</div>
+        <div class="sp-hero-progress-row">
           <strong>${pct}%</strong>
+          <div class="sp-bar"><span style="width:${pct}%"></span></div>
         </div>
-        <div class="sp-bar"><span style="width:${pct}%"></span></div>
       </div>
     `;
   }
