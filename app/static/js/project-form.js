@@ -518,13 +518,34 @@
       .join("");
   }
 
+  function workspacePrefill() {
+    const raw = new URLSearchParams(window.location.search).get("workspace");
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    for (const [divisionId, items] of Object.entries(state.bidangsByDivision || {})) {
+      const match = (items || []).find((b) => Number(b.id) === id);
+      if (match) {
+        return {
+          owner_type: "bidang",
+          owner_division_id: Number(divisionId),
+          owner_bidang_id: id,
+        };
+      }
+    }
+    return null;
+  }
+
   async function applyOwnershipToForm(project = null) {
-    const kind = project?.owner_type || "bidang";
+    const pref = project ? null : workspacePrefill();
+    const kind = project?.owner_type || pref?.owner_type || "bidang";
     if (els.ownerType) els.ownerType.value = kind;
-    fillDivisionOptions(project?.owner_division_id || "");
+    fillDivisionOptions(project?.owner_division_id || pref?.owner_division_id || "");
     syncOwnershipFields();
     if (kind === "bidang") {
-      await loadBidangsForDivision(project?.owner_division_id || "", project?.owner_bidang_id || "");
+      await loadBidangsForDivision(
+        project?.owner_division_id || pref?.owner_division_id || "",
+        project?.owner_bidang_id || pref?.owner_bidang_id || ""
+      );
     } else if (els.ownerBidang) {
       els.ownerBidang.innerHTML = '<option value="">— Pilih Bidang —</option>';
     }

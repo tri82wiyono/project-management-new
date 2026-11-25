@@ -3,14 +3,14 @@
 {% block title %}Projects · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=23" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=24" />
 {% endblock %}
 
 {% block header %}
   <header class="topbar">
     <div class="greeting">
       <h1>Projects</h1>
-      <p>Manage and monitor all projects in one place.</p>
+      <p id="projects-page-subtitle">Manage and monitor all projects in one place.</p>
     </div>
     <div class="top-actions">
       <label class="search">
@@ -29,73 +29,92 @@
     id="projects-page"
     data-can-delete="{% if current_user.role and current_user.role|lower in ['admin', 'administrator'] %}1{% else %}0{% endif %}"
   >
-    <section class="projects-hero">
-      <div>
-        <h2 class="projects-title">All Projects</h2>
-        <p class="projects-subtitle">Create, edit, search projects, and open tasks per project.</p>
+    <section class="workspace-picker" id="workspace-picker" hidden>
+      <div class="projects-hero">
+        <div>
+          <h2 class="projects-title">Workspace</h2>
+          <p class="projects-subtitle" id="workspace-picker-subtitle">
+            Pilih Bidang untuk melihat project di bawahnya.
+          </p>
+        </div>
       </div>
-      <a class="btn btn-primary" id="btn-new-project" href="/projects/new">+ New Project</a>
+      <div class="workspace-grid" id="workspace-grid" aria-label="Daftar workspace Bidang"></div>
     </section>
 
-    <section class="projects-stats" id="projects-stats" aria-label="Project statistics"></section>
+    <section class="projects-list-view" id="projects-list-view">
+      <section class="projects-hero">
+        <div>
+          <nav class="workspace-crumb" id="workspace-crumb" hidden aria-label="Breadcrumb">
+            <button type="button" class="workspace-crumb-link" id="btn-back-workspaces">Workspace</button>
+            <span aria-hidden="true">/</span>
+            <strong id="workspace-crumb-name">Bidang</strong>
+          </nav>
+          <h2 class="projects-title" id="projects-heading">All Projects</h2>
+          <p class="projects-subtitle" id="projects-heading-sub">Create, edit, search projects, and open tasks per project.</p>
+        </div>
+        <a class="btn btn-primary" id="btn-new-project" href="/projects/new">+ New Project</a>
+      </section>
 
-    <section class="projects-toolbar">
-      <label class="projects-search">
-        <span>⌕</span>
-        <input id="project-search" type="search" placeholder="Search projects..." autocomplete="off" />
-      </label>
-      <select id="project-status-filter" aria-label="Filter by status">
-        <option value="">All Status</option>
-        <option value="backlog">Backlog</option>
-        <option value="dev">Dev</option>
-        <option value="sit">SIT</option>
-        <option value="uat">UAT</option>
-        <option value="to">TO</option>
-        <option value="izin">Izin</option>
-        <option value="release">Release</option>
-      </select>
-      <select id="project-owner-filter" aria-label="Filter by ownership" hidden>
-        <option value="">Semua kepemilikan</option>
-        <option value="unassigned">Belum diklasifikasi</option>
-        <option value="division">Divisi</option>
-        <option value="bidang">Bidang</option>
-      </select>
-    </section>
+      <section class="projects-stats" id="projects-stats" aria-label="Project statistics"></section>
 
-    <section class="projects-legacy-banner panel" id="legacy-ownership-banner" hidden>
-      <div>
-        <strong>Project legacy belum diklasifikasi</strong>
-        <p id="legacy-ownership-text">Administrator perlu menetapkan kepemilikan Divisi/Bidang sebelum enforcement diaktifkan.</p>
-      </div>
-      <a class="btn btn-ghost btn-sm" href="#project-owner-filter" id="legacy-ownership-filter-link">Tampilkan daftar</a>
-    </section>
+      <section class="projects-toolbar">
+        <label class="projects-search">
+          <span>⌕</span>
+          <input id="project-search" type="search" placeholder="Search projects..." autocomplete="off" />
+        </label>
+        <select id="project-status-filter" aria-label="Filter by status">
+          <option value="">All Status</option>
+          <option value="backlog">Backlog</option>
+          <option value="dev">Dev</option>
+          <option value="sit">SIT</option>
+          <option value="uat">UAT</option>
+          <option value="to">TO</option>
+          <option value="izin">Izin</option>
+          <option value="release">Release</option>
+        </select>
+        <select id="project-owner-filter" aria-label="Filter by ownership" hidden>
+          <option value="">Semua kepemilikan</option>
+          <option value="unassigned">Belum diklasifikasi</option>
+          <option value="division">Divisi</option>
+          <option value="bidang">Bidang</option>
+        </select>
+      </section>
 
-    <section class="projects-table-wrap panel" aria-label="Project list">
-      <div class="table-scroll">
-        <table class="projects-table">
-          <thead>
-            <tr>
-              <th>Project</th>
-              <th>Kepemilikan</th>
-              <th>PIC</th>
-              <th>Status</th>
-              <th>Progress</th>
-              <th>Start</th>
-              <th>Target</th>
-              <th>Tasks</th>
-              <th class="col-actions">Aksi</th>
-              <th class="col-delete" aria-label="Hapus"></th>
-            </tr>
-          </thead>
-          <tbody id="projects-list"></tbody>
-        </table>
-      </div>
-      <div class="projects-pagination" id="projects-pagination" aria-label="Pagination"></div>
+      <section class="projects-legacy-banner panel" id="legacy-ownership-banner" hidden>
+        <div>
+          <strong>Project legacy belum diklasifikasi</strong>
+          <p id="legacy-ownership-text">Administrator perlu menetapkan kepemilikan Divisi/Bidang sebelum enforcement diaktifkan.</p>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="#project-owner-filter" id="legacy-ownership-filter-link">Tampilkan daftar</a>
+      </section>
+
+      <section class="projects-table-wrap panel" aria-label="Project list">
+        <div class="table-scroll">
+          <table class="projects-table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Kepemilikan</th>
+                <th>PIC</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Start</th>
+                <th>Target</th>
+                <th>Tasks</th>
+                <th class="col-actions">Aksi</th>
+                <th class="col-delete" aria-label="Hapus"></th>
+              </tr>
+            </thead>
+            <tbody id="projects-list"></tbody>
+          </table>
+        </div>
+        <div class="projects-pagination" id="projects-pagination" aria-label="Pagination"></div>
+      </section>
     </section>
   </div>
 
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=27" defer></script>
+  <script src="/static/js/projects.js?v=28" defer></script>
 {% endblock %}

@@ -61,6 +61,11 @@ const state = {
   scopeStatus: null,
   pendingDocs: [],
   existingDocs: [],
+  workspacesEnabled: false,
+  workspaces: [],
+  workspaceDivision: null,
+  workspaceId: null,
+  workspace: null,
 };
 
 const els = {
@@ -99,7 +104,32 @@ const els = {
   docUrl: document.getElementById("field-doc-url"),
   docUrlTitle: document.getElementById("field-doc-url-title"),
   btnAddDocUrl: document.getElementById("btn-add-doc-url"),
+  workspacePicker: document.getElementById("workspace-picker"),
+  workspaceGrid: document.getElementById("workspace-grid"),
+  workspacePickerSub: document.getElementById("workspace-picker-subtitle"),
+  listView: document.getElementById("projects-list-view"),
+  workspaceCrumb: document.getElementById("workspace-crumb"),
+  workspaceCrumbName: document.getElementById("workspace-crumb-name"),
+  btnBackWorkspaces: document.getElementById("btn-back-workspaces"),
+  projectsHeading: document.getElementById("projects-heading"),
+  projectsHeadingSub: document.getElementById("projects-heading-sub"),
+  pageSubtitle: document.getElementById("projects-page-subtitle"),
 };
+
+const WORKSPACE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M6 20V9.5L12 5l6 4.5V20"/><path d="M10 20v-4h4v4"/></svg>`;
+
+function readWorkspaceFromUrl() {
+  const raw = new URLSearchParams(window.location.search).get("workspace");
+  const id = Number(raw);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function setWorkspaceUrl(workspaceId) {
+  const url = new URL(window.location.href);
+  if (workspaceId) url.searchParams.set("workspace", String(workspaceId));
+  else url.searchParams.delete("workspace");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
 
 function formatDate(value) {
   if (!value) return "-";
@@ -899,11 +929,132 @@ async function loadStats() {
   renderStats(stats);
 }
 
+function renderWorkspacePicker() {
+  if (!els.workspaceGrid) return;
+  if (!state.workspaces.length) {
+    els.workspaceGrid.innerHTML =
+      `<div class="workspace-empty">Belum ada Bidang aktif di Divisi Anda.</div>`;
+    return;
+  }
+  els.workspaceGrid.innerHTML = state.workspaces
+    .map(
+      (ws) => `
+    <button type="button" class="workspace-card" data-workspace-id="${ws.id}">
+      <div class="workspace-card-top">
+        <span class="workspace-card-icon">${WORKSPACE_ICON}</span>
+        <span class="workspace-card-count">${Number(ws.project_count || 0)} project</span>
+      </div>
+      <h3>${escapeHtml(ws.label || ws.name)}</h3>
+      <p>${
+        ws.leader_name
+          ? `PIC Bidang: ${escapeHtml(ws.leader_name)}`
+          : "Belum ada pemimpin Bidang"
+      }</p>
+    </button>`
+    )
+    .join("");
+}
+
+function syncWorkspaceView() {
+  const usePicker = state.workspacesEnabled && !state.workspaceId;
+  if (els.workspacePicker) els.workspacePicker.hidden = !usePicker;
+  if (els.listView) els.listView.hidden = usePicker;
+
+  const ws = state.workspace;
+  if (els.workspaceCrumb) els.workspaceCrumb.hidden = !(state.workspacesEnabled && ws);
+  if (els.workspaceCrumbName && ws) {
+    els.workspaceCrumbName.textContent = ws.label || ws.name;
+  }
+  if (els.projectsHeading) {
+    els.projectsHeading.textContent = ws
+      ? `Projects · ${ws.label || ws.name}`
+      : "All Projects";
+  }
+  if (els.projectsHeadingSub) {
+    els.projectsHeadingSub.textContent = ws
+      ? `Project milik workspace Bidang ${ws.label || ws.name}.`
+      : "Create, edit, search projects, and open tasks per project.";
+  }
+  if (els.pageSubtitle) {
+    if (state.workspacesEnabled && !ws) {
+      const divName = state.workspaceDivision?.name || "Divisi Anda";
+      els.pageSubtitle.textContent = `Pilih workspace Bidang di ${divName}.`;
+    } else if (ws) {
+      els.pageSubtitle.textContent = `Workspace: ${ws.label || ws.name}`;
+    } else {
+      els.pageSubtitle.textContent = "Manage and monitor all projects in one place.";
+    }
+  }
+  if (els.workspacePickerSub && state.workspaceDivision) {
+    els.workspacePickerSub.textContent =
+      `Workspace untuk ${state.workspaceDivision.name}. Klik Bidang untuk membuka project.`;
+  }
+  if (els.btnNew) {
+    const href = state.workspaceId
+      ? `/projects/new?workspace=${state.workspaceId}`
+      : "/projects/new";
+    els.btnNew.setAttribute("href", href);
+  }
+}
+
+async function loadWorkspaces() {
+  try {
+    const data = await api("/api/projects/workspaces");
+    state.workspacesEnabled = Boolean(data.enabled);
+    state.workspaces = Array.isArray(data.items) ? data.items : [];
+    state.workspaceDivision = data.division || null;
+  } catch {
+    state.workspacesEnabled = false;
+    state.workspaces = [];
+    state.workspaceDivision = null;
+  }
+
+  const fromUrl = readWorkspaceFromUrl();
+  if (state.workspacesEnabled && fromUrl) {
+    state.workspace =
+      state.workspaces.find((w) => Number(w.id) === Number(fromUrl)) || null;
+    state.workspaceId = state.workspace ? Number(state.workspace.id) : null;
+    if (!state.workspaceId) setWorkspaceUrl(null);
+  } else {
+    state.workspaceId = null;
+    state.workspace = null;
+  }
+  renderWorkspacePicker();
+  syncWorkspaceView();
+}
+
+function enterWorkspace(workspaceId) {
+  const ws = state.workspaces.find((w) => Number(w.id) === Number(workspaceId));
+  if (!ws) return;
+  state.workspace = ws;
+  state.workspaceId = Number(ws.id);
+  state.page = 1;
+  setWorkspaceUrl(state.workspaceId);
+  syncWorkspaceView();
+  return Promise.all([loadStats(), loadProjects()]);
+}
+
+function exitWorkspace() {
+  state.workspace = null;
+  state.workspaceId = null;
+  state.page = 1;
+  state.query = "";
+  state.status = "";
+  if (els.search) els.search.value = "";
+  if (els.filter) els.filter.value = "";
+  setWorkspaceUrl(null);
+  syncWorkspaceView();
+}
+
 async function loadProjects() {
   const params = new URLSearchParams();
   if (state.query) params.set("q", state.query);
   if (state.status) params.set("status", state.status);
   if (state.ownerType) params.set("owner_type", state.ownerType);
+  if (state.workspaceId) {
+    params.set("owner_type", "bidang");
+    params.set("owner_bidang_id", String(state.workspaceId));
+  }
   params.set("page", String(state.page));
   params.set("page_size", String(state.pageSize));
   const data = await api(`/api/projects?${params.toString()}`);
@@ -1199,6 +1350,20 @@ function wireEvents() {
     else await goToPage(raw);
   });
 
+  els.workspaceGrid?.addEventListener("click", async (e) => {
+    const card = e.target.closest("[data-workspace-id]");
+    if (!card) return;
+    try {
+      await enterWorkspace(card.dataset.workspaceId);
+    } catch (err) {
+      els.list.innerHTML = `<tr><td colspan="10" class="list-empty">${escapeHtml(err.message || "Gagal membuka workspace")}</td></tr>`;
+    }
+  });
+
+  els.btnBackWorkspaces?.addEventListener("click", () => {
+    exitWorkspace();
+  });
+
   const globalSearch = document.getElementById("search-input");
   globalSearch?.addEventListener("input", () => {
     els.search.value = globalSearch.value;
@@ -1232,15 +1397,16 @@ async function boot() {
   wireEvents();
   try {
     await loadCurrentUser();
-    await Promise.all([
-      loadStats(),
-      loadProjects(),
-      loadUsers(),
-      loadOrganizationOptions(),
-      loadScopeStatus(),
-    ]);
+    await loadWorkspaces();
+    const jobs = [loadUsers(), loadOrganizationOptions(), loadScopeStatus()];
+    if (!state.workspacesEnabled || state.workspaceId) {
+      jobs.unshift(loadStats(), loadProjects());
+    }
+    await Promise.all(jobs);
   } catch (err) {
-    els.list.innerHTML = `<tr><td colspan="10" class="list-empty">Failed to load projects: ${escapeHtml(err.message)}</td></tr>`;
+    if (els.list) {
+      els.list.innerHTML = `<tr><td colspan="10" class="list-empty">Failed to load projects: ${escapeHtml(err.message)}</td></tr>`;
+    }
   }
 }
 

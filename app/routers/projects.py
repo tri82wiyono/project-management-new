@@ -7,9 +7,12 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.models import (
+    Bidang,
+    Division,
     Project,
     ProjectDiscussionAttachment,
     ProjectDocument,
+    ProjectOwnerType,
     ProjectStatus,
     Task,
     TaskNote,
@@ -123,6 +126,93 @@ def project_scope_status(
     user: User = Depends(require_permission("projects.view")),
 ) -> dict:
     return org_scope.scope_status(db, user)
+
+
+def _workspace_label(bidang_name: str) -> str:
+    name = (bidang_name or "").strip()
+    for prefix in ("Pemimpin Bidang ", "Bidang "):
+        if name.lower().startswith(prefix.lower()):
+            return name[len(prefix) :].strip() or name
+    return name
+
+
+@router.get("/workspaces")
+def list_project_workspaces(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("projects.view")),
+) -> dict:
+    """Workspace = Bidang under divisions the user leads (or all bidangs for Admin)."""
+    ctx = org_scope.load_user_org_context(db, user)
+    if ctx.is_admin:
+        division_ids = set(db.scalars(select(Division.id).where(Division.is_active.is_(True))).all())
+    else:
+        division_ids = set(ctx.led_division_ids)
+
+    if not division_ids:
+        return {
+            "enabled": False,
+            "division": None,
+            "items": [],
+            "note": "Workspace hanya untuk Pemimpin Divisi (atau Admin).",
+        }
+
+    divisions = list(
+        db.scalars(
+            select(Division)
+            .where(Division.id.in_(division_ids), Division.is_active.is_(True))
+            .order_by(Division.name.asc())
+        ).all()
+    )
+    bidangs = list(
+        db.scalars(
+            select(Bidang)
+            .where(Bidang.division_id.in_(division_ids), Bidang.is_active.is_(True))
+            .order_by(Bidang.name.asc())
+        ).all()
+    )
+    counts = {
+        int(bidang_id): int(count)
+        for bidang_id, count in db.execute(
+            select(Project.owner_bidang_id, func.count())
+            .where(
+                Project.owner_type == ProjectOwnerType.bidang.value,
+                Project.owner_bidang_id.in_([b.id for b in bidangs] or [-1]),
+            )
+            .group_by(Project.owner_bidang_id)
+        ).all()
+        if bidang_id is not None
+    }
+    leaders = {}
+    leader_ids = [b.leader_user_id for b in bidangs if b.leader_user_id]
+    if leader_ids:
+        for u in db.scalars(select(User).where(User.id.in_(leader_ids))).all():
+            leaders[u.id] = u.name
+
+    items = [
+        {
+            "id": b.id,
+            "code": b.code,
+            "name": b.name,
+            "label": _workspace_label(b.name),
+            "division_id": b.division_id,
+            "division_name": next((d.name for d in divisions if d.id == b.division_id), ""),
+            "leader_user_id": b.leader_user_id,
+            "leader_name": leaders.get(b.leader_user_id) if b.leader_user_id else None,
+            "project_count": counts.get(b.id, 0),
+        }
+        for b in bidangs
+    ]
+
+    primary = divisions[0] if divisions else None
+    return {
+        "enabled": True,
+        "division": (
+            {"id": primary.id, "code": primary.code, "name": primary.name}
+            if primary
+            else None
+        ),
+        "items": items,
+    }
 
 
 @router.get("/unassigned", response_model=ProjectListResponse)
