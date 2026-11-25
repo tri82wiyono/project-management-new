@@ -27,8 +27,6 @@ const STATUS_LABEL = {
   release: "Release",
 };
 
-const STATUS_VALUES = Object.keys(STATUS_LABEL);
-
 const PAGE_SIZE = 10;
 
 const TRASH_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7l1 12a2 2 0 0 0 2 1.8h2a2 2 0 0 0 2-1.8L16 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
@@ -871,10 +869,6 @@ async function openModal(project = null) {
     document.getElementById("field-description").value = project.description || "";
     document.getElementById("field-start").value = project.start_date || "";
     document.getElementById("field-end").value = project.end_date || "";
-    document.getElementById("field-status").value = STATUS_VALUES.includes(project.status)
-      ? project.status
-      : "backlog";
-    syncReleaseOption(project.progress);
     setSelectedPicsFromNames(project.pic || "");
     await applyOwnershipToForm(project);
     try {
@@ -893,8 +887,6 @@ async function openModal(project = null) {
     document.getElementById("project-id").value = "";
     document.getElementById("field-start").value = todayISO();
     document.getElementById("field-end").value = plusDaysISO(90);
-    document.getElementById("field-status").value = "backlog";
-    syncReleaseOption(0);
     syncPicField();
     await applyOwnershipToForm(null);
   }
@@ -906,20 +898,6 @@ async function openModal(project = null) {
   els.modal.hidden = false;
   document.body.classList.add("modal-open");
   document.getElementById("field-name").focus();
-}
-
-function syncReleaseOption(progress) {
-  const select = document.getElementById("field-status");
-  const releaseOpt = select?.querySelector('option[value="release"]');
-  const hint = document.getElementById("status-release-hint");
-  const ready = Math.round(Number(progress) || 0) >= 100;
-  if (releaseOpt) {
-    releaseOpt.disabled = !ready;
-    if (!ready && select.value === "release") {
-      select.value = "izin";
-    }
-  }
-  if (hint) hint.hidden = ready;
 }
 
 function closeModal() {
@@ -1116,7 +1094,6 @@ async function saveProject(event) {
     pic: els.fieldPic.value.trim(),
     start_date: document.getElementById("field-start").value,
     end_date: document.getElementById("field-end").value,
-    status: document.getElementById("field-status").value,
     member_ids: state.selectedPicIds.slice(),
     owner_type: ownerType,
     owner_division_id: ownerType === "division" || ownerType === "bidang" ? ownerDivisionId : null,

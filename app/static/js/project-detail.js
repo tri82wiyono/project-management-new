@@ -29,6 +29,8 @@
     release: "Release",
   };
 
+  const STATUS_PIPELINE = ["backlog", "dev", "sit", "uat", "to", "izin", "release"];
+
   const DEVELOPED_BY_LABEL = {
     internal: "Internal Bank",
     vendor: "Pihak Ketiga (Vendor)",
@@ -453,6 +455,7 @@
                 <h2>${escapeHtml(p.name)}</h2>
                 <div class="pw-header-meta">
                   <span class="status-badge ${escapeHtml(p.status)}">${STATUS_LABEL[p.status] || p.status}</span>
+                  <span class="pw-meta-chip pw-status-source">mengikuti progress task</span>
                   <span class="pw-meta-chip">PIC <strong>${escapeHtml(p.pic || "—")}</strong></span>
                   <span class="pw-meta-chip">Target <strong>${formatDate(p.end_date)}</strong></span>
                   <span class="pw-meta-chip">Mulai <strong>${formatDate(p.start_date)}</strong></span>
@@ -464,6 +467,15 @@
               <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}">Open Tasks</a>
               <a class="btn btn-ghost btn-sm" href="/timeline">Timeline</a>
             </div>
+          </div>
+          <div class="pw-stage-rail" aria-label="Tahap project">
+            ${STATUS_PIPELINE.map((key) => {
+              const currentIdx = STATUS_PIPELINE.indexOf(p.status);
+              const idx = STATUS_PIPELINE.indexOf(key);
+              const cls =
+                idx < currentIdx ? "is-done" : idx === currentIdx ? "is-current" : "is-todo";
+              return `<span class="pw-stage-pill ${cls}">${STATUS_LABEL[key]}</span>`;
+            }).join("")}
           </div>
           <div class="pw-progress-row">
             <div class="pw-progress-track"><span style="width:${Math.min(100, Math.max(0, pct))}%;background:${escapeHtml(color)}"></span></div>
@@ -481,7 +493,11 @@
                 <div class="pw-overview-item"><span>Dikembangkan oleh</span><strong>${escapeHtml(DEVELOPED_BY_LABEL[p.developed_by] || p.developed_by || "—")}</strong></div>
                 <div class="pw-overview-item"><span>Anggaran</span><strong>${escapeHtml(formatBudgetId(p.budget))}</strong></div>
                 <div class="pw-overview-item"><span>Tasks</span><strong>${Number(p.task_count || state.tasks.length || 0)}</strong></div>
-                <div class="pw-overview-item"><span>Status</span><strong>${STATUS_LABEL[p.status] || p.status}</strong></div>
+                <div class="pw-overview-item">
+                  <span>Status</span>
+                  <strong>${STATUS_LABEL[p.status] || p.status}</strong>
+                  <small class="pw-overview-note">Otomatis dari task</small>
+                </div>
               </div>
               ${renderDescriptionBlock(p.description)}
               ${

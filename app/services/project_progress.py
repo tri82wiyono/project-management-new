@@ -45,18 +45,14 @@ def release_allowed(progress: float) -> bool:
 
 
 def sync_project_status_from_tasks(project: Project, tasks: list[Task], progress: float) -> None:
-    """Keep lifecycle status consistent with task progress.
+    """Derive project pipeline stage entirely from task progress.
 
-    - Backlog → Dev once any module leaves To Do
-    - Release is only valid at 100% progress; otherwise demote to the matching stage
+    Create/edit forms no longer set status; task updates drive backlog → … → release.
     """
-    if project.status == ProjectStatus.backlog and any(
-        task.status != TaskStatus.todo for task in tasks
-    ):
-        project.status = ProjectStatus.dev
-
-    if project.status == ProjectStatus.release and not release_allowed(progress):
-        project.status = status_from_progress(progress)
+    if not tasks:
+        project.status = ProjectStatus.backlog
+        return
+    project.status = status_from_progress(progress)
 
 
 def recalculate_project_progress(db: Session, project_id: int | None) -> float | None:

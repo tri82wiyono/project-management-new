@@ -135,6 +135,17 @@
   line-height: 1.35;
 }
 
+.project-form-page .status-derived-hint {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f3f7ff;
+  border: 1px solid #d9e6ff;
+  color: #3558c7;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
 .project-form-page .pic-tagbox {
   position: relative;
 }

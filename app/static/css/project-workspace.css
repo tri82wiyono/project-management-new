@@ -73,6 +73,52 @@
   align-items: center;
 }
 
+.pw-status-source {
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.pw-stage-rail {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pw-stage-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  border: 1px solid #e6ebf3;
+  background: #f7f9fc;
+  color: #8a94a6;
+}
+
+.pw-stage-pill.is-done {
+  background: #eef5ff;
+  border-color: #d7e4ff;
+  color: #4a6ec8;
+}
+
+.pw-stage-pill.is-current {
+  background: linear-gradient(180deg, #638bff, #4f7cff);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(79, 124, 255, 0.28);
+}
+
+.pw-overview-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 500;
+}
+
 .pw-progress-row {
   margin-top: 14px;
   display: grid;

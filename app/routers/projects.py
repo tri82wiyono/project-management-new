@@ -38,11 +38,7 @@ from app.services import project_documents as docs_svc
 from app.services import project_discussion as discussion_svc
 from app.services.audit import write_audit_log
 from app.services import org_scope
-from app.services.project_progress import (
-    calculate_progress_from_tasks,
-    recalculate_project_progress,
-    release_allowed,
-)
+from app.services.project_progress import recalculate_project_progress
 from fastapi import Form, Request
 import json
 
@@ -411,28 +407,6 @@ def list_project_notes(
     ]
 
 
-def _reject_premature_release(db: Session, project_id: int | None, status_value) -> None:
-    """Release is only valid when task-derived progress is 100%."""
-    if status_value != ProjectStatus.release:
-        return
-    if not project_id:
-        # New project has no modules yet → progress 0
-        raise HTTPException(
-            status_code=400,
-            detail="Status Release hanya boleh jika progress modul 100%. Progress saat ini 0%.",
-        )
-    tasks = list(db.scalars(select(Task).where(Task.project_id == project_id)).all())
-    progress = calculate_progress_from_tasks(tasks)
-    if not release_allowed(progress):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Status Release hanya boleh jika progress modul 100%. "
-                f"Progress saat ini {progress:g}% — pilih Dev/SIT/UAT/TO/Izin."
-            ),
-        )
-
-
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
@@ -442,7 +416,6 @@ def create_project(
 ) -> ProjectOut:
     if not org_scope.can_create_project(db, current):
         raise HTTPException(status_code=403, detail="Tidak berwenang membuat project")
-    _reject_premature_release(db, None, payload.status)
     try:
         owner_type, owner_division_id, owner_bidang_id = org_scope.validate_and_normalize_ownership(
             db,
@@ -477,7 +450,8 @@ def create_project(
         name=payload.name,
         description=payload.description,
         pic=pic_value,
-        status=payload.status,
+        # Status follows task progress; new projects always start in backlog.
+        status=ProjectStatus.backlog,
         progress=0,
         color=payload.color,
         start_date=payload.start_date,
@@ -542,14 +516,12 @@ def update_project(
     data = payload.model_dump(exclude_unset=True)
     member_ids = data.pop("member_ids", None)
     data.pop("progress", None)  # progress is derived from task statuses
+    data.pop("status", None)  # status is derived from task progress
     ownership_keys = {"owner_type", "owner_division_id", "owner_bidang_id"}
     ownership_touch = any(k in data for k in ownership_keys)
     owner_type = data.pop("owner_type", None)
     owner_division_id = data.pop("owner_division_id", None)
     owner_bidang_id = data.pop("owner_bidang_id", None)
-
-    if "status" in data:
-        _reject_premature_release(db, project.id, data["status"])
 
     if "developed_by" in data:
         developed_by = (data.get("developed_by") or "").strip() or None

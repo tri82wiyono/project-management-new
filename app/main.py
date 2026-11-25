@@ -77,7 +77,7 @@ async def lifespan(_: FastAPI):
         ensure_default_admin(db)
         if settings.seed_data:
             seed_database(db)
-        # Keep Release aligned with task progress (demote Release if < 100%).
+        # Derive project pipeline status from task progress on boot.
         from app.services.project_progress import reconcile_all_project_progress
 
         reconcile_all_project_progress(db)

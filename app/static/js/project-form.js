@@ -19,7 +19,6 @@
     return data;
   };
 
-  const STATUS_VALUES = ["backlog", "dev", "sit", "uat", "to", "izin", "release"];
   const MAX_DOCS = 3;
   const MAX_DOC_BYTES = 10 * 1024 * 1024;
   const DOC_EXT = new Set([
@@ -551,18 +550,6 @@
     }
   }
 
-  function syncReleaseOption(progress) {
-    const select = document.getElementById("field-status");
-    const releaseOpt = select?.querySelector('option[value="release"]');
-    const hint = document.getElementById("status-release-hint");
-    const ready = Math.round(Number(progress) || 0) >= 100;
-    if (releaseOpt) {
-      releaseOpt.disabled = !ready;
-      if (!ready && select.value === "release") select.value = "izin";
-    }
-    if (hint) hint.hidden = ready;
-  }
-
   async function loadOrganizationOptions() {
     try {
       const data = await api("/api/organization/ownership-options");
@@ -597,9 +584,6 @@
       document.getElementById("field-name").value = project.name || "";
       document.getElementById("field-start").value = project.start_date || "";
       document.getElementById("field-end").value = project.end_date || "";
-      document.getElementById("field-status").value = STATUS_VALUES.includes(project.status)
-        ? project.status
-        : "backlog";
       if (els.developedBy) els.developedBy.value = project.developed_by || "";
       setBudgetValue(project.budget);
       if (!quill) quill = initQuill(project.description || "");
@@ -607,7 +591,6 @@
         quill.root.innerHTML = project.description || "";
         if (els.description) els.description.value = quill.root.innerHTML;
       }
-      syncReleaseOption(project.progress);
       setSelectedPicsFromNames(project.pic || "");
       await applyOwnershipToForm(project);
       try {
@@ -624,7 +607,6 @@
       document.getElementById("field-name").value = "";
       document.getElementById("field-start").value = todayISO();
       document.getElementById("field-end").value = plusDaysISO(90);
-      document.getElementById("field-status").value = "backlog";
       if (els.developedBy) els.developedBy.value = "";
       setBudgetValue(null);
       if (!quill) quill = initQuill("");
@@ -632,7 +614,6 @@
         quill.setText("");
         if (els.description) els.description.value = "";
       }
-      syncReleaseOption(0);
       syncPicField();
       await applyOwnershipToForm(null);
       renderDocList();
@@ -657,7 +638,6 @@
       pic: els.fieldPic.value.trim(),
       start_date: document.getElementById("field-start").value,
       end_date: document.getElementById("field-end").value,
-      status: document.getElementById("field-status").value,
       developed_by: developedBy || null,
       budget,
       member_ids: state.selectedPicIds.slice(),
