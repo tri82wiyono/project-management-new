@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -171,15 +171,16 @@ def remove_task_from_sprint(
     return sprint_out(_load_sprint(db, sprint_id), include_tasks=True)
 
 
-@router.delete("/{sprint_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{sprint_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_sprint(
     sprint_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("tasks.manage")),
-) -> None:
+) -> Response:
     sprint = _load_sprint(db, sprint_id)
     org_scope.require_project_view(db, user, sprint.project)
     for task in list(sprint.tasks or []):
         task.sprint_id = None
     db.delete(sprint)
     db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
