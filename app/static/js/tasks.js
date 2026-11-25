@@ -66,6 +66,7 @@ const state = {
   projectId: null,
   projects: [],
   users: [],
+  sprintsByProject: {},
   columns: [],
   query: "",
   dragTaskId: null,
@@ -103,6 +104,7 @@ const els = {
   fieldStatus: document.getElementById("field-task-status"),
   fieldCategory: document.getElementById("field-task-category"),
   fieldPriority: document.getElementById("field-task-priority"),
+  fieldSprint: document.getElementById("field-task-sprint"),
   fieldDue: document.getElementById("field-task-due"),
   duePicker: document.getElementById("due-datepicker"),
   dueTrigger: document.getElementById("due-datepicker-trigger"),
@@ -407,6 +409,36 @@ function fillSelects() {
     .join("") || `<option value="">No projects</option>`;
 }
 
+async function loadSprintsForProject(projectId, selectedSprintId = "") {
+  if (!els.fieldSprint) return;
+  if (!projectId) {
+    els.fieldSprint.innerHTML = `<option value="">— Tidak di sprint —</option>`;
+    return;
+  }
+  const key = String(projectId);
+  if (!state.sprintsByProject[key]) {
+    try {
+      state.sprintsByProject[key] = await api(`/api/sprints?project_id=${projectId}`);
+    } catch {
+      state.sprintsByProject[key] = [];
+    }
+  }
+  const sprints = (state.sprintsByProject[key] || []).filter((s) => s.status !== "done");
+  const all = state.sprintsByProject[key] || [];
+  const selected = all.find((s) => String(s.id) === String(selectedSprintId));
+  const options = [`<option value="">— Tidak di sprint —</option>`];
+  for (const s of sprints) {
+    options.push(`<option value="${s.id}">${escapeHtml(s.name)}</option>`);
+  }
+  if (selected && selected.status === "done") {
+    options.push(
+      `<option value="${selected.id}">${escapeHtml(selected.name)} (done)</option>`
+    );
+  }
+  els.fieldSprint.innerHTML = options.join("");
+  if (selectedSprintId) els.fieldSprint.value = String(selectedSprintId);
+}
+
 function renderAssigneeAvatars(task) {
   const people = taskAssignees(task).slice(0, 3);
   if (!people.length) return "<span></span>";
@@ -492,6 +524,9 @@ function renderBoard() {
               ? `<span class="task-project">${escapeHtml(task.project_name)}</span>`
               : ""}
             <h4>${escapeHtml(task.title)}</h4>
+            ${task.sprint_name
+              ? `<span class="task-sprint-chip" title="Sprint">${escapeHtml(task.sprint_name)}</span>`
+              : ""}
             <div class="task-card-foot">
               <span class="tag ${tagClass(task.category)}">${escapeHtml(task.category || "General")}</span>
               ${task.notes_count > 0
@@ -690,7 +725,7 @@ async function deleteNote(noteId) {
   }
 }
 
-function openModal(task = null, presetStatus = "todo", options = {}) {
+async function openModal(task = null, presetStatus = "todo", options = {}) {
   const startTab = options.tab === "notes" ? "notes" : "detail";
   els.form.reset();
   els.formError.hidden = true;
@@ -713,6 +748,7 @@ function openModal(task = null, presetStatus = "todo", options = {}) {
     setNotesPanelMode(true);
     if (els.notesCount) els.notesCount.textContent = String(task.notes_count || 0);
     loadNotes(task.id);
+    await loadSprintsForProject(task.project_id, task.sprint_id || "");
   } else {
     els.modalTitle.textContent = "New Task";
     els.modalSubtitle.textContent = "Isi detail dulu. Catatan bisa ditambah setelah task tersimpan.";
@@ -728,6 +764,7 @@ function openModal(task = null, presetStatus = "todo", options = {}) {
     setDueDate("");
     els.btnDelete.hidden = true;
     setNotesPanelMode(false);
+    await loadSprintsForProject(els.fieldProject.value, "");
   }
 
   closeDuePicker();
@@ -782,6 +819,7 @@ async function saveTask(event) {
     status: els.fieldStatus.value,
     category: els.fieldCategory.value.trim() || "General",
     priority: els.fieldPriority.value,
+    sprint_id: els.fieldSprint?.value ? Number(els.fieldSprint.value) : null,
     assignee_ids: assigneeIds,
     assignee_id: assigneeIds[0] || null,
     due_date: els.fieldDue.value || null,
@@ -1095,6 +1133,10 @@ function wireModalEvents() {
   els.btnCancel.addEventListener("click", closeModal);
   els.btnDelete.addEventListener("click", () => deleteTask());
   els.form.addEventListener("submit", saveTask);
+  els.fieldProject?.addEventListener("change", () => {
+    delete state.sprintsByProject[String(els.fieldProject.value)];
+    loadSprintsForProject(els.fieldProject.value, "");
+  });
   els.tabBtnDetail?.addEventListener("click", () => setActiveTab("detail"));
   els.tabBtnNotes?.addEventListener("click", () => setActiveTab("notes"));
   document.querySelectorAll(".note-kind-btn").forEach((btn) => {

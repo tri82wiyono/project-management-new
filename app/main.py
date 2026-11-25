@@ -20,6 +20,7 @@ from app.routers import notifications as notifications_router
 from app.routers import organization as organization_router
 from app.routers import reports as reports_router
 from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
+from app.routers import sprints as sprints_router
 from app.routers import tickets as tickets_router
 from app.routers import users as users_router
 from app.seed import seed_database
@@ -212,6 +213,7 @@ app.include_router(dashboard.router)
 app.include_router(projects.router)
 app.include_router(tickets_router.router)
 app.include_router(tasks.router)
+app.include_router(sprints_router.router)
 app.include_router(team.router)
 app.include_router(settings_router.router)
 app.include_router(users_router.router)
@@ -484,6 +486,21 @@ def tasks_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
         page_subtitle="Track work across projects",
     )
     return templates.TemplateResponse(request, "pages/tasks.html", context)
+
+
+@app.get("/sprints", response_class=HTMLResponse)
+def sprints_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    denied = _require_page_permission(request, db, "tasks.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
+        active_page="sprints",
+        page_title="Sprints",
+        page_subtitle="Prioritaskan modul dalam jangka waktu (SLA)",
+    )
+    return templates.TemplateResponse(request, "pages/sprints.html", context)
 
 
 @app.get("/users", response_class=HTMLResponse)

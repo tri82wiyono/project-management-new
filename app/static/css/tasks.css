@@ -369,6 +369,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.task-sprint-chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #3b6fe0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .task-card-hint {
   margin-top: 6px;
   color: var(--muted);

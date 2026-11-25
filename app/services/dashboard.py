@@ -75,6 +75,7 @@ def _task_out(task: Task) -> TaskOut:
     notes = list(task.notes or [])
     notes_count = len(notes)
     has_problem = any((n.kind or "problem") == "problem" for n in notes)
+    sprint = getattr(task, "sprint", None)
     return TaskOut(
         id=task.id,
         title=task.title,
@@ -84,6 +85,8 @@ def _task_out(task: Task) -> TaskOut:
         priority=task.priority,
         due_date=task.due_date,
         project_id=task.project_id,
+        sprint_id=task.sprint_id,
+        sprint_name=sprint.name if sprint else None,
         assignee_id=primary.id if primary else task.assignee_id,
         assignee_ids=[u.id for u in assignees],
         completed_at=task.completed_at,
@@ -332,6 +335,7 @@ def get_kanban(
         joinedload(Task.assignee),
         joinedload(Task.assignees).joinedload(TaskAssignee.user),
         joinedload(Task.project),
+        joinedload(Task.sprint),
         joinedload(Task.notes),
     )
     t_scope = _task_scope(db, user)

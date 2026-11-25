@@ -4,7 +4,7 @@
 
 {% block head_extra %}
   <link rel="stylesheet" href="/static/css/projects.css?v=21" />
-  <link rel="stylesheet" href="/static/css/tasks.css?v=22" />
+  <link rel="stylesheet" href="/static/css/tasks.css?v=23" />
 {% endblock %}
 
 {% block header %}
@@ -121,6 +121,14 @@
             </label>
           </div>
 
+          <label class="field">
+            <span>Sprint (opsional)</span>
+            <select id="field-task-sprint">
+              <option value="">— Tidak di sprint —</option>
+            </select>
+            <small class="field-hint">Masukkan modul ke sprint prioritas berjangka waktu.</small>
+          </label>
+
           <div class="field">
             <span>Assignee</span>
             <div class="assignee-tagbox" id="assignee-multiselect">
@@ -205,5 +213,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/tasks.js?v=22" defer></script>
+  <script src="/static/js/tasks.js?v=23" defer></script>
 {% endblock %}

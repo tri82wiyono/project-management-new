@@ -30,6 +30,12 @@ class TaskStatus(str, enum.Enum):
     done = "done"
 
 
+class SprintStatus(str, enum.Enum):
+    planned = "planned"
+    active = "active"
+    done = "done"
+
+
 class ProjectStatus(str, enum.Enum):
     backlog = "backlog"
     dev = "dev"
@@ -349,6 +355,11 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tasks: Mapped[list[Task]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    sprints: Mapped[list["Sprint"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="desc(Sprint.start_date)",
+    )
     members: Mapped[list[TeamMember]] = relationship(back_populates="project", cascade="all, delete-orphan")
     documents: Mapped[list["ProjectDocument"]] = relationship(
         back_populates="project",
@@ -400,11 +411,37 @@ class TeamMember(Base):
     user: Mapped[User] = relationship(back_populates="memberships")
 
 
+class Sprint(Base):
+    """Time-boxed priority container for a subset of project tasks (modules)."""
+
+    __tablename__ = "sprints"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    goal: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[SprintStatus] = mapped_column(
+        Enum(SprintStatus, name="sprint_status"),
+        default=SprintStatus.planned,
+    )
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    project: Mapped[Project] = relationship(back_populates="sprints")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="sprint")
+
+
 class Task(Base):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    sprint_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sprints.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -419,6 +456,7 @@ class Task(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     project: Mapped[Project] = relationship(back_populates="tasks")
+    sprint: Mapped[Sprint | None] = relationship(back_populates="tasks")
     assignee: Mapped[User | None] = relationship(back_populates="tasks")
     assignees: Mapped[list["TaskAssignee"]] = relationship(
         back_populates="task",

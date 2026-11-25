@@ -465,6 +465,7 @@
             <div class="pw-header-actions">
               <button type="button" class="btn btn-ghost btn-sm" id="btn-edit-inline">Edit</button>
               <a class="btn btn-primary btn-sm" href="/tasks?project_id=${p.id}">Open Tasks</a>
+              <a class="btn btn-ghost btn-sm" href="/sprints?project_id=${p.id}">Sprints</a>
               <a class="btn btn-ghost btn-sm" href="/timeline">Timeline</a>
             </div>
           </div>

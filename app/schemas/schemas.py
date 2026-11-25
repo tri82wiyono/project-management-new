@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.models import (
     ProjectStatus,
+    SprintStatus,
     TaskStatus,
     TicketEnvironment,
     TicketPriority,
@@ -151,7 +152,7 @@ class TaskBase(BaseModel):
 
 
 class TaskCreate(TaskBase):
-    pass
+    sprint_id: int | None = None
 
 
 class TaskUpdate(BaseModel):
@@ -162,6 +163,7 @@ class TaskUpdate(BaseModel):
     priority: Literal["low", "medium", "high"] | None = None
     due_date: date | None = None
     project_id: int | None = None
+    sprint_id: int | None = None
     assignee_id: int | None = None
     assignee_ids: list[int] | None = None
 
@@ -177,6 +179,8 @@ class TaskOut(BaseModel):
     priority: str
     due_date: date | None
     project_id: int
+    sprint_id: int | None = None
+    sprint_name: str | None = None
     assignee_id: int | None
     assignee_ids: list[int] = []
     completed_at: datetime | None
@@ -187,6 +191,48 @@ class TaskOut(BaseModel):
     project_progress: float | None = None
     notes_count: int = 0
     has_problem: bool = False
+
+
+class SprintCreate(BaseModel):
+    project_id: int
+    name: str = Field(min_length=1, max_length=160)
+    goal: str | None = None
+    start_date: date
+    end_date: date
+    status: SprintStatus = SprintStatus.planned
+    task_ids: list[int] = []
+
+
+class SprintUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    goal: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: SprintStatus | None = None
+
+
+class SprintTaskIds(BaseModel):
+    task_ids: list[int] = Field(min_length=1)
+
+
+class SprintOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    project_name: str | None = None
+    name: str
+    goal: str | None
+    status: SprintStatus
+    start_date: date
+    end_date: date
+    created_at: datetime
+    task_count: int = 0
+    done_count: int = 0
+    progress: float = 0.0
+    sla_days_left: int | None = None
+    sla_overdue: bool = False
+    tasks: list[TaskOut] = []
 
 
 class TaskNoteCreate(BaseModel):

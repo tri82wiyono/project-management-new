@@ -470,3 +470,40 @@ def ensure_schema() -> None:
                 """
             )
         )
+        conn.execute(
+            text(
+                """
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sprint_status') THEN
+        CREATE TYPE sprint_status AS ENUM ('planned', 'active', 'done');
+      END IF;
+    END $$;
+
+    CREATE TABLE IF NOT EXISTS sprints (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name VARCHAR(160) NOT NULL,
+      goal TEXT,
+      status sprint_status DEFAULT 'planned',
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_sprints_project_id ON sprints(project_id);
+
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sprint_id INTEGER;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_tasks_sprint_id'
+      ) THEN
+        ALTER TABLE tasks
+          ADD CONSTRAINT fk_tasks_sprint_id
+          FOREIGN KEY (sprint_id) REFERENCES sprints(id) ON DELETE SET NULL;
+      END IF;
+    END $$;
+    CREATE INDEX IF NOT EXISTS ix_tasks_sprint_id ON tasks(sprint_id);
+                """
+            )
+        )

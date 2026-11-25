@@ -5,12 +5,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models.models import Project, Task, TaskAssignee, TaskNote, TaskStatus, User
+from app.models.models import Project, Sprint, Task, TaskAssignee, TaskNote, TaskStatus, User
 from app.schemas.schemas import TaskCreate, TaskNoteCreate, TaskNoteOut, TaskOut, TaskUpdate
 from app.services.auth import require_permission
 from app.services.dashboard import _task_out
 from app.services import org_scope
 from app.services.project_progress import recalculate_project_progress
+from app.services.sprints import sync_sprint_status_from_tasks
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -20,8 +21,19 @@ def _task_query():
         joinedload(Task.assignee),
         joinedload(Task.assignees).joinedload(TaskAssignee.user),
         joinedload(Task.project),
+        joinedload(Task.sprint),
         joinedload(Task.notes),
     )
+
+
+def _validate_sprint_for_project(db: Session, project_id: int, sprint_id: int | None) -> None:
+    if sprint_id is None:
+        return
+    sprint = db.get(Sprint, sprint_id)
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    if sprint.project_id != project_id:
+        raise HTTPException(status_code=400, detail="Sprint harus berada di project yang sama dengan task")
 
 
 def _note_out(note: TaskNote) -> TaskNoteOut:
@@ -78,6 +90,8 @@ def _set_task_assignees(db: Session, task: Task, assignee_ids: list[int]) -> Non
 @router.get("", response_model=list[TaskOut])
 def list_tasks(
     project_id: int | None = None,
+    sprint_id: int | None = None,
+    unassigned_sprint: bool = Query(default=False),
     status_filter: TaskStatus | None = Query(default=None, alias="status"),
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("tasks.view")),
@@ -92,6 +106,10 @@ def list_tasks(
             raise HTTPException(status_code=404, detail="Project not found")
         org_scope.require_project_view(db, user, project)
         stmt = stmt.where(Task.project_id == project_id)
+    if sprint_id is not None:
+        stmt = stmt.where(Task.sprint_id == sprint_id)
+    if unassigned_sprint:
+        stmt = stmt.where(Task.sprint_id.is_(None))
     if status_filter:
         stmt = stmt.where(Task.status == status_filter)
     tasks = db.scalars(stmt.order_by(Task.created_at.desc())).unique().all()
@@ -124,6 +142,7 @@ def create_task(
     data = payload.model_dump()
     assignee_ids = _normalize_assignee_ids(data.pop("assignee_ids", []), data.get("assignee_id"))
     data["assignee_id"] = assignee_ids[0] if assignee_ids else None
+    _validate_sprint_for_project(db, payload.project_id, data.get("sprint_id"))
 
     task = Task(**data)
     if task.status == TaskStatus.done:
@@ -132,6 +151,11 @@ def create_task(
     db.flush()
     _set_task_assignees(db, task, assignee_ids)
     recalculate_project_progress(db, task.project_id)
+    if task.sprint_id:
+        sprint = db.get(Sprint, task.sprint_id)
+        if sprint:
+            db.refresh(sprint, attribute_names=["tasks"])
+            sync_sprint_status_from_tasks(sprint)
     db.commit()
     return _task_out(_load_task(db, task.id))
 
@@ -148,6 +172,7 @@ def update_task(
     data = payload.model_dump(exclude_unset=True)
     previous_status = task.status
     previous_project_id = task.project_id
+    previous_sprint_id = task.sprint_id
 
     if "project_id" in data and data["project_id"] is not None:
         dest = db.get(Project, data["project_id"])
@@ -160,6 +185,10 @@ def update_task(
         assignee_ids = _normalize_assignee_ids(data.pop("assignee_ids"), data.pop("assignee_id", None))
     elif "assignee_id" in data:
         assignee_ids = _normalize_assignee_ids(None, data.pop("assignee_id"))
+
+    next_project_id = data.get("project_id", task.project_id)
+    if "sprint_id" in data:
+        _validate_sprint_for_project(db, next_project_id, data.get("sprint_id"))
 
     for key, value in data.items():
         setattr(task, key, value)
@@ -177,6 +206,16 @@ def update_task(
     recalculate_project_progress(db, task.project_id)
     if previous_project_id != task.project_id:
         recalculate_project_progress(db, previous_project_id)
+
+    sprint_ids = {sid for sid in (previous_sprint_id, task.sprint_id) if sid}
+    for sid in sprint_ids:
+        sprint = db.scalar(
+            select(Sprint)
+            .options(joinedload(Sprint.tasks))
+            .where(Sprint.id == sid)
+        )
+        if sprint:
+            sync_sprint_status_from_tasks(sprint)
 
     db.commit()
     return _task_out(_load_task(db, task.id))

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Sprints · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/sprints.css?v=1" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Sprints</h1>
+      <p>Prioritaskan modul dalam jangka waktu tertentu (SLA).</p>
+    </div>
+    <div class="top-actions">
+      <a class="btn btn-ghost btn-sm" href="/tasks">← Tasks</a>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-new-sprint">+ New Sprint</button>
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="sprints-page" id="sprints-page">
+    <section class="sprints-toolbar">
+      <select id="sprint-project-filter" aria-label="Filter project">
+        <option value="">Semua Project</option>
+      </select>
+      <select id="sprint-status-filter" aria-label="Filter status sprint">
+        <option value="">Semua status</option>
+        <option value="planned">Planned</option>
+        <option value="active">Active</option>
+        <option value="done">Done</option>
+      </select>
+    </section>
+
+    <div class="sprints-layout">
+      <section class="sprints-list-panel">
+        <div class="sprints-list-head">
+          <h2>Daftar Sprint</h2>
+          <span class="muted" id="sprints-count">0</span>
+        </div>
+        <div id="sprints-list" class="sprints-list"></div>
+      </section>
+
+      <section class="sprints-detail-panel" id="sprint-detail">
+        <div class="sprints-empty" id="sprint-detail-empty">
+          Pilih sprint untuk melihat modul, SLA, dan progress.
+        </div>
+        <div id="sprint-detail-body" hidden></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="sprint-modal" hidden>
+    <div class="modal-card sprint-modal-card" role="dialog" aria-modal="true" aria-labelledby="sprint-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="sprint-modal-title">New Sprint</h3>
+          <p>Tentukan periode fokus dan modul prioritas.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-sprint-modal" aria-label="Close">×</button>
+      </div>
+      <form id="sprint-form" class="sprint-form" novalidate>
+        <input type="hidden" id="sprint-id" value="" />
+        <label class="field">
+          <span>Project <em>*</em></span>
+          <select id="field-sprint-project" required></select>
+        </label>
+        <label class="field">
+          <span>Nama Sprint <em>*</em></span>
+          <input id="field-sprint-name" type="text" maxlength="160" required placeholder="mis. Sprint Prioritas UAT Mei" />
+        </label>
+        <label class="field">
+          <span>Goal</span>
+          <textarea id="field-sprint-goal" rows="2" placeholder="Fokus yang ingin dicapai di periode ini"></textarea>
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Mulai (SLA) <em>*</em></span>
+            <input id="field-sprint-start" type="date" required />
+          </label>
+          <label class="field">
+            <span>Selesai (SLA) <em>*</em></span>
+            <input id="field-sprint-end" type="date" required />
+          </label>
+        </div>
+        <label class="field">
+          <span>Status</span>
+          <select id="field-sprint-status">
+            <option value="planned">Planned</option>
+            <option value="active" selected>Active</option>
+            <option value="done">Done</option>
+          </select>
+        </label>
+        <p class="form-error" id="sprint-form-error" hidden></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-sprint">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan Sprint</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/sprints.js?v=1" defer></script>
+{% endblock %}
