@@ -38,13 +38,14 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
 }
 
 .form-section-head {
   padding: 16px 18px 12px;
   border-bottom: 1px solid #eef2f7;
+  border-radius: 14px 14px 0 0;
   background: linear-gradient(180deg, #fbfcfe, #f7f9fc);
 }
 
@@ -134,15 +135,38 @@
   line-height: 1.35;
 }
 
+.project-form-page .pic-tagbox {
+  position: relative;
+  z-index: 2;
+}
+
+.project-form-page .pic-input-wrap {
+  min-height: 44px;
+  overflow: visible;
+}
+
+.project-form-page .pic-search {
+  min-height: 28px;
+  line-height: 1.4;
+  font-size: 0.84rem;
+}
+
+.project-form-page .pic-dropdown {
+  z-index: 80;
+}
+
+.project-form-page .form-section:has(.pic-dropdown:not([hidden])) {
+  position: relative;
+  z-index: 6;
+}
+
 .form-page-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 4px 2px 0;
-  position: sticky;
-  bottom: 12px;
-  background: linear-gradient(180deg, transparent, rgba(246, 248, 252, 0.92) 30%);
-  padding-top: 16px;
+  padding: 16px 2px 0;
+  position: static;
+  background: transparent;
 }
 
 .form-error {
@@ -159,10 +183,5 @@
   .project-form-page .field-row,
   .project-form-page .ownership-fields {
     grid-template-columns: 1fr;
-  }
-
-  .form-page-actions {
-    position: static;
-    background: transparent;
   }
 }

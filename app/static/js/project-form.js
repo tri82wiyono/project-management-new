@@ -241,6 +241,22 @@
     openPicDropdown();
   }
 
+  /** Commit typed PIC text into a selection before validate/save. */
+  function commitPendingPicSearch() {
+    const typed = (els.picSearch?.value || state.picSearch || "").trim().toLowerCase();
+    if (!typed) return false;
+    if (!state.suggestions.length) {
+      state.suggestions = availableUsers(typed).slice(0, 12);
+    }
+    const exact = state.suggestions.find((u) => String(u.name || "").toLowerCase() === typed)
+      || availableUsers(typed).find((u) => String(u.name || "").toLowerCase() === typed);
+    const pick = exact || state.suggestions[state.highlightIndex] || state.suggestions[0];
+    if (!pick) return false;
+    addPic(pick.id);
+    closePicDropdown();
+    return true;
+  }
+
   function removePic(id) {
     const num = Number(id);
     state.selectedPicIds = state.selectedPicIds.filter((x) => x !== num);
@@ -568,6 +584,7 @@
   async function saveProject(event) {
     event.preventDefault();
     els.formError.hidden = true;
+    if (!state.selectedPicIds.length) commitPendingPicSearch();
     syncPicField();
 
     const id = document.getElementById("project-id").value;
@@ -591,9 +608,17 @@
       owner_bidang_id: ownerType === "bidang" ? ownerBidangId : null,
     };
 
-    if (!payload.name || !payload.pic || !payload.start_date || !payload.end_date || !developedBy) {
+    const missing = [];
+    if (!payload.name) missing.push("nama");
+    if (!developedBy) missing.push("dikembangkan oleh");
+    if (!payload.pic || !state.selectedPicIds.length) missing.push("PIC");
+    if (!payload.start_date || !payload.end_date) missing.push("tanggal");
+    if (missing.length) {
       els.formError.hidden = false;
-      els.formError.textContent = "Lengkapi field wajib: nama, dikembangkan oleh, PIC, dan tanggal.";
+      const picHint = missing.includes("PIC")
+        ? " Untuk PIC, ketik nama lalu pilih dari daftar (klik atau Enter)."
+        : "";
+      els.formError.textContent = `Lengkapi field wajib: ${missing.join(", ")}.${picHint}`;
       return;
     }
     if (payload.end_date < payload.start_date) {
