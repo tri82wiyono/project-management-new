@@ -58,7 +58,7 @@
     btnNew: document.getElementById("btn-new-sprint"),
     btnBack: document.getElementById("btn-back-project"),
     btnTasks: document.getElementById("btn-open-tasks"),
-    formPanel: document.getElementById("sprint-form-panel"),
+    modal: document.getElementById("sprint-modal"),
     form: document.getElementById("sprint-form"),
     formError: document.getElementById("sprint-form-error"),
     fieldId: document.getElementById("sprint-id"),
@@ -335,14 +335,18 @@
       renderTaskPicker([]);
     }
 
-    if (els.formPanel) els.formPanel.hidden = false;
+    if (els.modal && els.modal.parentElement !== document.body) {
+      document.body.appendChild(els.modal);
+    }
+    els.modal.hidden = false;
+    document.body.classList.add("modal-open");
     els.btnNew?.classList.add("is-open");
-    els.formPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
     els.fieldName?.focus();
   }
 
   function closeForm() {
-    if (els.formPanel) els.formPanel.hidden = true;
+    if (els.modal) els.modal.hidden = true;
+    document.body.classList.remove("modal-open");
     els.btnNew?.classList.remove("is-open");
   }
 
@@ -459,10 +463,6 @@
     await loadSprints();
 
     els.btnNew?.addEventListener("click", () => {
-      if (els.formPanel && !els.formPanel.hidden && !els.fieldId.value) {
-        closeForm();
-        return;
-      }
       openForm().catch((err) => alert(err.message || "Gagal membuka form"));
     });
     els.btnClose?.addEventListener("click", closeForm);
@@ -478,6 +478,12 @@
     });
     els.detailBody?.addEventListener("change", (e) => {
       onDetailChange(e).catch((err) => alert(err.message || "Gagal"));
+    });
+    els.modal?.addEventListener("click", (e) => {
+      if (e.target === els.modal) closeForm();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && els.modal && !els.modal.hidden) closeForm();
     });
   }
 
