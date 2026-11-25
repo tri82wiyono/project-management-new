@@ -237,6 +237,13 @@
       .join("");
   }
 
+  function initials(name) {
+    const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+  }
+
   function renderAvatars(users) {
     if (!users.length) return `<span style="font-size:0.76rem;color:var(--sp-muted)">Belum ada assignee</span>`;
     const shown = users.slice(0, 4);
@@ -244,10 +251,13 @@
     return `
       <div class="sp-avatar-row">
         ${shown
-          .map(
-            (u) =>
-              `<img class="sp-avatar" src="${escapeHtml(u.avatar_url || "")}" alt="${escapeHtml(u.name || "")}" title="${escapeHtml(u.name || "")}" />`
-          )
+          .map((u) => {
+            const name = u.name || u.full_name || u.username || "?";
+            if (u.avatar_url) {
+              return `<img class="sp-avatar" src="${escapeHtml(u.avatar_url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
+            }
+            return `<span class="sp-avatar sp-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`;
+          })
           .join("")}
         ${extra > 0 ? `<span class="sp-avatar-more">+${extra}</span>` : ""}
       </div>`;
