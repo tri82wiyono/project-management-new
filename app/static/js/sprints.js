@@ -174,6 +174,13 @@
     if (els.btnTasks) els.btnTasks.href = `/tasks?project_id=${state.projectId}`;
   }
 
+  const HERO_ICONS = {
+    total: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    done: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.8"/><path d="M8.2 12.2l2.4 2.4 5.2-5.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    run: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19.2 12a7.2 7.2 0 0 1-12.1 5.2M4.8 12A7.2 7.2 0 0 1 16.9 6.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.2 3.8v3.6h3.6M7.8 20.2v-3.6H4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    wait: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="13" r="7.25" stroke="currentColor" stroke-width="1.8"/><path d="M12 9.8v3.5l2.3 1.5M9.2 4.2h5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  };
+
   function daysLeftLabel(endDate) {
     if (!endDate) return "";
     try {
@@ -217,10 +224,22 @@
         <span class="sp-hero-dates">📅 ${escapeHtml(dates)}</span>
       </div>
       <div class="sp-hero-stats">
-        <div class="sp-stat-mini"><span class="sp-stat-mini-ico total" aria-hidden="true">▦</span><div><span>Total Task</span><strong>${stats.total}</strong></div></div>
-        <div class="sp-stat-mini is-done"><span class="sp-stat-mini-ico done" aria-hidden="true">✓</span><div><span>Selesai</span><strong>${stats.done}</strong></div></div>
-        <div class="sp-stat-mini is-run"><span class="sp-stat-mini-ico run" aria-hidden="true">↻</span><div><span>Berjalan</span><strong>${stats.run}</strong></div></div>
-        <div class="sp-stat-mini is-wait"><span class="sp-stat-mini-ico wait" aria-hidden="true">⏱</span><div><span>Tertunda</span><strong>${stats.wait}</strong></div></div>
+        <div class="sp-stat-mini">
+          <span class="sp-stat-mini-ico total">${HERO_ICONS.total}</span>
+          <div><span>Total Task</span><strong>${stats.total}</strong></div>
+        </div>
+        <div class="sp-stat-mini">
+          <span class="sp-stat-mini-ico done">${HERO_ICONS.done}</span>
+          <div><span>Selesai</span><strong>${stats.done}</strong></div>
+        </div>
+        <div class="sp-stat-mini">
+          <span class="sp-stat-mini-ico run">${HERO_ICONS.run}</span>
+          <div><span>Berjalan</span><strong>${stats.run}</strong></div>
+        </div>
+        <div class="sp-stat-mini">
+          <span class="sp-stat-mini-ico wait">${HERO_ICONS.wait}</span>
+          <div><span>Tertunda</span><strong>${stats.wait}</strong></div>
+        </div>
       </div>
       <div class="sp-hero-progress">
         <div class="sp-hero-progress-label">Progress Sprint</div>
@@ -496,10 +515,10 @@
           ${renderAvatars(team)}
         </div>
         <div class="sp-stats-row">
-          <div class="sp-stat-card"><div class="sp-stat-ico total">☰</div><div><span>Total Task</span><strong>${stats.total}</strong></div></div>
-          <div class="sp-stat-card"><div class="sp-stat-ico done">✓</div><div><span>Selesai</span><strong>${stats.done}</strong></div></div>
-          <div class="sp-stat-card"><div class="sp-stat-ico run">↻</div><div><span>Berjalan</span><strong>${stats.run}</strong></div></div>
-          <div class="sp-stat-card"><div class="sp-stat-ico wait">!</div><div><span>Tertunda</span><strong>${stats.wait}</strong></div></div>
+          <div class="sp-stat-card"><div class="sp-stat-ico total">${HERO_ICONS.total}</div><div><span>Total Task</span><strong>${stats.total}</strong></div></div>
+          <div class="sp-stat-card"><div class="sp-stat-ico done">${HERO_ICONS.done}</div><div><span>Selesai</span><strong>${stats.done}</strong></div></div>
+          <div class="sp-stat-card"><div class="sp-stat-ico run">${HERO_ICONS.run}</div><div><span>Berjalan</span><strong>${stats.run}</strong></div></div>
+          <div class="sp-stat-card"><div class="sp-stat-ico wait">${HERO_ICONS.wait}</div><div><span>Tertunda</span><strong>${stats.wait}</strong></div></div>
         </div>
       </div>
 

@@ -179,62 +179,64 @@
 }
 
 .sp-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(4, auto);
-  gap: 14px;
+  display: flex;
   align-items: center;
-  justify-content: start;
+  justify-content: flex-start;
+  gap: 0;
 }
 
 .sp-stat-mini {
-  display: grid;
-  grid-template-columns: 28px auto;
-  grid-template-rows: auto auto;
-  column-gap: 8px;
+  display: flex;
   align-items: center;
+  gap: 9px;
+  padding: 0 12px;
   background: transparent;
   border: 0;
   border-radius: 0;
-  padding: 0;
   text-align: left;
 }
 
+.sp-stat-mini + .sp-stat-mini {
+  border-left: 1px solid #e8eef5;
+}
+
 .sp-stat-mini-ico {
-  grid-row: 1 / span 2;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 0.72rem;
-  font-weight: 700;
+  flex: 0 0 auto;
 }
 
-.sp-stat-mini-ico.total { background: #e8f0ff; color: var(--sp-primary-deep); }
-.sp-stat-mini-ico.done { background: #dcfce7; color: var(--sp-green); }
-.sp-stat-mini-ico.run { background: #dbeafe; color: var(--sp-primary); }
-.sp-stat-mini-ico.wait { background: #ffedd5; color: var(--sp-orange); }
-
-.sp-stat-mini span {
+.sp-stat-mini-ico svg {
+  width: 17px;
+  height: 17px;
   display: block;
-  font-size: 0.58rem;
-  color: var(--sp-muted);
-  font-weight: 650;
-  white-space: nowrap;
-  line-height: 1.1;
 }
 
-.sp-stat-mini strong {
+.sp-stat-mini-ico.total { background: #e8eef8; color: #1e3a8a; }
+.sp-stat-mini-ico.done { background: #e4f7ea; color: #16a34a; }
+.sp-stat-mini-ico.run { background: #e4efff; color: #2563eb; }
+.sp-stat-mini-ico.wait { background: #ffedd5; color: #ea580c; }
+
+.sp-stat-mini > div span {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--sp-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.sp-stat-mini > div strong {
   display: block;
   margin-top: 1px;
-  font-size: 1rem;
-  color: var(--sp-ink);
+  font-size: 1.05rem;
+  color: #0f172a;
   line-height: 1.1;
+  font-weight: 750;
 }
-
-.sp-stat-mini.is-done strong { color: var(--sp-green); }
-.sp-stat-mini.is-run strong { color: var(--sp-primary); }
-.sp-stat-mini.is-wait strong { color: var(--sp-orange); }
 
 .sp-hero-progress {
   display: grid;
@@ -685,17 +687,22 @@
 .sp-stat-ico {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 0.85rem;
   flex: 0 0 auto;
 }
 
-.sp-stat-ico.total { background: #e8f0ff; color: var(--sp-primary); }
-.sp-stat-ico.done { background: #dcfce7; color: var(--sp-green); }
-.sp-stat-ico.run { background: #dbeafe; color: var(--sp-primary); }
-.sp-stat-ico.wait { background: #ffedd5; color: var(--sp-orange); }
+.sp-stat-ico svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+.sp-stat-ico.total { background: #e8eef8; color: #1e3a8a; }
+.sp-stat-ico.done { background: #e4f7ea; color: #16a34a; }
+.sp-stat-ico.run { background: #e4efff; color: #2563eb; }
+.sp-stat-ico.wait { background: #ffedd5; color: #ea580c; }
 
 .sp-stat-card span {
   display: block;
