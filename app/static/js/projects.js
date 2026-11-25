@@ -76,9 +76,6 @@ const els = {
   search: document.getElementById("project-search"),
   filter: document.getElementById("project-status-filter"),
   ownerFilter: document.getElementById("project-owner-filter"),
-  legacyBanner: document.getElementById("legacy-ownership-banner"),
-  legacyText: document.getElementById("legacy-ownership-text"),
-  legacyFilterLink: document.getElementById("legacy-ownership-filter-link"),
   ownerType: document.getElementById("field-owner-type"),
   ownerDivision: document.getElementById("field-owner-division"),
   ownerBidang: document.getElementById("field-owner-bidang"),
@@ -162,6 +159,14 @@ function escapeHtml(text) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function plainText(html) {
+  return String(html ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function selectedUsers() {
@@ -443,7 +448,7 @@ function renderList() {
         <td>
           <a class="project-cell-copy project-name-link" href="/projects/${p.id}" title="${escapeHtml(p.name)}">
             <strong>${escapeHtml(p.name)}</strong>
-            ${p.description ? `<span>${escapeHtml(p.description)}</span>` : ""}
+            ${plainText(p.description) ? `<span>${escapeHtml(plainText(p.description))}</span>` : ""}
           </a>
         </td>
         <td><span class="owner-pill ${escapeHtml(p.owner_type || "unassigned")}" title="${escapeHtml(owner)}">${escapeHtml(owner)}</span></td>
@@ -1091,17 +1096,8 @@ async function loadScopeStatus() {
   } catch {
     state.scopeStatus = null;
   }
-  const unassigned = Number(state.scopeStatus?.unassigned_project_count || 0);
   if (els.ownerFilter) {
     els.ownerFilter.hidden = !state.isAdmin;
-  }
-  if (els.legacyBanner) {
-    const show = state.isAdmin && unassigned > 0;
-    els.legacyBanner.hidden = !show;
-    if (show && els.legacyText) {
-      els.legacyText.textContent =
-        `${unassigned} project belum diklasifikasi. Tetapkan kepemilikan Divisi/Bidang sebelum mengaktifkan ORG_SCOPE_ENFORCEMENT.`;
-    }
   }
 }
 
@@ -1306,15 +1302,6 @@ function wireEvents() {
 
   els.ownerFilter?.addEventListener("change", async () => {
     state.ownerType = els.ownerFilter.value;
-    state.page = 1;
-    await loadProjects();
-  });
-
-  els.legacyFilterLink?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    if (!els.ownerFilter) return;
-    els.ownerFilter.value = "unassigned";
-    state.ownerType = "unassigned";
     state.page = 1;
     await loadProjects();
   });

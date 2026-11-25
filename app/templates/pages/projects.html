@@ -3,7 +3,7 @@
 {% block title %}Projects · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=26" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=27" />
 {% endblock %}
 
 {% block header %}
@@ -77,14 +77,6 @@
         </select>
       </section>
 
-      <section class="projects-legacy-banner panel" id="legacy-ownership-banner" hidden>
-        <div>
-          <strong>Project legacy belum diklasifikasi</strong>
-          <p id="legacy-ownership-text">Administrator perlu menetapkan kepemilikan Divisi/Bidang sebelum enforcement diaktifkan.</p>
-        </div>
-        <a class="btn btn-ghost btn-sm" href="#project-owner-filter" id="legacy-ownership-filter-link">Tampilkan daftar</a>
-      </section>
-
       <section class="projects-table-wrap panel" aria-label="Project list">
         <div class="table-scroll">
           <table class="projects-table">
@@ -113,5 +105,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=29" defer></script>
+  <script src="/static/js/projects.js?v=30" defer></script>
 {% endblock %}
