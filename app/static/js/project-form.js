@@ -381,32 +381,40 @@
     els.docDropzone?.classList.toggle("is-full", totalDocSlotsUsed() >= MAX_DOCS);
   }
 
+  function notifyForm(message, { title = "Perhatian", tone = "warn", icon = "!" } = {}) {
+    if (window.pmNotice) {
+      window.pmNotice({ title, message, tone, icon, okText: "Mengerti" });
+      return;
+    }
+    if (els.formError) {
+      els.formError.hidden = false;
+      els.formError.textContent = message;
+    }
+  }
+
   function addPendingFiles(fileList) {
     const incoming = Array.from(fileList || []);
     if (!incoming.length) return;
     const remaining = MAX_DOCS - totalDocSlotsUsed();
     if (remaining <= 0) {
-      els.formError.hidden = false;
-      els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
+      notifyForm(`Maksimal ${MAX_DOCS} dokumen per project.`, { title: "Batas dokumen" });
       return;
     }
     const accepted = [];
     for (const file of incoming.slice(0, remaining)) {
       const ext = fileExt(file.name);
       if (!DOC_EXT.has(ext)) {
-        els.formError.hidden = false;
-        els.formError.textContent = `Tipe file tidak diizinkan: ${file.name}`;
+        notifyForm(`Tipe file tidak diizinkan: ${file.name}`, { title: "File tidak valid" });
         continue;
       }
       if (file.size > MAX_DOC_BYTES) {
-        els.formError.hidden = false;
-        els.formError.textContent = `File terlalu besar (maks 10 MB): ${file.name}`;
+        notifyForm(`File terlalu besar (maks 10 MB): ${file.name}`, { title: "File terlalu besar" });
         continue;
       }
       accepted.push({ type: "file", file });
     }
     if (accepted.length) {
-      els.formError.hidden = true;
+      if (els.formError) els.formError.hidden = true;
       state.pendingDocs.push(...accepted);
       renderDocList();
     }
@@ -417,21 +425,18 @@
     const url = (els.docUrl?.value || "").trim();
     const title = (els.docUrlTitle?.value || "").trim();
     if (!url) {
-      els.formError.hidden = false;
-      els.formError.textContent = "Isi URL dokumen terlebih dahulu.";
+      notifyForm("Isi URL dokumen terlebih dahulu.", { title: "URL dokumen" });
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
-      els.formError.hidden = false;
-      els.formError.textContent = "URL harus dimulai dengan http:// atau https://";
+      notifyForm("URL harus dimulai dengan http:// atau https://", { title: "URL tidak valid" });
       return;
     }
     if (totalDocSlotsUsed() >= MAX_DOCS) {
-      els.formError.hidden = false;
-      els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
+      notifyForm(`Maksimal ${MAX_DOCS} dokumen per project.`, { title: "Batas dokumen" });
       return;
     }
-    els.formError.hidden = true;
+    if (els.formError) els.formError.hidden = true;
     state.pendingDocs.push({ type: "url", url, title });
     if (els.docUrl) els.docUrl.value = "";
     if (els.docUrlTitle) els.docUrlTitle.value = "";
@@ -772,8 +777,7 @@
     els.btnAddDocUrl?.addEventListener("click", addPendingUrl);
     els.docDropzone?.addEventListener("click", () => {
       if (totalDocSlotsUsed() >= MAX_DOCS) {
-        els.formError.hidden = false;
-        els.formError.textContent = `Maksimal ${MAX_DOCS} dokumen per project.`;
+        notifyForm(`Maksimal ${MAX_DOCS} dokumen per project.`, { title: "Batas dokumen" });
         return;
       }
       els.docInput?.click();
