@@ -367,10 +367,26 @@ def create_project(
     if developed_by and developed_by not in {"internal", "vendor", "blanket_mandays"}:
         raise HTTPException(status_code=400, detail="Nilai developed_by tidak valid")
 
+    # Creator is always the first team member (org-scope visibility + ownership of the row).
+    member_ids = list(
+        dict.fromkeys(
+            [current.id, *[mid for mid in (payload.member_ids or []) if mid != current.id]]
+        )
+    )
+    pic_names: list[str] = []
+    creator_name = (current.name or "").strip()
+    if creator_name:
+        pic_names.append(creator_name)
+    for part in str(payload.pic or "").split(","):
+        name = part.strip()
+        if name and name.lower() not in {n.lower() for n in pic_names}:
+            pic_names.append(name)
+    pic_value = ", ".join(pic_names)
+
     project = Project(
         name=payload.name,
         description=payload.description,
-        pic=payload.pic or "",
+        pic=pic_value,
         status=payload.status,
         progress=0,
         color=payload.color,
@@ -390,15 +406,16 @@ def create_project(
     db.add(project)
     db.flush()
 
-    # Always include the creator so the project stays visible under org-scope
-    # even when they only selected other users as PIC/members.
-    member_ids = list(dict.fromkeys([*(payload.member_ids or []), current.id]))
-    if member_ids:
-        users = db.scalars(select(User).where(User.id.in_(member_ids))).all()
-        for member in users:
-            if not member.is_active:
-                continue
-            db.add(TeamMember(project_id=project.id, user_id=member.id, role=member.role))
+    users_by_id = {
+        u.id: u
+        for u in db.scalars(select(User).where(User.id.in_(member_ids))).all()
+        if u.is_active
+    }
+    for user_id in member_ids:
+        member = users_by_id.get(user_id)
+        if not member:
+            continue
+        db.add(TeamMember(project_id=project.id, user_id=member.id, role=member.role))
 
     recalculate_project_progress(db, project.id)
     db.commit()
