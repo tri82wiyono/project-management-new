@@ -1,3 +1,4 @@
+{% from "macros/nav_icons.html" import nav_icon %}
 <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">
   {% for item in mobile_nav_items %}
     {% if item.key == 'account' %}
@@ -10,7 +11,7 @@
         aria-expanded="false"
         aria-controls="account-sheet"
       >
-        <span class="mobile-nav-ico" aria-hidden="true">{{ item.icon }}</span>
+        <span class="mobile-nav-ico" aria-hidden="true">{{ nav_icon(item.key) }}</span>
         <span class="mobile-nav-label">{{ item.label }}</span>
         <span class="mobile-nav-indicator" aria-hidden="true"></span>
       </button>
@@ -20,7 +21,7 @@
         href="{{ item.href }}"
         data-nav="{{ item.key }}"
       >
-        <span class="mobile-nav-ico" aria-hidden="true">{{ item.icon }}</span>
+        <span class="mobile-nav-ico" aria-hidden="true">{{ nav_icon(item.key) }}</span>
         <span class="mobile-nav-label">{{ item.label }}</span>
         <span class="mobile-nav-indicator" aria-hidden="true"></span>
       </a>
@@ -46,21 +47,27 @@
 
     <div class="account-sheet-menu">
       <a class="account-sheet-item" href="/account">
-        <span class="account-sheet-ico" aria-hidden="true">◎</span>
+        <span class="account-sheet-ico" aria-hidden="true">{{ nav_icon('account') }}</span>
         <span>
           <strong>Profil</strong>
           <small>Update nama & foto profil</small>
         </span>
       </a>
       <a class="account-sheet-item" href="/account/security">
-        <span class="account-sheet-ico" aria-hidden="true">✎</span>
+        <span class="account-sheet-ico" aria-hidden="true">{{ nav_icon('settings') }}</span>
         <span>
           <strong>Keamanan</strong>
           <small>Password &amp; MFA</small>
         </span>
       </a>
       <a class="account-sheet-item danger" href="/logout">
-        <span class="account-sheet-ico" aria-hidden="true">⎋</span>
+        <span class="account-sheet-ico" aria-hidden="true">
+          <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 5H6.5A2.5 2.5 0 0 0 4 7.5v9A2.5 2.5 0 0 0 6.5 19H10"/>
+            <path d="M14 8.5 18.5 12 14 15.5"/>
+            <path d="M18.2 12H9"/>
+          </svg>
+        </span>
         <span>
           <strong>Logout</strong>
           <small>Keluar dari aplikasi</small>

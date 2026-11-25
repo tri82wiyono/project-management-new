@@ -1,3 +1,4 @@
+{% from "macros/nav_icons.html" import nav_icon %}
 <aside class="sidebar" id="app-sidebar" aria-label="Primary navigation">
   <div class="brand">
     <div class="brand-mark" title="{{ brand.name }}">{{ brand.mark }}</div>
@@ -22,8 +23,9 @@
         class="nav-item{% if item.key == active_page %} active{% endif %}"
         href="{{ item.href }}"
         data-section="{{ item.key }}"
+        title="{{ item.label }}"
       >
-        <span class="icon" aria-hidden="true">{{ item.icon }}</span>
+        <span class="icon" aria-hidden="true">{{ nav_icon(item.key) }}</span>
         <span class="nav-label">{{ item.label }}</span>
       </a>
     {% endfor %}
