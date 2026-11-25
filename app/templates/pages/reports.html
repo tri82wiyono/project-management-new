@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Reports · {{ app_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/reports.css?v=1" />
+{% endblock %}
+
+{% block header %}
+  <header class="topbar">
+    <div class="greeting">
+      <h1>Reports</h1>
+      <p>Export project dan task ke Excel sesuai cakupan role Anda.</p>
+    </div>
+    <div class="top-actions">
+      {% include "partials/user_menu.html" %}
+    </div>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <div class="reports-page" id="reports-page">
+    <section class="panel reports-card">
+      <div class="reports-card-head">
+        <div>
+          <h2>Export Project &amp; Task</h2>
+          <p>Termasuk project selesai maupun belum selesai. Sheet Excel berisi nama project, task/modul, dan status.</p>
+        </div>
+      </div>
+
+      <form class="reports-form" id="reports-form">
+        <div class="reports-filters" id="reports-filters">
+          <label class="field" id="filter-division-wrap" hidden>
+            <span>Divisi</span>
+            <select id="filter-division" name="division_id">
+              <option value="">Semua Divisi</option>
+            </select>
+          </label>
+          <label class="field" id="filter-workspace-wrap" hidden>
+            <span>Workspace / Bidang</span>
+            <select id="filter-workspace" name="workspace_id">
+              <option value="">Semua Workspace</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Status Project</span>
+            <select id="filter-status" name="project_status">
+              <option value="">Semua status</option>
+              <option value="backlog">Backlog</option>
+              <option value="dev">Dev</option>
+              <option value="sit">SIT</option>
+              <option value="uat">UAT</option>
+              <option value="to">TO</option>
+              <option value="izin">Izin</option>
+              <option value="release">Release (selesai)</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="reports-scope-note" id="reports-scope-note" hidden></p>
+        <p class="form-error" id="reports-error" hidden></p>
+
+        <div class="reports-actions">
+          <button type="submit" class="btn btn-primary" id="btn-download-report">Download Excel</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel reports-help">
+      <h3>Isi file Excel</h3>
+      <ul>
+        <li><strong>Projects</strong> — nama project, status, progress, PIC, Divisi/Bidang, jumlah task selesai &amp; belum.</li>
+        <li><strong>Tasks</strong> — nama project, nama task/modul, status task, assignee, due date.</li>
+      </ul>
+    </section>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/reports.js?v=1" defer></script>
+{% endblock %}

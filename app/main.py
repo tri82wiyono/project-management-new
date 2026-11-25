@@ -18,6 +18,7 @@ from app.routers import dashboard, projects, roles as roles_router
 from app.routers import chat as chat_router
 from app.routers import notifications as notifications_router
 from app.routers import organization as organization_router
+from app.routers import reports as reports_router
 from app.routers import settings as settings_router, tasks, team, timeline as timeline_router
 from app.routers import tickets as tickets_router
 from app.routers import users as users_router
@@ -220,6 +221,7 @@ app.include_router(timeline_router.router)
 app.include_router(audit_router.router)
 app.include_router(notifications_router.router)
 app.include_router(chat_router.router)
+app.include_router(reports_router.router)
 
 
 def _user_context(request: Request, db: Session) -> dict:
@@ -437,6 +439,21 @@ def timeline_page(request: Request, db: Session = Depends(get_db)) -> HTMLRespon
         page_subtitle="Track project schedules and upcoming milestones.",
     )
     return templates.TemplateResponse(request, "pages/timeline.html", context)
+
+
+@app.get("/reports", response_class=HTMLResponse)
+def reports_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    denied = _require_page_permission(request, db, "projects.view")
+    if denied:
+        return denied
+    context = _page_context(
+        request,
+        db,
+        active_page="reports",
+        page_title="Reports",
+        page_subtitle="Export project dan task ke Excel sesuai cakupan role Anda.",
+    )
+    return templates.TemplateResponse(request, "pages/reports.html", context)
 
 
 @app.get("/calendar", response_class=HTMLResponse)

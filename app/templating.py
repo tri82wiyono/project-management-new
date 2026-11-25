@@ -34,7 +34,7 @@ NAV_ITEMS = [
     {"key": "audit", "label": "Log Audit", "icon": "▥", "href": "/audit", "permissions": ["audit.view"]},
     {"key": "timeline", "label": "Timeline", "icon": "▤", "href": "/timeline", "permissions": ["projects.view"]},
     {"key": "team", "label": "Team", "icon": "◎", "href": "/#team", "permissions": ["dashboard.view"]},
-    {"key": "reports", "label": "Reports", "icon": "◔", "href": "/#reports", "permissions": ["dashboard.view"]},
+    {"key": "reports", "label": "Reports", "icon": "◔", "href": "/reports", "permissions": ["projects.view"]},
     {"key": "calendar", "label": "Calendar", "icon": "◔", "href": "/calendar", "permissions": ["dashboard.view"]},
     {
         "key": "settings",
