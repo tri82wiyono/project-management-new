@@ -49,7 +49,7 @@
     subtitle: document.getElementById("sprints-subtitle"),
     needProject: document.getElementById("sprints-need-project"),
     workspace: document.getElementById("sprints-workspace"),
-    projectChip: document.getElementById("sprints-project-chip"),
+    projectName: document.getElementById("sprints-project-name"),
     statusFilter: document.getElementById("sprint-status-filter"),
     list: document.getElementById("sprints-list"),
     count: document.getElementById("sprints-count"),
@@ -58,7 +58,7 @@
     btnNew: document.getElementById("btn-new-sprint"),
     btnBack: document.getElementById("btn-back-project"),
     btnTasks: document.getElementById("btn-open-tasks"),
-    modal: document.getElementById("sprint-modal"),
+    formPanel: document.getElementById("sprint-form-panel"),
     form: document.getElementById("sprint-form"),
     formError: document.getElementById("sprint-form-error"),
     fieldId: document.getElementById("sprint-id"),
@@ -124,22 +124,19 @@
     if (els.subtitle) {
       els.subtitle.textContent = `Modul prioritas untuk “${name}” — pilih task yang dikerjakan dalam periode SLA.`;
     }
-    if (els.projectChip) {
-      els.projectChip.innerHTML = `<strong>${escapeHtml(name)}</strong><span>Sprint hanya untuk project ini</span>`;
-    }
+    if (els.projectName) els.projectName.textContent = name;
     if (els.btnBack) els.btnBack.href = `/projects/${state.projectId}`;
     if (els.btnTasks) els.btnTasks.href = `/tasks?project_id=${state.projectId}`;
-    if (els.btnNew) els.btnNew.hidden = false;
   }
 
   function renderList() {
     if (!els.list) return;
     if (!state.sprints.length) {
-      els.list.innerHTML = `<div class="sprints-empty">Belum ada sprint. Klik <strong>+ New Sprint</strong> lalu centang modul prioritas dari Tasks.</div>`;
-      if (els.count) els.count.textContent = "0";
+      els.list.innerHTML = `<div class="sprints-empty" style="min-height:160px;padding:28px 16px">Belum ada sprint.<br/>Tekan tombol <strong>+</strong> untuk menambah.</div>`;
+      if (els.count) els.count.textContent = "0 sprint";
       return;
     }
-    if (els.count) els.count.textContent = String(state.sprints.length);
+    if (els.count) els.count.textContent = `${state.sprints.length} sprint`;
     els.list.innerHTML = state.sprints
       .map((s) => {
         const pct = Math.min(100, Math.max(0, Number(s.progress) || 0));
@@ -310,14 +307,14 @@
     renderDetail();
   }
 
-  async function openModal(sprint = null) {
+  async function openForm(sprint = null) {
     els.formError.hidden = true;
     els.fieldProject.value = String(state.projectId);
     await loadProjectTasks();
 
     if (sprint) {
-      els.modalTitle.textContent = "Edit Sprint";
-      els.modalSubtitle.textContent = "Ubah periode SLA. Modul bisa diatur di board sprint.";
+      els.modalTitle.textContent = "Edit sprint";
+      els.modalSubtitle.textContent = "Ubah periode SLA. Modul bisa diatur di board di atas.";
       els.fieldId.value = String(sprint.id);
       els.fieldName.value = sprint.name || "";
       els.fieldGoal.value = sprint.goal || "";
@@ -326,8 +323,8 @@
       els.fieldStatus.value = sprint.status || "active";
       if (els.taskPickerWrap) els.taskPickerWrap.hidden = true;
     } else {
-      els.modalTitle.textContent = "New Sprint";
-      els.modalSubtitle.textContent = "Centang modul dari Tasks project ini untuk prioritas periode ini.";
+      els.modalTitle.textContent = "Sprint baru";
+      els.modalSubtitle.textContent = "Isi periode SLA dan centang modul prioritas dari Tasks project ini.";
       els.fieldId.value = "";
       els.fieldName.value = "";
       els.fieldGoal.value = "";
@@ -338,15 +335,15 @@
       renderTaskPicker([]);
     }
 
-    if (els.modal.parentElement !== document.body) document.body.appendChild(els.modal);
-    els.modal.hidden = false;
-    document.body.classList.add("modal-open");
+    if (els.formPanel) els.formPanel.hidden = false;
+    els.btnNew?.classList.add("is-open");
+    els.formPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
     els.fieldName?.focus();
   }
 
-  function closeModal() {
-    els.modal.hidden = true;
-    document.body.classList.remove("modal-open");
+  function closeForm() {
+    if (els.formPanel) els.formPanel.hidden = true;
+    els.btnNew?.classList.remove("is-open");
   }
 
   async function saveSprint(event) {
@@ -382,7 +379,7 @@
       } else {
         saved = await api("/api/sprints", { method: "POST", body: JSON.stringify(payload) });
       }
-      closeModal();
+      closeForm();
       state.selectedId = saved.id;
       await loadSprints();
     } catch (err) {
@@ -394,7 +391,7 @@
   async function onDetailClick(event) {
     const editBtn = event.target.closest("#btn-edit-sprint");
     if (editBtn && state.detail) {
-      await openModal(state.detail);
+      await openForm(state.detail);
       return;
     }
     const delBtn = event.target.closest("#btn-delete-sprint");
@@ -451,7 +448,6 @@
     if (!projectFromUrl) {
       if (els.needProject) els.needProject.hidden = false;
       if (els.workspace) els.workspace.hidden = true;
-      if (els.btnNew) els.btnNew.hidden = true;
       return;
     }
 
@@ -463,10 +459,14 @@
     await loadSprints();
 
     els.btnNew?.addEventListener("click", () => {
-      openModal().catch((err) => alert(err.message || "Gagal membuka form"));
+      if (els.formPanel && !els.formPanel.hidden && !els.fieldId.value) {
+        closeForm();
+        return;
+      }
+      openForm().catch((err) => alert(err.message || "Gagal membuka form"));
     });
-    els.btnClose?.addEventListener("click", closeModal);
-    els.btnCancel?.addEventListener("click", closeModal);
+    els.btnClose?.addEventListener("click", closeForm);
+    els.btnCancel?.addEventListener("click", closeForm);
     els.form?.addEventListener("submit", saveSprint);
     els.statusFilter?.addEventListener("change", () => loadSprints());
     els.list?.addEventListener("click", (e) => {
@@ -478,9 +478,6 @@
     });
     els.detailBody?.addEventListener("change", (e) => {
       onDetailChange(e).catch((err) => alert(err.message || "Gagal"));
-    });
-    els.modal?.addEventListener("click", (e) => {
-      if (e.target === els.modal) closeModal();
     });
   }
 

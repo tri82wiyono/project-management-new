@@ -3,7 +3,7 @@
 {% block title %}Sprints · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/sprints.css?v=3" />
+  <link rel="stylesheet" href="/static/css/sprints.css?v=4" />
 {% endblock %}
 
 {% block header %}
@@ -15,7 +15,6 @@
     <div class="top-actions">
       <a class="btn btn-ghost btn-sm" id="btn-back-project" href="/projects">← Project</a>
       <a class="btn btn-ghost btn-sm" id="btn-open-tasks" href="/tasks">Tasks</a>
-      <button type="button" class="btn btn-primary btn-sm" id="btn-new-sprint" hidden>+ New Sprint</button>
       {% include "partials/user_menu.html" %}
     </div>
   </header>
@@ -24,14 +23,19 @@
 {% block content %}
   <div class="sprints-page" id="sprints-page">
     <section class="sprints-need-project" id="sprints-need-project" hidden>
+      <div class="sprints-need-icon" aria-hidden="true">◷</div>
       <h2>Sprint selalu di dalam project</h2>
       <p>Buka project dulu, lalu masuk ke Sprints untuk memilih modul prioritas (misalnya mingguan).</p>
       <a class="btn btn-primary" href="/projects">Pilih Project</a>
     </section>
 
     <div id="sprints-workspace" hidden>
-      <section class="sprints-toolbar">
-        <div class="sprints-project-chip" id="sprints-project-chip">—</div>
+      <section class="sprints-context">
+        <div class="sprints-context-main">
+          <span class="sprints-context-label">Project</span>
+          <strong id="sprints-project-name">—</strong>
+          <span class="sprints-context-note">Sprint &amp; modul prioritas hanya untuk project ini</span>
+        </div>
         <select id="sprint-status-filter" aria-label="Filter status sprint">
           <option value="">Semua status</option>
           <option value="planned">Planned</option>
@@ -43,80 +47,82 @@
       <div class="sprints-layout">
         <section class="sprints-list-panel">
           <div class="sprints-list-head">
-            <h2>Daftar Sprint</h2>
-            <span class="muted" id="sprints-count">0</span>
+            <div>
+              <h2>Daftar Sprint</h2>
+              <span class="muted" id="sprints-count">0 sprint</span>
+            </div>
+            <button type="button" class="sprint-add-btn" id="btn-new-sprint" title="Tambah sprint" aria-label="Tambah sprint">+</button>
           </div>
           <div id="sprints-list" class="sprints-list"></div>
         </section>
 
         <section class="sprints-detail-panel" id="sprint-detail">
           <div class="sprints-empty" id="sprint-detail-empty">
-            Pilih sprint, atau buat sprint baru lalu centang modul prioritas dari task project ini.
+            <strong>Belum ada sprint dipilih</strong>
+            <span>Tekan <b>+</b> di Daftar Sprint untuk membuat sprint, lalu centang modul prioritas.</span>
           </div>
           <div id="sprint-detail-body" hidden></div>
         </section>
       </div>
-    </div>
-  </div>
 
-  <div class="modal-backdrop" id="sprint-modal" hidden>
-    <div class="modal-card sprint-modal-card" role="dialog" aria-modal="true" aria-labelledby="sprint-modal-title">
-      <div class="modal-head">
-        <div>
-          <h3 id="sprint-modal-title">New Sprint</h3>
-          <p id="sprint-modal-subtitle">Tentukan periode SLA dan modul mana yang diprioritaskan.</p>
-        </div>
-        <button type="button" class="modal-close" id="btn-close-sprint-modal" aria-label="Close">×</button>
-      </div>
-      <form id="sprint-form" class="sprint-form" novalidate>
-        <input type="hidden" id="sprint-id" value="" />
-        <input type="hidden" id="field-sprint-project" value="" />
-
-        <label class="field">
-          <span>Nama Sprint <em>*</em></span>
-          <input id="field-sprint-name" type="text" maxlength="160" required placeholder="mis. Sprint Mingguan 1" />
-        </label>
-        <label class="field">
-          <span>Goal</span>
-          <textarea id="field-sprint-goal" rows="2" placeholder="Fokus yang ingin dicapai di periode ini"></textarea>
-        </label>
-        <div class="field-row">
-          <label class="field">
-            <span>Mulai (SLA) <em>*</em></span>
-            <input id="field-sprint-start" type="date" required />
-          </label>
-          <label class="field">
-            <span>Selesai (SLA) <em>*</em></span>
-            <input id="field-sprint-end" type="date" required />
-          </label>
-        </div>
-        <label class="field">
-          <span>Status</span>
-          <select id="field-sprint-status">
-            <option value="planned">Planned</option>
-            <option value="active" selected>Active</option>
-            <option value="done">Done</option>
-          </select>
-        </label>
-
-        <div class="field" id="sprint-task-picker-wrap">
-          <span>Modul prioritas (dari Tasks project ini)</span>
-          <div class="sprint-task-picker" id="sprint-task-picker">
-            <div class="sprints-empty" style="padding:16px">Memuat task…</div>
+      <section class="sprint-form-panel" id="sprint-form-panel" hidden>
+        <div class="sprint-form-panel-head">
+          <div>
+            <h3 id="sprint-modal-title">Sprint baru</h3>
+            <p id="sprint-modal-subtitle">Isi periode SLA dan centang modul prioritas dari Tasks project ini.</p>
           </div>
-          <small class="field-hint">Centang modul yang ingin dikerjakan di sprint ini. Bisa ditambah/dikurangi lagi nanti.</small>
+          <button type="button" class="modal-close" id="btn-close-sprint-modal" aria-label="Tutup">×</button>
         </div>
+        <form id="sprint-form" class="sprint-form" novalidate>
+          <input type="hidden" id="sprint-id" value="" />
+          <input type="hidden" id="field-sprint-project" value="" />
 
-        <p class="form-error" id="sprint-form-error" hidden></p>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="btn-cancel-sprint">Batal</button>
-          <button type="submit" class="btn btn-primary">Simpan Sprint</button>
-        </div>
-      </form>
+          <div class="sprint-form-grid">
+            <label class="field sprint-form-span-2">
+              <span>Nama Sprint <em>*</em></span>
+              <input id="field-sprint-name" type="text" maxlength="160" required placeholder="mis. Sprint Mingguan 1" />
+            </label>
+            <label class="field sprint-form-span-2">
+              <span>Goal</span>
+              <textarea id="field-sprint-goal" rows="2" placeholder="Fokus yang ingin dicapai di periode ini"></textarea>
+            </label>
+            <label class="field">
+              <span>Mulai (SLA) <em>*</em></span>
+              <input id="field-sprint-start" type="date" required />
+            </label>
+            <label class="field">
+              <span>Selesai (SLA) <em>*</em></span>
+              <input id="field-sprint-end" type="date" required />
+            </label>
+            <label class="field">
+              <span>Status</span>
+              <select id="field-sprint-status">
+                <option value="planned">Planned</option>
+                <option value="active" selected>Active</option>
+                <option value="done">Done</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field" id="sprint-task-picker-wrap">
+            <span>Modul prioritas</span>
+            <div class="sprint-task-picker" id="sprint-task-picker">
+              <div class="sprints-empty" style="padding:16px">Memuat task…</div>
+            </div>
+            <small class="field-hint">Centang modul yang dikerjakan di sprint ini. Bisa ditambah/dikurangi lagi dari board.</small>
+          </div>
+
+          <p class="form-error" id="sprint-form-error" hidden></p>
+          <div class="sprint-form-actions">
+            <button type="button" class="btn btn-ghost" id="btn-cancel-sprint">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan Sprint</button>
+          </div>
+        </form>
+      </section>
     </div>
   </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/sprints.js?v=2" defer></script>
+  <script src="/static/js/sprints.js?v=3" defer></script>
 {% endblock %}
