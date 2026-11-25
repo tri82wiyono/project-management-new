@@ -259,7 +259,8 @@ def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=401, detail="Not authenticated")
     policy = get_or_create_security_settings(db)
     authenticated_at = request.session.get("authenticated_at")
-    expires = session_expires_at(authenticated_at, policy.session_timeout_minutes)
+    last_activity_at = request.session.get("last_activity_at") or authenticated_at
+    expires = session_expires_at(last_activity_at, policy.session_timeout_minutes)
     return {
         "id": user.id,
         "name": user.name,
@@ -271,22 +272,53 @@ def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
         "mfa_backup_codes_remaining": backup_codes_remaining(user.mfa_backup_codes),
         "session_timeout_minutes": int(policy.session_timeout_minutes),
         "authenticated_at": authenticated_at,
+        "last_activity_at": last_activity_at,
         "session_expires_at": expires.isoformat() if expires else None,
+        "session_mode": "idle",
     }
 
 
+class HeartbeatRequest(BaseModel):
+    extend_session: bool = False
+
+
 @router.post("/api/auth/heartbeat")
-def auth_heartbeat(request: Request, db: Session = Depends(get_db)) -> dict:
-    """Lightweight presence ping used for online indicators."""
+def auth_heartbeat(
+    request: Request,
+    db: Session = Depends(get_db),
+    payload: HeartbeatRequest | None = None,
+) -> dict:
+    """Presence ping; set extend_session=true to slide the idle timeout clock."""
     from datetime import datetime, timezone
+
+    from app.services.security_settings import get_or_create_security_settings, session_expires_at
 
     user = get_optional_user(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    user.last_active_at = datetime.now(timezone.utc)
+
+    extend_session = bool(payload.extend_session) if payload else False
+    now = datetime.now(timezone.utc)
+    user.last_active_at = now
     db.add(user)
     db.commit()
-    return {"ok": True, "last_active_at": user.last_active_at.isoformat()}
+
+    if extend_session:
+        request.session["last_activity_at"] = now.isoformat()
+
+    policy = get_or_create_security_settings(db)
+    activity_stamp = request.session.get("last_activity_at") or request.session.get(
+        "authenticated_at"
+    )
+    expires = session_expires_at(activity_stamp, policy.session_timeout_minutes)
+    return {
+        "ok": True,
+        "last_active_at": user.last_active_at.isoformat(),
+        "last_activity_at": activity_stamp,
+        "session_expires_at": expires.isoformat() if expires else None,
+        "session_timeout_minutes": int(policy.session_timeout_minutes),
+        "extended": extend_session,
+    }
 
 
 @router.post("/api/auth/login")

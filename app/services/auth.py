@@ -141,7 +141,10 @@ def set_session_user(request: Request, user: User, db: Session | None = None) ->
     request.session["user_email"] = user.email
     request.session["user_role"] = user.role
     request.session["must_change_password"] = bool(user.must_change_password)
-    request.session["authenticated_at"] = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    request.session["authenticated_at"] = now_iso
+    # Idle timeout clock — refreshed on user activity (not fixed from login).
+    request.session["last_activity_at"] = now_iso
     request.session["session_timeout_minutes"] = int(timeout)
 
 

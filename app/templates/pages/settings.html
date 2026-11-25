@@ -133,10 +133,10 @@
             </label>
           </div>
           <label class="field">
-            <span>Timeout sesi / auto-logout (menit) <em>*</em></span>
+            <span>Timeout idle / auto-logout (menit) <em>*</em></span>
             <input id="security-session-timeout" name="session_timeout_minutes" type="number" required min="5" max="10080" value="480" />
             <small class="field-hint">
-              Pengguna otomatis logout setelah waktu ini sejak login berhasil (min. 5 menit). Contoh: 30 = setengah jam, 480 = 8 jam.
+              Logout otomatis hanya jika tidak ada aktivitas selama waktu ini (min. 5 menit). Selama aplikasi masih dipakai, timer diulang dari awal. Contoh: 30 = setengah jam idle, 480 = 8 jam idle.
             </small>
           </label>
           <div class="settings-actions">

@@ -154,17 +154,20 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
             next_url = path if path != "/login" else "/"
             return RedirectResponse(url=f"/login?next={next_url}", status_code=303)
 
-        # Enforce session timeout from values stamped at login (no DB per request).
+        # Idle timeout: clock starts from last activity (falls back to login stamp).
         timeout = request.session.get("session_timeout_minutes") or DEFAULT_SESSION_TIMEOUT_MINUTES
         try:
             timeout_mins = int(timeout)
         except (TypeError, ValueError):
             timeout_mins = DEFAULT_SESSION_TIMEOUT_MINUTES
-        if is_session_expired(request.session.get("authenticated_at"), timeout_mins):
+        activity_stamp = request.session.get("last_activity_at") or request.session.get(
+            "authenticated_at"
+        )
+        if is_session_expired(activity_stamp, timeout_mins):
             request.session.clear()
             if path.startswith("/api/"):
                 return JSONResponse(
-                    {"detail": "Sesi berakhir. Silakan login ulang.", "session_expired": True},
+                    {"detail": "Sesi berakhir karena tidak ada aktivitas. Silakan login ulang.", "session_expired": True},
                     status_code=401,
                 )
             return RedirectResponse(url="/login?next=/&session=expired", status_code=303)
