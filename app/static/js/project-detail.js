@@ -95,6 +95,13 @@
     pageSubtitle: document.getElementById("detail-page-subtitle"),
     btnEdit: document.getElementById("btn-edit-project"),
     btnTasks: document.getElementById("btn-open-tasks"),
+    inviteModal: document.getElementById("invite-modal"),
+    inviteForm: document.getElementById("invite-form"),
+    inviteEmails: document.getElementById("invite-emails"),
+    inviteStatus: document.getElementById("invite-status"),
+    btnCloseInvite: document.getElementById("btn-close-invite-modal"),
+    btnCancelInvite: document.getElementById("btn-cancel-invite"),
+    btnSendInvite: document.getElementById("btn-send-invite"),
   };
 
   function escapeHtml(text) {
@@ -516,7 +523,17 @@
             <section class="pw-panel">
               <div class="pw-panel-head"><h3>Overview</h3></div>
               <div class="pw-overview-grid">
-                <div class="pw-overview-item"><span>PIC</span>${renderPicStack(p)}</div>
+                <div class="pw-overview-item">
+                  <div class="pw-overview-label-row">
+                    <span>PIC</span>
+                    ${
+                      state.canManage
+                        ? `<button type="button" class="pw-invite-btn" id="btn-open-invite">Invite</button>`
+                        : ""
+                    }
+                  </div>
+                  ${renderPicStack(p)}
+                </div>
                 <div class="pw-overview-item"><span>Kepemilikan</span><strong>${escapeHtml(ownershipLabel(p))}</strong></div>
                 <div class="pw-overview-item"><span>Dikembangkan oleh</span><strong>${escapeHtml(DEVELOPED_BY_LABEL[p.developed_by] || p.developed_by || "—")}</strong></div>
                 <div class="pw-overview-item"><span>Jenis Pekerjaan</span><strong>${escapeHtml(WORK_TYPE_LABEL[p.work_type] || p.work_type || "—")}</strong></div>
@@ -1000,9 +1017,121 @@
     }, POLL_MS);
   }
 
+  function setInviteStatus(message, kind) {
+    if (!els.inviteStatus) return;
+    els.inviteStatus.classList.remove("ok", "err");
+    if (kind) els.inviteStatus.classList.add(kind);
+    if (typeof message === "string") {
+      els.inviteStatus.textContent = message || "";
+      return;
+    }
+    els.inviteStatus.innerHTML = message || "";
+  }
+
+  function openInviteModal() {
+    if (!els.inviteModal) return;
+    if (els.inviteModal.parentElement !== document.body) {
+      document.body.appendChild(els.inviteModal);
+    }
+    if (els.inviteEmails) els.inviteEmails.value = "";
+    setInviteStatus("");
+    if (els.btnSendInvite) els.btnSendInvite.disabled = false;
+    els.inviteModal.hidden = false;
+    document.body.classList.add("modal-open");
+    els.inviteEmails?.focus();
+  }
+
+  function closeInviteModal() {
+    if (!els.inviteModal) return;
+    els.inviteModal.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+
+  function parseInviteEmails(raw) {
+    const seen = new Set();
+    const out = [];
+    String(raw || "")
+      .split(/[,;\s]+/)
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean)
+      .forEach((email) => {
+        if (seen.has(email)) return;
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
+        seen.add(email);
+        out.push(email);
+      });
+    return out;
+  }
+
+  async function submitInvites(event) {
+    event.preventDefault();
+    const emails = parseInviteEmails(els.inviteEmails?.value || "");
+    if (!emails.length) {
+      setInviteStatus("Masukkan minimal satu email valid.", "err");
+      return;
+    }
+    if (emails.length > 20) {
+      setInviteStatus("Maksimal 20 email per undangan.", "err");
+      return;
+    }
+    if (els.btnSendInvite) els.btnSendInvite.disabled = true;
+    setInviteStatus("Mengirim undangan…");
+    try {
+      const data = await api(`/api/projects/${state.projectId}/invites`, {
+        method: "POST",
+        body: JSON.stringify({ emails }),
+      });
+      if (data.project) state.project = data.project;
+      const results = Array.isArray(data.results) ? data.results : [];
+      const okCount = results.filter((r) => r.ok).length;
+      const listHtml = results.length
+        ? `<ul class="invite-result-list">${results
+            .map(
+              (r) => `
+            <li class="${r.ok ? "is-ok" : "is-err"}">
+              <span class="invite-email">${escapeHtml(r.email || "")}</span>
+              <span>${escapeHtml(r.message || (r.ok ? "OK" : "Gagal"))}</span>
+            </li>`
+            )
+            .join("")}</ul>`
+        : "";
+      setInviteStatus(
+        `<div>${okCount}/${results.length || emails.length} undangan berhasil diproses.</div>${listHtml}`,
+        okCount > 0 ? "ok" : "err"
+      );
+      renderWorkspace();
+      if (okCount > 0 && okCount === results.length) {
+        window.setTimeout(() => closeInviteModal(), 1400);
+      }
+    } catch (err) {
+      setInviteStatus(err.message || "Gagal mengirim undangan", "err");
+    } finally {
+      if (els.btnSendInvite) els.btnSendInvite.disabled = false;
+    }
+  }
+
   function wireHeaderEvents() {
     els.btnEdit?.addEventListener("click", () => {
       if (state.projectId) window.location.href = `/projects/${state.projectId}/edit`;
+    });
+
+    els.root?.addEventListener("click", (e) => {
+      if (e.target?.closest?.("#btn-open-invite")) {
+        e.preventDefault();
+        openInviteModal();
+      }
+    });
+
+    els.btnCloseInvite?.addEventListener("click", closeInviteModal);
+    els.btnCancelInvite?.addEventListener("click", closeInviteModal);
+    els.inviteModal?.addEventListener("click", (e) => {
+      if (e.target === els.inviteModal) closeInviteModal();
+    });
+    els.inviteForm?.addEventListener("submit", submitInvites);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && els.inviteModal && !els.inviteModal.hidden) {
+        closeInviteModal();
+      }
     });
   }
 

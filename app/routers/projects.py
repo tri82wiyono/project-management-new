@@ -19,6 +19,8 @@ from app.models.models import (
     TeamMember,
     User,
 )
+from pydantic import BaseModel, Field
+
 from app.schemas.schemas import (
     DiscussionListResponse,
     DiscussionMessageOut,
@@ -38,9 +40,14 @@ from app.services import project_documents as docs_svc
 from app.services import project_discussion as discussion_svc
 from app.services.audit import write_audit_log
 from app.services import org_scope
+from app.services.project_invites import invite_emails_to_project, normalize_invite_emails
 from app.services.project_progress import recalculate_project_progress
 from fastapi import Form, Request
 import json
+
+
+class ProjectInviteRequest(BaseModel):
+    emails: list[str] = Field(default_factory=list, max_length=30)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -677,6 +684,48 @@ def update_project(
             },
         )
     return _to_out(loaded, counts.get(loaded.id, 0))
+
+
+@router.post("/{project_id}/invites")
+def invite_project_members(
+    project_id: int,
+    payload: ProjectInviteRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current: User = Depends(require_permission("projects.manage")),
+) -> dict:
+    project = _load_project(db, project_id)
+    org_scope.require_project_manage(db, current, project)
+    emails = normalize_invite_emails(payload.emails)
+    if not emails:
+        raise HTTPException(status_code=400, detail="Masukkan minimal satu email valid")
+    if len(emails) > 20:
+        raise HTTPException(status_code=400, detail="Maksimal 20 email per undangan")
+
+    results = invite_emails_to_project(
+        db,
+        project=project,
+        emails=emails,
+        inviter=current,
+    )
+    db.commit()
+    loaded = _load_project(db, project_id)
+    counts = _task_count_map(db, [loaded.id])
+    ok_count = sum(1 for r in results if r.get("ok"))
+    write_audit_log(
+        db,
+        action="project_invites_sent",
+        success=ok_count > 0,
+        actor=current,
+        message=f"Undangan project {project.name}: {ok_count}/{len(results)} berhasil",
+        request=request,
+        meta={"project_id": project.id, "results": results},
+    )
+    return {
+        "ok": ok_count > 0,
+        "results": results,
+        "project": _to_out(loaded, counts.get(loaded.id, 0), with_documents=True),
+    }
 
 
 @router.put("/{project_id}/ownership", response_model=ProjectOut)

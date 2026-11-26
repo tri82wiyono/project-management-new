@@ -228,6 +228,97 @@ def welcome_user_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def project_invite_email(
+    *,
+    name: str,
+    email: str,
+    project_name: str,
+    inviter_name: str,
+    setup_url: str,
+) -> EmailContent:
+    branding = _branding()
+    safe_name = name.strip() or "Pengguna"
+    brand_name = branding["brand_name"]
+    app_name = branding["app_name"]
+    project = (project_name or "Project").strip() or "Project"
+    inviter = (inviter_name or "Tim").strip() or "Tim"
+
+    subject = f"Undangan bergabung ke project {project}"
+    text = (
+        f"Halo {safe_name},\n\n"
+        f"{inviter} mengundang Anda bergabung ke project \"{project}\" di {app_name}.\n\n"
+        f"Email akun: {email}\n\n"
+        f"Buka tautan berikut untuk mengatur password, lalu Anda langsung masuk ke project:\n"
+        f"{setup_url}\n\n"
+        f"Salam,\nTim {brand_name}"
+    )
+    body = f"""
+      <h1 style="margin:0 0 10px 0;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:1.3;color:{INK};font-weight:bold;">
+        Undangan project
+      </h1>
+      <p style="margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.65;color:{MUTED};">
+        <strong style="color:{INK};">{escape(inviter)}</strong> mengundang Anda bergabung ke project
+        <strong style="color:{INK};">{escape(project)}</strong> di {escape(app_name)}.
+      </p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{BG}"
+        style="width:100%;background-color:{BG};border:1px solid {LINE};border-collapse:separate;">
+        {_detail_row("Project", project)}
+        {_detail_row("Email akun", email, last=True)}
+      </table>
+      {_cta_button("Atur Password & Gabung", setup_url)}
+      <p style="margin:14px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:{MUTED};">
+        Di halaman berikutnya, buat password baru dan konfirmasinya. Setelah tersimpan, Anda otomatis masuk ke project.
+      </p>
+    """
+    html = _base_layout(
+        title=subject,
+        preheader=f"Undangan bergabung ke project {project}",
+        body_html=body,
+        footer_note="Jika Anda tidak mengharapkan undangan ini, abaikan email ini.",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def project_added_email(
+    *,
+    name: str,
+    project_name: str,
+    inviter_name: str,
+    project_url: str,
+) -> EmailContent:
+    branding = _branding()
+    safe_name = name.strip() or "Pengguna"
+    brand_name = branding["brand_name"]
+    app_name = branding["app_name"]
+    project = (project_name or "Project").strip() or "Project"
+    inviter = (inviter_name or "Tim").strip() or "Tim"
+
+    subject = f"Anda ditambahkan ke project {project}"
+    text = (
+        f"Halo {safe_name},\n\n"
+        f"{inviter} menambahkan Anda ke project \"{project}\" di {app_name}.\n\n"
+        f"Buka project:\n{project_url}\n\n"
+        f"Salam,\nTim {brand_name}"
+    )
+    body = f"""
+      <h1 style="margin:0 0 10px 0;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:1.3;color:{INK};font-weight:bold;">
+        Ditambahkan ke project
+      </h1>
+      <p style="margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.65;color:{MUTED};">
+        <strong style="color:{INK};">{escape(inviter)}</strong> menambahkan Anda ke
+        <strong style="color:{INK};">{escape(project)}</strong> di {escape(app_name)}.
+      </p>
+      {_cta_button("Buka Project", project_url)}
+    """
+    html = _base_layout(
+        title=subject,
+        preheader=f"Anda ditambahkan ke project {project}",
+        body_html=body,
+        footer_note="Jika ini tidak relevan, hubungi administrator.",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def new_device_confirmation_email(
     *,
     name: str,

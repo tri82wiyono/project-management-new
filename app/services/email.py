@@ -11,6 +11,8 @@ from app.models.models import SmtpSetting, User
 from app.services.email_templates import (
     EmailContent,
     new_device_confirmation_email,
+    project_added_email,
+    project_invite_email,
     reset_password_email,
     welcome_user_email,
 )
@@ -220,14 +222,63 @@ def send_templated_email(db: Session, *, to_email: str, content: EmailContent) -
     )
 
 
-def build_setup_password_url(user: User) -> str:
+def build_setup_password_url(
+    user: User,
+    *,
+    project_id: int | None = None,
+    purpose: str = "setup_password",
+) -> str:
     token = create_setup_password_token(
         user_id=user.id,
         email=user.email,
         password_hash=user.password_hash,
+        project_id=project_id,
+        purpose=purpose,
     )
     base = resolve_public_app_url().rstrip("/")
     return f"{base}/setup-password?token={token}"
+
+
+def send_project_invite_email(
+    db: Session,
+    *,
+    user: User,
+    project_name: str,
+    inviter_name: str,
+    project_id: int,
+) -> dict:
+    setup_url = build_setup_password_url(
+        user,
+        project_id=project_id,
+        purpose="project_invite",
+    )
+    content = project_invite_email(
+        name=user.name,
+        email=user.email,
+        project_name=project_name,
+        inviter_name=inviter_name,
+        setup_url=setup_url,
+    )
+    return send_templated_email(db, to_email=user.email, content=content)
+
+
+def send_project_added_email(
+    db: Session,
+    *,
+    to_email: str,
+    name: str,
+    project_name: str,
+    inviter_name: str,
+    project_id: int,
+) -> dict:
+    base = resolve_public_app_url().rstrip("/")
+    content = project_added_email(
+        name=name,
+        project_name=project_name,
+        inviter_name=inviter_name,
+        project_url=f"{base}/projects/{int(project_id)}",
+    )
+    return send_templated_email(db, to_email=to_email, content=content)
 
 
 def send_welcome_user_email(

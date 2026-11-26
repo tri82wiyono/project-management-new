@@ -58,25 +58,32 @@ def create_setup_password_token(
     email: str,
     password_hash: str | None,
     ttl_seconds: int = SETUP_PASSWORD_TTL_SECONDS,
+    project_id: int | None = None,
+    purpose: str = "setup_password",
 ) -> str:
-    """Signed link token for first-login / reset password setup page."""
+    """Signed link token for first-login / reset / project-invite setup page."""
     exp = int(time.time()) + max(300, int(ttl_seconds))
-    return _sign(
-        {
-            "p": "setup_password",
-            "uid": int(user_id),
-            "em": (email or "").strip().lower(),
-            "fp": password_fingerprint(password_hash),
-            "e": exp,
-        }
-    )
+    purpose_key = (purpose or "setup_password").strip() or "setup_password"
+    if purpose_key not in {"setup_password", "project_invite"}:
+        purpose_key = "setup_password"
+    data = {
+        "p": purpose_key,
+        "uid": int(user_id),
+        "em": (email or "").strip().lower(),
+        "fp": password_fingerprint(password_hash),
+        "e": exp,
+    }
+    if project_id:
+        data["pid"] = int(project_id)
+    return _sign(data)
 
 
 def verify_setup_password_token(token: str) -> dict | None:
     payload = _unsign(token or "")
     if not payload:
         return None
-    if payload.get("p") != "setup_password":
+    purpose = str(payload.get("p") or "")
+    if purpose not in {"setup_password", "project_invite"}:
         return None
     now = time.time()
     if int(payload.get("e", 0) or 0) < now:
@@ -89,7 +96,20 @@ def verify_setup_password_token(token: str) -> dict | None:
     fp = str(payload.get("fp") or "")
     if not uid or not email or not fp:
         return None
-    return {"user_id": uid, "email": email, "fingerprint": fp, "expires_at": int(payload.get("e") or 0)}
+    project_id = None
+    if payload.get("pid") is not None:
+        try:
+            project_id = int(payload.get("pid"))
+        except (TypeError, ValueError):
+            project_id = None
+    return {
+        "user_id": uid,
+        "email": email,
+        "fingerprint": fp,
+        "expires_at": int(payload.get("e") or 0),
+        "purpose": purpose,
+        "project_id": project_id,
+    }
 
 
 def _b64encode(raw: bytes) -> str:

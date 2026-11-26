@@ -4,7 +4,7 @@
 
 {% block head_extra %}
   <link rel="stylesheet" href="/static/css/projects.css?v=25" />
-  <link rel="stylesheet" href="/static/css/project-workspace.css?v=3" />
+  <link rel="stylesheet" href="/static/css/project-workspace.css?v=4" />
 {% endblock %}
 
 {% block header %}
@@ -38,8 +38,37 @@
       </div>
     </div>
   </div>
+
+  <div class="modal-backdrop" id="invite-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="invite-modal-title">
+      <div class="modal-head">
+        <div>
+          <h3 id="invite-modal-title">Undang anggota</h3>
+          <p>Masukkan satu atau lebih email. User baru akan menerima tautan atur password.</p>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-invite-modal" aria-label="Tutup">×</button>
+      </div>
+      <form id="invite-form" class="project-form" novalidate>
+        <label class="field">
+          <span>Email undangan</span>
+          <textarea
+            id="invite-emails"
+            rows="4"
+            required
+            placeholder="contoh@banksumut.co.id&#10;satu@email.com, dua@email.com"
+          ></textarea>
+          <small class="field-hint">Pisahkan dengan koma, spasi, atau baris baru. Maks. 20 email.</small>
+        </label>
+        <p id="invite-status" class="form-status" role="status" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-invite">Batal</button>
+          <button type="submit" class="btn btn-primary" id="btn-send-invite">Kirim undangan</button>
+        </div>
+      </form>
+    </div>
+  </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/project-detail.js?v=16" defer></script>
+  <script src="/static/js/project-detail.js?v=17" defer></script>
 {% endblock %}

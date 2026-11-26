@@ -83,7 +83,7 @@ class ChangePasswordRequest(BaseModel):
 
 class SetupPasswordRequest(BaseModel):
     token: str = Field(min_length=20, max_length=800)
-    temporary_password: str = Field(min_length=1, max_length=128)
+    temporary_password: str | None = Field(default=None, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
 
@@ -642,7 +642,7 @@ def setup_password_preview(
     db: Session = Depends(get_db),
 ) -> dict:
     """Validate setup token and return masked account info for the setup page."""
-    from app.models.models import User
+    from app.models.models import Project, User
 
     payload = verify_setup_password_token(token)
     if not payload:
@@ -660,21 +660,32 @@ def setup_password_preview(
             status_code=400,
             detail="Password sudah diatur. Silakan masuk lewat halaman login.",
         )
+    purpose = payload.get("purpose") or "setup_password"
+    project_id = payload.get("project_id")
+    project_name = None
+    if project_id:
+        project = db.get(Project, int(project_id))
+        project_name = project.name if project else None
     return {
         "ok": True,
         "email": user.email,
         "name": user.name,
         "must_change_password": True,
+        "mode": "invite" if purpose == "project_invite" else "welcome",
+        "project_id": project_id,
+        "project_name": project_name,
     }
 
 
 @router.post("/api/auth/setup-password")
 def setup_password(
     payload: SetupPasswordRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> dict:
-    """Complete first-login password setup from welcome/reset email (no session yet)."""
-    from app.models.models import User
+    """Complete first-login / invite password setup from email link."""
+    from app.models.models import Project, User
+    from app.services.project_invites import ensure_team_member
 
     token_data = verify_setup_password_token(payload.token)
     if not token_data:
@@ -684,11 +695,19 @@ def setup_password(
         raise HTTPException(status_code=400, detail="Konfirmasi password baru tidak cocok")
     if len(payload.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password baru minimal 8 karakter")
-    if payload.new_password == payload.temporary_password:
-        raise HTTPException(
-            status_code=400,
-            detail="Password baru harus berbeda dari password sementara",
-        )
+
+    purpose = token_data.get("purpose") or "setup_password"
+    is_invite = purpose == "project_invite"
+
+    if not is_invite:
+        temp = (payload.temporary_password or "").strip()
+        if not temp:
+            raise HTTPException(status_code=400, detail="Password sementara wajib diisi")
+        if payload.new_password == temp:
+            raise HTTPException(
+                status_code=400,
+                detail="Password baru harus berbeda dari password sementara",
+            )
 
     user = db.get(User, token_data["user_id"])
     if (
@@ -703,19 +722,45 @@ def setup_password(
             status_code=400,
             detail="Password sudah diatur. Silakan masuk lewat halaman login.",
         )
-    if not verify_password(payload.temporary_password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Password sementara salah")
+    if not is_invite:
+        if not verify_password(payload.temporary_password or "", user.password_hash):
+            raise HTTPException(status_code=400, detail="Password sementara salah")
 
     user.password_hash = hash_password(payload.new_password)
     user.must_change_password = False
     user.failed_login_count = 0
     user.locked_until = None
+
+    project_id = token_data.get("project_id")
+    redirect = "/login?setup=ok"
+    message = "Password berhasil disimpan. Silakan masuk dengan password baru."
+    if is_invite and project_id:
+        project = db.get(Project, int(project_id))
+        if project:
+            ensure_team_member(db, project, user)
+            redirect = f"/projects/{project.id}"
+            message = f"Password tersimpan. Anda bergabung ke project {project.name}."
+
     db.commit()
+
+    if is_invite and project_id:
+        register_successful_login(db, user)
+        set_session_user(request, user, db)
+        return {
+            "ok": True,
+            "email": user.email,
+            "message": message,
+            "redirect": redirect,
+            "auto_login": True,
+            "project_id": int(project_id),
+        }
+
     return {
         "ok": True,
         "email": user.email,
-        "message": "Password berhasil disimpan. Silakan masuk dengan password baru.",
-        "redirect": "/login?setup=ok",
+        "message": message,
+        "redirect": redirect,
+        "auto_login": False,
     }
 
 
