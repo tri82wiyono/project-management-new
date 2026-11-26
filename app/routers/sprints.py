@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import Project, Sprint, SprintStatus, Task, User
 from app.schemas.schemas import SprintCreate, SprintOut, SprintTaskIds, SprintUpdate
-from app.services.auth import require_permission
+from app.services.auth import require_any_permission
 from app.services import org_scope
 from app.services.sprints import sprint_out, sprint_query, sync_sprint_status_from_tasks
 
@@ -26,7 +26,7 @@ def list_sprints(
     project_id: int | None = None,
     status_filter: SprintStatus | None = Query(default=None, alias="status"),
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("tasks.view")),
+    user: User = Depends(require_any_permission("sprints.view", "tasks.view")),
 ) -> list[SprintOut]:
     stmt = sprint_query()
     if project_id:
@@ -49,7 +49,7 @@ def list_sprints(
 def get_sprint(
     sprint_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("tasks.view")),
+    user: User = Depends(require_any_permission("sprints.view", "tasks.view")),
 ) -> SprintOut:
     sprint = _load_sprint(db, sprint_id)
     org_scope.require_project_view(db, user, sprint.project)
@@ -60,7 +60,7 @@ def get_sprint(
 def create_sprint(
     payload: SprintCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_any_permission("sprints.manage", "tasks.manage")),
 ) -> SprintOut:
     project = db.get(Project, payload.project_id)
     if not project:
@@ -103,7 +103,7 @@ def update_sprint(
     sprint_id: int,
     payload: SprintUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_any_permission("sprints.manage", "tasks.manage")),
 ) -> SprintOut:
     sprint = _load_sprint(db, sprint_id)
     org_scope.require_project_view(db, user, sprint.project)
@@ -128,7 +128,7 @@ def add_tasks_to_sprint(
     sprint_id: int,
     payload: SprintTaskIds,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_any_permission("sprints.manage", "tasks.manage")),
 ) -> SprintOut:
     sprint = _load_sprint(db, sprint_id)
     org_scope.require_project_view(db, user, sprint.project)
@@ -156,7 +156,7 @@ def remove_task_from_sprint(
     sprint_id: int,
     task_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_any_permission("sprints.manage", "tasks.manage")),
 ) -> SprintOut:
     sprint = _load_sprint(db, sprint_id)
     org_scope.require_project_view(db, user, sprint.project)
@@ -175,7 +175,7 @@ def remove_task_from_sprint(
 def delete_sprint(
     sprint_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("tasks.manage")),
+    user: User = Depends(require_any_permission("sprints.manage", "tasks.manage")),
 ) -> Response:
     sprint = _load_sprint(db, sprint_id)
     org_scope.require_project_view(db, user, sprint.project)

@@ -220,3 +220,17 @@ def require_permission(permission: str):
         return user
 
     return _dependency
+
+
+def require_any_permission(*permissions: str):
+    """Pass if the user has at least one of the listed permission keys."""
+
+    def _dependency(user: User = Depends(require_user), db: Session = Depends(get_db)) -> User:
+        from app.services.roles import user_has_permission
+
+        if any(user_has_permission(db, user, perm) for perm in permissions):
+            return user
+        needed = " or ".join(permissions) if permissions else "(none)"
+        raise HTTPException(status_code=403, detail=f"Permission {needed} required")
+
+    return _dependency

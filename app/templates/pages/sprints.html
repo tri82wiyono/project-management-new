@@ -3,7 +3,7 @@
 {% block title %}Sprints · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/sprints.css?v=14" />
+  <link rel="stylesheet" href="/static/css/sprints.css?v=15" />
 {% endblock %}
 
 {% block header %}
@@ -24,9 +24,12 @@
   <div class="sprints-page" id="sprints-page">
     <section class="sprints-need-project" id="sprints-need-project" hidden>
       <div class="sprints-need-icon" aria-hidden="true">◷</div>
-      <h2>Sprint selalu di dalam project</h2>
-      <p>Buka project dulu, lalu masuk ke Sprints untuk memilih modul prioritas.</p>
-      <a class="btn btn-primary" href="/projects">Pilih Project</a>
+      <h2>Pilih project untuk Sprint</h2>
+      <p>Sprint berada di dalam project. Pilih project yang Anda akses, lalu kelola modul prioritas.</p>
+      <div class="sprints-project-picker" id="sprints-project-picker" aria-live="polite">
+        <div class="sprints-empty" style="padding:12px;min-height:auto">Memuat project…</div>
+      </div>
+      <a class="btn btn-ghost" href="/projects">Buka daftar Projects</a>
     </section>
 
     <div id="sprints-workspace" hidden>
@@ -114,5 +117,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/sprints.js?v=13" defer></script>
+  <script src="/static/js/sprints.js?v=14" defer></script>
 {% endblock %}

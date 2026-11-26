@@ -17,7 +17,13 @@ NAV_ITEMS = [
         "permissions": ["tickets.view"],
     },
     {"key": "tasks", "label": "Tasks", "icon": "☰", "href": "/tasks", "permissions": ["tasks.view"]},
-    {"key": "sprints", "label": "Sprints", "icon": "◔", "href": "/sprints", "permissions": ["tasks.view"]},
+    {
+        "key": "sprints",
+        "label": "Sprints",
+        "icon": "◔",
+        "href": "/sprints",
+        "permissions": ["sprints.view", "tasks.view"],
+    },
     {
         "key": "users",
         "label": "Users",
@@ -51,7 +57,13 @@ MOBILE_NAV_ITEMS = [
     {"key": "projects", "label": "Project", "icon": "▣", "href": "/projects", "permissions": ["projects.view"]},
     {"key": "chat", "label": "Chat", "icon": "◌", "href": "/chat", "permissions": ["projects.view"]},
     {"key": "tasks", "label": "Task", "icon": "☰", "href": "/tasks", "permissions": ["tasks.view"]},
-    {"key": "sprints", "label": "Sprint", "icon": "◔", "href": "/sprints", "permissions": ["tasks.view"]},
+    {
+        "key": "sprints",
+        "label": "Sprint",
+        "icon": "◔",
+        "href": "/sprints",
+        "permissions": ["sprints.view", "tasks.view"],
+    },
     # Account is available to any authenticated user (no module permission).
     {"key": "account", "label": "Account", "icon": "◎", "href": "/account", "permissions": []},
 ]

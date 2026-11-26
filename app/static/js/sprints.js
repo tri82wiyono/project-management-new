@@ -836,12 +836,43 @@
     await moveTaskStatus(taskId, nextStatus);
   }
 
+  async function renderProjectPicker() {
+    const box = document.getElementById("sprints-project-picker");
+    if (!box) return;
+    box.innerHTML = `<div class="sprints-empty" style="padding:12px;min-height:auto">Memuat project…</div>`;
+    try {
+      const data = await api("/api/projects?page=1&page_size=100");
+      const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+      if (!items.length) {
+        box.innerHTML = `<div class="sprints-empty" style="padding:12px;min-height:auto">Belum ada project yang bisa Anda akses. Minta admin menambahkan Anda ke project, atau buka Projects.</div>`;
+        return;
+      }
+      box.innerHTML = items
+        .map((p) => {
+          const status = escapeHtml(p.status || "");
+          const name = escapeHtml(p.name || `Project #${p.id}`);
+          const tasks = Number(p.task_count ?? p.tasks_count ?? 0);
+          return `<a class="sprints-project-pick" href="/sprints?project_id=${Number(p.id)}">
+            <div>
+              <strong>${name}</strong>
+              <span>${status ? `Status: ${status}` : "Project"} · ${tasks} modul</span>
+            </div>
+            <em>Buka Sprint →</em>
+          </a>`;
+        })
+        .join("");
+    } catch (err) {
+      box.innerHTML = `<div class="sprints-empty" style="padding:12px;min-height:auto">${escapeHtml(err.message || "Gagal memuat project")}</div>`;
+    }
+  }
+
   async function boot() {
     const params = new URLSearchParams(window.location.search);
     const projectFromUrl = Number(params.get("project_id") || 0);
     if (!projectFromUrl) {
       if (els.needProject) els.needProject.hidden = false;
       if (els.workspace) els.workspace.hidden = true;
+      await renderProjectPicker();
       return;
     }
 

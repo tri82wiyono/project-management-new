@@ -536,7 +536,7 @@ def tasks_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
 @app.get("/sprints", response_class=HTMLResponse)
 def sprints_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    denied = _require_page_permission(request, db, "tasks.view")
+    denied = _require_page_permission(request, db, "sprints.view", "tasks.view")
     if denied:
         return denied
     context = _page_context(
