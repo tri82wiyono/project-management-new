@@ -117,7 +117,9 @@ def _normalize_work_classification(
         if not wt:
             raise HTTPException(status_code=400, detail="Jenis pekerjaan wajib diisi")
         if not cats:
-            raise HTTPException(status_code=400, detail="Pilih minimal satu kategori pekerjaan")
+            raise HTTPException(status_code=400, detail="Pilih kategori pekerjaan")
+        if len(cats) > 1:
+            raise HTTPException(status_code=400, detail="Kategori pekerjaan hanya boleh satu")
 
     return wt, cats, year, ref
 

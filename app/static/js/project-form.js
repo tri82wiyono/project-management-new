@@ -110,15 +110,14 @@
   }
 
   function selectedWorkCategories() {
-    return Array.from(
-      els.workCategoryGrid?.querySelectorAll('input[name="work_categories"]:checked') || []
-    ).map((el) => el.value);
+    const checked = els.workCategoryGrid?.querySelector('input[name="work_category"]:checked');
+    return checked?.value ? [checked.value] : [];
   }
 
   function setWorkCategories(values) {
-    const set = new Set((values || []).map(String));
-    els.workCategoryGrid?.querySelectorAll('input[name="work_categories"]').forEach((el) => {
-      el.checked = set.has(el.value);
+    const chosen = Array.isArray(values) && values.length ? String(values[0]) : "";
+    els.workCategoryGrid?.querySelectorAll('input[name="work_category"]').forEach((el) => {
+      el.checked = el.value === chosen;
     });
     syncRbbFieldsVisibility();
   }

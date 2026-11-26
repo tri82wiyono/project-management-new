@@ -35,36 +35,36 @@
         <div class="form-section-head form-section-head-split">
           <div>
             <h2>Klasifikasi &amp; Dasar Pekerjaan</h2>
-            <p>Tentukan dasar pelaksanaan pekerjaan. Dapat memilih lebih dari satu kategori.</p>
+            <p>Tentukan dasar pelaksanaan pekerjaan. Pilih satu kategori.</p>
           </div>
           <span class="form-section-badge">Baru</span>
         </div>
         <div class="form-section-body">
           <div class="field">
             <span>Kategori Pekerjaan <em>*</em></span>
-            <div class="work-category-grid" id="work-category-grid" role="group" aria-label="Kategori pekerjaan">
+            <div class="work-category-grid" id="work-category-grid" role="radiogroup" aria-label="Kategori pekerjaan">
               <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="rbb" />
+                <input type="radio" name="work_category" value="rbb" />
                 <span>RBB</span>
               </label>
               <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="inisiatif" />
+                <input type="radio" name="work_category" value="inisiatif" />
                 <span>Inisiatif</span>
               </label>
               <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="temuan_audit" />
+                <input type="radio" name="work_category" value="temuan_audit" />
                 <span>Temuan Audit</span>
               </label>
               <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="regulasi" />
+                <input type="radio" name="work_category" value="regulasi" />
                 <span>Regulasi</span>
               </label>
               <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="penugasan_manajemen" />
+                <input type="radio" name="work_category" value="penugasan_manajemen" />
                 <span>Penugasan Manajemen</span>
               </label>
               <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="operasional" />
+                <input type="radio" name="work_category" value="operasional" />
                 <span>Operasional</span>
               </label>
             </div>
@@ -285,5 +285,5 @@
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-  <script src="/static/js/project-form.js?v=9" defer></script>
+  <script src="/static/js/project-form.js?v=10" defer></script>
 {% endblock %}
