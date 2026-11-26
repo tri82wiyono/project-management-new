@@ -841,23 +841,34 @@
     if (!box) return;
     box.innerHTML = `<div class="sprints-empty" style="padding:12px;min-height:auto">Memuat project…</div>`;
     try {
-      const data = await api("/api/projects?page=1&page_size=100");
+      const [data, sprints] = await Promise.all([
+        api("/api/projects?page=1&page_size=100"),
+        api("/api/sprints").catch(() => []),
+      ]);
       const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
       if (!items.length) {
         box.innerHTML = `<div class="sprints-empty" style="padding:12px;min-height:auto">Belum ada project yang bisa Anda akses. Minta admin menambahkan Anda ke project, atau buka Projects.</div>`;
         return;
       }
+      const sprintCountByProject = {};
+      (Array.isArray(sprints) ? sprints : []).forEach((s) => {
+        const pid = Number(s.project_id || 0);
+        if (!pid) return;
+        sprintCountByProject[pid] = (sprintCountByProject[pid] || 0) + 1;
+      });
       box.innerHTML = items
         .map((p) => {
           const status = escapeHtml(p.status || "");
           const name = escapeHtml(p.name || `Project #${p.id}`);
-          const tasks = Number(p.task_count ?? p.tasks_count ?? 0);
+          const sprintCount = Number(sprintCountByProject[Number(p.id)] || 0);
+          const sprintLabel =
+            sprintCount > 0 ? `${sprintCount} sprint` : "Belum ada sprint";
           return `<a class="sprints-project-pick" href="/sprints?project_id=${Number(p.id)}">
             <div>
               <strong>${name}</strong>
-              <span>${status ? `Status: ${status}` : "Project"} · ${tasks} modul</span>
+              <span>${status ? `Status: ${status}` : "Project"} · ${sprintLabel}</span>
             </div>
-            <em>Buka Sprint →</em>
+            <em>${sprintCount > 0 ? "Buka Sprint →" : "Buat Sprint →"}</em>
           </a>`;
         })
         .join("");
