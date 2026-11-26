@@ -52,18 +52,12 @@ NAV_ITEMS = [
     },
 ]
 
+# Keep mobile footer to core destinations only (single row).
+# Chat / Sprint remain available from sidebar & project pages.
 MOBILE_NAV_ITEMS = [
     {"key": "dashboard", "label": "Home", "icon": "⌂", "href": "/", "permissions": ["dashboard.view"]},
     {"key": "projects", "label": "Project", "icon": "▣", "href": "/projects", "permissions": ["projects.view"]},
-    {"key": "chat", "label": "Chat", "icon": "◌", "href": "/chat", "permissions": ["projects.view"]},
     {"key": "tasks", "label": "Task", "icon": "☰", "href": "/tasks", "permissions": ["tasks.view"]},
-    {
-        "key": "sprints",
-        "label": "Sprint",
-        "icon": "◔",
-        "href": "/sprints",
-        "permissions": ["sprints.view", "tasks.view"],
-    },
     # Account is available to any authenticated user (no module permission).
     {"key": "account", "label": "Account", "icon": "◎", "href": "/account", "permissions": []},
 ]
