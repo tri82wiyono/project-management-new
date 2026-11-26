@@ -180,8 +180,14 @@ def ensure_schema() -> None:
       max_failed_logins INTEGER DEFAULT 6,
       lockout_minutes INTEGER DEFAULT 30,
       session_timeout_minutes INTEGER DEFAULT 480,
+      device_detection_enabled BOOLEAN DEFAULT TRUE,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE security_settings
+      ADD COLUMN IF NOT EXISTS device_detection_enabled BOOLEAN DEFAULT TRUE;
+    UPDATE security_settings
+      SET device_detection_enabled = TRUE
+      WHERE device_detection_enabled IS NULL;
     """
     project_documents_sql = """
     CREATE TABLE IF NOT EXISTS project_documents (

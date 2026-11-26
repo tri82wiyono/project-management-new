@@ -34,6 +34,7 @@ def get_or_create_security_settings(db: Session) -> SecuritySetting:
             5,
             int((getattr(cfg, "session_max_age", 0) or 0) / 60) or DEFAULT_SESSION_TIMEOUT_MINUTES,
         ),
+        device_detection_enabled=True,
     )
     db.add(row)
     db.commit()
@@ -68,12 +69,19 @@ def get_cached_session_timeout_minutes(db: Session | None = None) -> int:
     return value
 
 
+def is_device_detection_enabled(db: Session) -> bool:
+    """Admin toggle: when False, login skips new-device/browser email confirmation."""
+    row = get_or_create_security_settings(db)
+    return bool(getattr(row, "device_detection_enabled", True))
+
+
 def security_to_dict(row: SecuritySetting) -> dict:
     return {
         "id": row.id,
         "max_failed_logins": int(row.max_failed_logins),
         "lockout_minutes": int(row.lockout_minutes),
         "session_timeout_minutes": int(row.session_timeout_minutes),
+        "device_detection_enabled": bool(getattr(row, "device_detection_enabled", True)),
         "updated_at": row.updated_at,
     }
 

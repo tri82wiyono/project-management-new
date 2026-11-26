@@ -493,12 +493,16 @@
     lockout_minutes: $("security-lockout"),
     session_timeout_minutes: $("security-session-timeout"),
   };
+  const deviceDetectionEl = $("security-device-detection");
 
   function fillSecurity(data) {
     Object.entries(securityFields).forEach(([key, el]) => {
       if (!el) return;
       if (data[key] != null) el.value = data[key];
     });
+    if (deviceDetectionEl && data.device_detection_enabled != null) {
+      deviceDetectionEl.checked = Boolean(data.device_detection_enabled);
+    }
   }
 
   async function loadSecurity() {
@@ -522,6 +526,7 @@
       max_failed_logins: Number(securityFields.max_failed_logins.value) || 6,
       lockout_minutes: Number(securityFields.lockout_minutes.value) || 30,
       session_timeout_minutes: Number(securityFields.session_timeout_minutes.value) || 480,
+      device_detection_enabled: deviceDetectionEl ? Boolean(deviceDetectionEl.checked) : true,
     };
     try {
       const res = await fetch("/api/settings/security", {

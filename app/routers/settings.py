@@ -60,6 +60,7 @@ class SecuritySettingsUpdate(BaseModel):
     max_failed_logins: int = Field(default=6, ge=1, le=50)
     lockout_minutes: int = Field(default=30, ge=1, le=1440)
     session_timeout_minutes: int = Field(default=480, ge=5, le=10080)
+    device_detection_enabled: bool = True
 
 
 class SmtpTestRequest(BaseModel):
@@ -117,6 +118,7 @@ def update_security_settings(
     row.max_failed_logins = payload.max_failed_logins
     row.lockout_minutes = payload.lockout_minutes
     row.session_timeout_minutes = payload.session_timeout_minutes
+    row.device_detection_enabled = bool(payload.device_detection_enabled)
     db.commit()
     db.refresh(row)
     invalidate_security_settings_cache()

@@ -200,7 +200,9 @@ def _audit_login_success(db: Session, request: Request, user, *, note: str = "")
 
 
 def _finalize_login(request: Request, response: Response, db: Session, user) -> dict | JSONResponse:
-    """After password (+ MFA), enforce trusted-device binding."""
+    """After password (+ MFA), enforce trusted-device binding when enabled."""
+    from app.services.security_settings import is_device_detection_enabled
+
     cookie = get_device_cookie(request)
     trusted = find_trusted_device(db, user, cookie)
     if trusted:
@@ -213,6 +215,29 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
             "ok": True,
             "mfa_required": False,
             "device_confirmation_required": False,
+            "must_change_password": user.must_change_password,
+            "user": _user_payload(user),
+        }
+
+    # Admin policy: device/browser detection disabled — auto-trust and continue
+    if not is_device_detection_enabled(db):
+        device, raw_token = trust_device_now(db, user, request)
+        register_successful_login(db, user)
+        set_session_user(request, user, db)
+        set_device_cookie(response, raw_token, request)
+        _audit_login_success(
+            db,
+            request,
+            user,
+            note=f"Login berhasil (deteksi perangkat dimatikan): {user.email}",
+        )
+        return {
+            "ok": True,
+            "mfa_required": False,
+            "device_confirmation_required": False,
+            "device_registered": True,
+            "device_bypass": "policy_disabled",
+            "device_label": device.device_label,
             "must_change_password": user.must_change_password,
             "user": _user_payload(user),
         }

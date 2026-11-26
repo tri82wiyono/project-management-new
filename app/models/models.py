@@ -100,6 +100,8 @@ class SecuritySetting(Base):
     lockout_minutes: Mapped[int] = mapped_column(Integer, default=30)
     # Absolute session lifetime from login; client + AuthGuard enforce logout
     session_timeout_minutes: Mapped[int] = mapped_column(Integer, default=480)
+    # When False, skip new-device/browser email confirmation on login
+    device_detection_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

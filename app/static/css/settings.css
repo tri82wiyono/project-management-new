@@ -130,6 +130,19 @@
   margin-top: 18px;
 }
 
+.security-device-toggle {
+  margin-top: 14px;
+  white-space: normal;
+}
+
+.security-device-hint {
+  display: block;
+  margin: 6px 0 12px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .field-align-end {
   justify-content: flex-end;
 }

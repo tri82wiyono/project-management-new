@@ -3,7 +3,7 @@
 {% block title %}Settings · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/settings.css?v=6" />
+  <link rel="stylesheet" href="/static/css/settings.css?v=7" />
 {% endblock %}
 
 {% block header %}
@@ -120,7 +120,7 @@
       <section class="settings-panel">
         <h3 class="settings-panel-title">Keamanan Login &amp; Sesi</h3>
         <p class="settings-panel-desc">
-          Atur batas percobaan login gagal, durasi blokir akun, dan logout otomatis setelah waktu sesi habis.
+          Atur batas percobaan login gagal, durasi blokir akun, deteksi perangkat/browser, dan logout otomatis setelah waktu sesi habis.
         </p>
         <form id="security-form" class="identity-form" novalidate>
           <div class="field-row">
@@ -142,6 +142,14 @@
               Logout otomatis hanya jika tidak ada aktivitas selama waktu ini (min. 5 menit). Selama aplikasi masih dipakai, timer diulang dari awal. Contoh: 30 = setengah jam idle, 480 = 8 jam idle.
             </small>
           </label>
+          <label class="toggle security-device-toggle">
+            <input type="checkbox" id="security-device-detection" name="device_detection_enabled" checked />
+            <span>Aktifkan deteksi perangkat / browser</span>
+          </label>
+          <small class="field-hint security-device-hint">
+            Jika aktif, login dari perangkat atau browser baru meminta konfirmasi email (kecuali admin / perangkat pertama).
+            Matikan untuk melewati pengecekan tersebut.
+          </small>
           <div class="settings-actions">
             <button type="submit" class="btn btn-primary" id="btn-save-security">Simpan Keamanan</button>
             <span class="settings-status" id="security-save-status" aria-live="polite"></span>
@@ -315,5 +323,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/settings.js?v=8" defer></script>
+  <script src="/static/js/settings.js?v=9" defer></script>
 {% endblock %}
