@@ -64,6 +64,9 @@ const state = {
   workspaceDivision: null,
   workspaceId: null,
   workspace: null,
+  workspaceKind: null, // bidang | all | division | unassigned
+  workspaceIsAdmin: false,
+  workspaceSummary: { total: 0, bidang: 0, division: 0, unassigned: 0 },
 };
 
 const els = {
@@ -114,15 +117,26 @@ const els = {
 const WORKSPACE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M6 20V9.5L12 5l6 4.5V20"/><path d="M10 20v-4h4v4"/></svg>`;
 
 function readWorkspaceFromUrl() {
-  const raw = new URLSearchParams(window.location.search).get("workspace");
+  const params = new URLSearchParams(window.location.search);
+  const kind = (params.get("ws") || "").trim().toLowerCase();
+  if (kind === "all" || kind === "division" || kind === "unassigned") {
+    return { kind, id: null };
+  }
+  const raw = params.get("workspace");
   const id = Number(raw);
-  return Number.isFinite(id) && id > 0 ? id : null;
+  if (Number.isFinite(id) && id > 0) return { kind: "bidang", id };
+  return { kind: null, id: null };
 }
 
-function setWorkspaceUrl(workspaceId) {
+function setWorkspaceUrl({ kind = null, id = null } = {}) {
   const url = new URL(window.location.href);
-  if (workspaceId) url.searchParams.set("workspace", String(workspaceId));
-  else url.searchParams.delete("workspace");
+  url.searchParams.delete("workspace");
+  url.searchParams.delete("ws");
+  if (kind === "bidang" && id) {
+    url.searchParams.set("workspace", String(id));
+  } else if (kind === "all" || kind === "division" || kind === "unassigned") {
+    url.searchParams.set("ws", kind);
+  }
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -923,15 +937,53 @@ async function loadStats() {
 
 function renderWorkspacePicker() {
   if (!els.workspaceGrid) return;
-  if (!state.workspaces.length) {
+  const summary = state.workspaceSummary || {};
+  const adminCards = state.workspaceIsAdmin
+    ? `
+    <button type="button" class="workspace-card workspace-card-all" data-workspace-kind="all">
+      <div class="workspace-card-top">
+        <span class="workspace-card-icon">${WORKSPACE_ICON}</span>
+        <span class="workspace-card-count">${Number(summary.total || 0)} project</span>
+      </div>
+      <h3>Semua Project</h3>
+      <p>Total seluruh project di aplikasi</p>
+    </button>
+    ${
+      Number(summary.division || 0) > 0
+        ? `<button type="button" class="workspace-card workspace-card-division" data-workspace-kind="division">
+      <div class="workspace-card-top">
+        <span class="workspace-card-icon">${WORKSPACE_ICON}</span>
+        <span class="workspace-card-count">${Number(summary.division || 0)} project</span>
+      </div>
+      <h3>Level Divisi</h3>
+      <p>Belum dikaitkan ke Bidang spesifik</p>
+    </button>`
+        : ""
+    }
+    ${
+      Number(summary.unassigned || 0) > 0
+        ? `<button type="button" class="workspace-card workspace-card-unassigned" data-workspace-kind="unassigned">
+      <div class="workspace-card-top">
+        <span class="workspace-card-icon">${WORKSPACE_ICON}</span>
+        <span class="workspace-card-count">${Number(summary.unassigned || 0)} project</span>
+      </div>
+      <h3>Belum diklasifikasi</h3>
+      <p>Perlu ditetapkan kepemilikannya</p>
+    </button>`
+        : ""
+    }`
+    : "";
+
+  if (!state.workspaces.length && !adminCards) {
     els.workspaceGrid.innerHTML =
       `<div class="workspace-empty">Belum ada Bidang aktif di Divisi Anda.</div>`;
     return;
   }
-  els.workspaceGrid.innerHTML = state.workspaces
+
+  const bidangCards = state.workspaces
     .map(
       (ws) => `
-    <button type="button" class="workspace-card" data-workspace-id="${ws.id}">
+    <button type="button" class="workspace-card" data-workspace-kind="bidang" data-workspace-id="${ws.id}">
       <div class="workspace-card-top">
         <span class="workspace-card-icon">${WORKSPACE_ICON}</span>
         <span class="workspace-card-count">${Number(ws.project_count || 0)} project</span>
@@ -945,18 +997,27 @@ function renderWorkspacePicker() {
     </button>`
     )
     .join("");
+
+  els.workspaceGrid.innerHTML = `${adminCards}${bidangCards}`;
 }
 
 function syncWorkspaceView() {
-  const usePicker = state.workspacesEnabled && !state.workspaceId;
+  const inList =
+    Boolean(state.workspaceKind) ||
+    Boolean(state.workspaceId) ||
+    !state.workspacesEnabled;
+  const usePicker = state.workspacesEnabled && !inList;
   if (els.workspacePicker) els.workspacePicker.hidden = !usePicker;
   if (els.listView) els.listView.hidden = usePicker;
 
   const ws = state.workspace;
-  const inWorkspace = Boolean(state.workspacesEnabled && ws);
+  const inWorkspace = Boolean(state.workspacesEnabled && inList && state.workspaceKind);
   if (els.workspaceCrumb) els.workspaceCrumb.hidden = !inWorkspace;
-  if (els.workspaceCrumbName && ws) {
-    els.workspaceCrumbName.textContent = ws.label || ws.name;
+  if (els.workspaceCrumbName) {
+    if (state.workspaceKind === "all") els.workspaceCrumbName.textContent = "Semua Project";
+    else if (state.workspaceKind === "division") els.workspaceCrumbName.textContent = "Level Divisi";
+    else if (state.workspaceKind === "unassigned") els.workspaceCrumbName.textContent = "Belum diklasifikasi";
+    else if (ws) els.workspaceCrumbName.textContent = ws.label || ws.name;
   }
   if (els.projectsHero) els.projectsHero.classList.toggle("is-workspace", inWorkspace);
   if (els.projectsHeading) {
@@ -964,19 +1025,32 @@ function syncWorkspaceView() {
     els.projectsHeading.hidden = inWorkspace;
   }
   if (els.pageSubtitle) {
-    els.pageSubtitle.textContent = usePicker
-      ? "Pilih workspace Bidang"
-      : "Kelola dan pantau project.";
+    if (usePicker) {
+      const s = state.workspaceSummary || {};
+      els.pageSubtitle.textContent = state.workspaceIsAdmin
+        ? `Pilih workspace · total ${Number(s.total || 0)} project`
+        : "Pilih workspace Bidang";
+    } else {
+      els.pageSubtitle.textContent = "Kelola dan pantau project.";
+    }
   }
   if (els.workspacePickerSub) {
-    els.workspacePickerSub.textContent = state.workspaceDivision?.name
-      ? state.workspaceDivision.name
-      : "Bidang di Divisi Anda";
+    const s = state.workspaceSummary || {};
+    if (state.workspaceIsAdmin) {
+      els.workspacePickerSub.textContent =
+        `Total ${Number(s.total || 0)} · Bidang ${Number(s.bidang || 0)} · Divisi ${Number(s.division || 0)}` +
+        (Number(s.unassigned || 0) ? ` · Belum diklasifikasi ${Number(s.unassigned || 0)}` : "");
+    } else {
+      els.workspacePickerSub.textContent = state.workspaceDivision?.name
+        ? state.workspaceDivision.name
+        : "Bidang di Divisi Anda";
+    }
   }
   if (els.btnNew) {
-    const href = state.workspaceId
-      ? `/projects/new?workspace=${state.workspaceId}`
-      : "/projects/new";
+    const href =
+      state.workspaceKind === "bidang" && state.workspaceId
+        ? `/projects/new?workspace=${state.workspaceId}`
+        : "/projects/new";
     els.btnNew.setAttribute("href", href);
   }
 }
@@ -987,33 +1061,74 @@ async function loadWorkspaces() {
     state.workspacesEnabled = Boolean(data.enabled);
     state.workspaces = Array.isArray(data.items) ? data.items : [];
     state.workspaceDivision = data.division || null;
+    state.workspaceIsAdmin = Boolean(data.is_admin);
+    state.workspaceSummary = data.summary || { total: 0, bidang: 0, division: 0, unassigned: 0 };
   } catch {
     state.workspacesEnabled = false;
     state.workspaces = [];
     state.workspaceDivision = null;
+    state.workspaceIsAdmin = false;
+    state.workspaceSummary = { total: 0, bidang: 0, division: 0, unassigned: 0 };
   }
 
   const fromUrl = readWorkspaceFromUrl();
-  if (state.workspacesEnabled && fromUrl) {
-    state.workspace =
-      state.workspaces.find((w) => Number(w.id) === Number(fromUrl)) || null;
-    state.workspaceId = state.workspace ? Number(state.workspace.id) : null;
-    if (!state.workspaceId) setWorkspaceUrl(null);
+  if (state.workspacesEnabled && fromUrl.kind) {
+    if (fromUrl.kind === "bidang" && fromUrl.id) {
+      state.workspace =
+        state.workspaces.find((w) => Number(w.id) === Number(fromUrl.id)) || null;
+      state.workspaceId = state.workspace ? Number(state.workspace.id) : null;
+      state.workspaceKind = state.workspaceId ? "bidang" : null;
+      if (!state.workspaceId) setWorkspaceUrl({});
+    } else if (
+      state.workspaceIsAdmin &&
+      (fromUrl.kind === "all" || fromUrl.kind === "division" || fromUrl.kind === "unassigned")
+    ) {
+      state.workspace = null;
+      state.workspaceId = null;
+      state.workspaceKind = fromUrl.kind;
+    } else {
+      state.workspace = null;
+      state.workspaceId = null;
+      state.workspaceKind = null;
+      setWorkspaceUrl({});
+    }
   } else {
     state.workspaceId = null;
     state.workspace = null;
+    state.workspaceKind = null;
   }
   renderWorkspacePicker();
   syncWorkspaceView();
 }
 
-function enterWorkspace(workspaceId) {
+function enterWorkspace(workspaceId, kind = "bidang") {
+  if (kind === "all" || kind === "division" || kind === "unassigned") {
+    if (!state.workspaceIsAdmin) return;
+    state.workspace = {
+      id: null,
+      kind,
+      label:
+        kind === "all"
+          ? "Semua Project"
+          : kind === "division"
+            ? "Level Divisi"
+            : "Belum diklasifikasi",
+    };
+    state.workspaceId = null;
+    state.workspaceKind = kind;
+    state.page = 1;
+    setWorkspaceUrl({ kind });
+    syncWorkspaceView();
+    return Promise.all([loadStats(), loadProjects()]);
+  }
+
   const ws = state.workspaces.find((w) => Number(w.id) === Number(workspaceId));
   if (!ws) return;
   state.workspace = ws;
   state.workspaceId = Number(ws.id);
+  state.workspaceKind = "bidang";
   state.page = 1;
-  setWorkspaceUrl(state.workspaceId);
+  setWorkspaceUrl({ kind: "bidang", id: state.workspaceId });
   syncWorkspaceView();
   return Promise.all([loadStats(), loadProjects()]);
 }
@@ -1021,12 +1136,13 @@ function enterWorkspace(workspaceId) {
 function exitWorkspace() {
   state.workspace = null;
   state.workspaceId = null;
+  state.workspaceKind = null;
   state.page = 1;
   state.query = "";
   state.status = "";
   if (els.search) els.search.value = "";
   if (els.filter) els.filter.value = "";
-  setWorkspaceUrl(null);
+  setWorkspaceUrl({});
   syncWorkspaceView();
 }
 
@@ -1035,10 +1151,15 @@ async function loadProjects() {
   if (state.query) params.set("q", state.query);
   if (state.status) params.set("status", state.status);
   if (state.ownerType) params.set("owner_type", state.ownerType);
-  if (state.workspaceId) {
+  if (state.workspaceKind === "bidang" && state.workspaceId) {
     params.set("owner_type", "bidang");
     params.set("owner_bidang_id", String(state.workspaceId));
+  } else if (state.workspaceKind === "division") {
+    params.set("owner_type", "division");
+  } else if (state.workspaceKind === "unassigned") {
+    params.set("owner_type", "unassigned");
   }
+  // workspaceKind === "all" → no ownership filter
   params.set("page", String(state.page));
   params.set("page_size", String(state.pageSize));
   const data = await api(`/api/projects?${params.toString()}`);
@@ -1316,10 +1437,11 @@ function wireEvents() {
   });
 
   els.workspaceGrid?.addEventListener("click", async (e) => {
-    const card = e.target.closest("[data-workspace-id]");
+    const card = e.target.closest("[data-workspace-kind]");
     if (!card) return;
+    const kind = card.dataset.workspaceKind || "bidang";
     try {
-      await enterWorkspace(card.dataset.workspaceId);
+      await enterWorkspace(card.dataset.workspaceId, kind);
     } catch (err) {
       els.list.innerHTML = `<tr><td colspan="10" class="list-empty">${escapeHtml(err.message || "Gagal membuka workspace")}</td></tr>`;
     }
@@ -1364,7 +1486,7 @@ async function boot() {
     await loadCurrentUser();
     await loadWorkspaces();
     const jobs = [loadUsers(), loadOrganizationOptions(), loadScopeStatus()];
-    if (!state.workspacesEnabled || state.workspaceId) {
+    if (!state.workspacesEnabled || state.workspaceKind) {
       jobs.unshift(loadStats(), loadProjects());
     }
     await Promise.all(jobs);

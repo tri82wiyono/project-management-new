@@ -120,6 +120,19 @@
   padding: 4px 8px;
   white-space: nowrap;
 }
+.workspace-card-all {
+  border-color: #c7d7fe;
+  background: linear-gradient(180deg, #f8faff, #fff);
+}
+.workspace-card-all .workspace-card-count {
+  color: #1d4ed8;
+  background: #dbe7ff;
+}
+.workspace-card-division .workspace-card-count,
+.workspace-card-unassigned .workspace-card-count {
+  color: #92400e;
+  background: #fef3c7;
+}
 .workspace-card h3 {
   margin: 0;
   font-size: 0.92rem;

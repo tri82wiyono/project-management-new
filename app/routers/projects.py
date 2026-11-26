@@ -222,8 +222,10 @@ def list_project_workspaces(
     if not division_ids:
         return {
             "enabled": False,
+            "is_admin": bool(ctx.is_admin),
             "division": None,
             "items": [],
+            "summary": {"total": 0, "bidang": 0, "division": 0, "unassigned": 0},
             "note": "Workspace hanya untuk Pemimpin Divisi (atau Admin).",
         }
 
@@ -253,6 +255,57 @@ def list_project_workspaces(
         ).all()
         if bidang_id is not None
     }
+
+    # Admin summary across all projects (not limited to led divisions).
+    if ctx.is_admin:
+        total_projects = int(db.scalar(select(func.count()).select_from(Project)) or 0)
+        division_owned = int(
+            db.scalar(
+                select(func.count()).select_from(Project).where(
+                    Project.owner_type == ProjectOwnerType.division.value
+                )
+            )
+            or 0
+        )
+        unassigned = int(
+            db.scalar(
+                select(func.count()).select_from(Project).where(
+                    or_(
+                        Project.owner_type.is_(None),
+                        Project.owner_type == "",
+                        Project.owner_type == ProjectOwnerType.unassigned.value,
+                    )
+                )
+            )
+            or 0
+        )
+        bidang_owned = int(
+            db.scalar(
+                select(func.count()).select_from(Project).where(
+                    Project.owner_type == ProjectOwnerType.bidang.value
+                )
+            )
+            or 0
+        )
+    else:
+        visible = org_scope.project_visibility_filter(db, user)
+        total_q = select(func.count()).select_from(Project)
+        division_q = (
+            select(func.count())
+            .select_from(Project)
+            .where(
+                Project.owner_type == ProjectOwnerType.division.value,
+                Project.owner_division_id.in_(list(division_ids) or [-1]),
+            )
+        )
+        if visible is not None:
+            total_q = total_q.where(visible)
+            division_q = division_q.where(visible)
+        total_projects = int(db.scalar(total_q) or 0)
+        division_owned = int(db.scalar(division_q) or 0)
+        unassigned = 0
+        bidang_owned = sum(counts.values())
+
     leaders = {}
     leader_ids = [b.leader_user_id for b in bidangs if b.leader_user_id]
     if leader_ids:
@@ -262,6 +315,7 @@ def list_project_workspaces(
     items = [
         {
             "id": b.id,
+            "kind": "bidang",
             "code": b.code,
             "name": b.name,
             "label": _workspace_label(b.name),
@@ -277,11 +331,18 @@ def list_project_workspaces(
     primary = divisions[0] if divisions else None
     return {
         "enabled": True,
+        "is_admin": bool(ctx.is_admin),
         "division": (
             {"id": primary.id, "code": primary.code, "name": primary.name}
             if primary
             else None
         ),
+        "summary": {
+            "total": total_projects,
+            "bidang": bidang_owned,
+            "division": division_owned,
+            "unassigned": unassigned,
+        },
         "items": items,
     }
 
