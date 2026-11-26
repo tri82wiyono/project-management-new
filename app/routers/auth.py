@@ -292,6 +292,7 @@ def get_captcha() -> dict:
 
 @router.get("/api/auth/me")
 def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
+    from app.services import org_scope
     from app.services.security_settings import get_or_create_security_settings, session_expires_at
 
     user = get_optional_user(request, db)
@@ -301,6 +302,9 @@ def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
     authenticated_at = request.session.get("authenticated_at")
     last_activity_at = request.session.get("last_activity_at") or authenticated_at
     expires = session_expires_at(last_activity_at, policy.session_timeout_minutes)
+    owner_type, owner_division_id, owner_bidang_id = org_scope.ownership_from_user_placement(
+        db, user
+    )
     return {
         "id": user.id,
         "name": user.name,
@@ -315,6 +319,12 @@ def auth_me(request: Request, db: Session = Depends(get_db)) -> dict:
         "last_activity_at": last_activity_at,
         "session_expires_at": expires.isoformat() if expires else None,
         "session_mode": "idle",
+        "primary_bidang_id": getattr(user, "primary_bidang_id", None),
+        "default_ownership": {
+            "owner_type": owner_type,
+            "owner_division_id": owner_division_id,
+            "owner_bidang_id": owner_bidang_id,
+        },
     }
 
 

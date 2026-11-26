@@ -3,8 +3,8 @@
 {% block title %}{{ page_title }} · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=24" />
-  <link rel="stylesheet" href="/static/css/project-form.css?v=8" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=30" />
+  <link rel="stylesheet" href="/static/css/project-form.css?v=9" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" />
 {% endblock %}
 
@@ -211,6 +211,38 @@
 
       <section class="form-section">
         <div class="form-section-head">
+          <h2>Kepemilikan Organisasi</h2>
+          <p>Tentukan Divisi/Bidang pemilik project. Boleh berbeda dari Bidang yang login jika project dikerjakan unit lain.</p>
+        </div>
+        <div class="form-section-body">
+          <div class="field-row">
+            <label class="field">
+              <span>Jenis kepemilikan <em>*</em></span>
+              <select id="field-owner-type" name="owner_type" required>
+                <option value="bidang">Bidang</option>
+                <option value="division">Divisi</option>
+                <option value="unassigned">Belum diklasifikasi</option>
+              </select>
+            </label>
+            <label class="field" id="owner-division-field">
+              <span>Divisi <em>*</em></span>
+              <select id="field-owner-division" name="owner_division_id">
+                <option value="">— Pilih Divisi —</option>
+              </select>
+            </label>
+          </div>
+          <label class="field" id="owner-bidang-field">
+            <span>Bidang <em>*</em></span>
+            <select id="field-owner-bidang" name="owner_bidang_id">
+              <option value="">— Pilih Bidang —</option>
+            </select>
+            <small class="field-hint">Default mengikuti penempatan Anda; ubah jika project milik Bidang lain.</small>
+          </label>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-head">
           <h2>Project Manager (PIC)</h2>
           <p>Tunjuk PIC project. Kolaborasi lintas unit tetap lewat penambahan anggota di sini.</p>
         </div>
@@ -253,5 +285,5 @@
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-  <script src="/static/js/project-form.js?v=11" defer></script>
+  <script src="/static/js/project-form.js?v=12" defer></script>
 {% endblock %}

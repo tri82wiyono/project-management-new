@@ -38,6 +38,9 @@
     picSearch: "",
     pendingDocs: [],
     existingDocs: [],
+    divisions: [],
+    bidangsByDivision: {},
+    defaultOwnership: null,
   };
 
   const els = {
@@ -49,6 +52,11 @@
     rbbInfoBox: document.getElementById("rbb-info-box"),
     rbbYear: document.getElementById("field-rbb-year"),
     rbbProgramRef: document.getElementById("field-rbb-program-ref"),
+    ownerType: document.getElementById("field-owner-type"),
+    ownerDivision: document.getElementById("field-owner-division"),
+    ownerBidang: document.getElementById("field-owner-bidang"),
+    ownerDivisionField: document.getElementById("owner-division-field"),
+    ownerBidangField: document.getElementById("owner-bidang-field"),
     budgetDisplay: document.getElementById("field-budget"),
     budgetValue: document.getElementById("field-budget-value"),
     description: document.getElementById("field-description"),
@@ -509,6 +517,121 @@
     state.users = await api("/api/team?active_only=true");
   }
 
+  async function loadOrganizationOptions() {
+    try {
+      const data = await api("/api/organization/ownership-options");
+      state.divisions = Array.isArray(data.divisions) ? data.divisions : [];
+      state.bidangsByDivision = {};
+      for (const b of Array.isArray(data.bidangs) ? data.bidangs : []) {
+        const key = String(b.division_id);
+        if (!state.bidangsByDivision[key]) state.bidangsByDivision[key] = [];
+        state.bidangsByDivision[key].push(b);
+      }
+    } catch {
+      state.divisions = [];
+      state.bidangsByDivision = {};
+    }
+  }
+
+  async function loadDefaultOwnership() {
+    try {
+      const me = await api("/api/auth/me");
+      state.defaultOwnership = me?.default_ownership || null;
+    } catch {
+      state.defaultOwnership = null;
+    }
+  }
+
+  function readWorkspaceBidangId() {
+    const raw = new URLSearchParams(window.location.search).get("workspace");
+    const id = Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+
+  function findBidangMeta(bidangId) {
+    if (!bidangId) return null;
+    for (const [divisionId, items] of Object.entries(state.bidangsByDivision)) {
+      const found = (items || []).find((b) => Number(b.id) === Number(bidangId));
+      if (found) return { ...found, division_id: Number(divisionId) };
+    }
+    return null;
+  }
+
+  function syncOwnershipFields() {
+    const kind = els.ownerType?.value || "unassigned";
+    if (els.ownerDivisionField) els.ownerDivisionField.hidden = kind === "unassigned";
+    if (els.ownerBidangField) els.ownerBidangField.hidden = kind !== "bidang";
+    if (kind === "unassigned") {
+      if (els.ownerDivision) els.ownerDivision.value = "";
+      if (els.ownerBidang) els.ownerBidang.value = "";
+    }
+    if (kind === "division" && els.ownerBidang) els.ownerBidang.value = "";
+  }
+
+  function fillDivisionOptions(selectedId = "") {
+    if (!els.ownerDivision) return;
+    els.ownerDivision.innerHTML =
+      `<option value="">— Pilih Divisi —</option>` +
+      state.divisions
+        .map(
+          (d) =>
+            `<option value="${d.id}" ${String(d.id) === String(selectedId) ? "selected" : ""}>${escapeHtml(d.name)}</option>`
+        )
+        .join("");
+  }
+
+  async function loadBidangsForDivision(divisionId, selectedBidangId = "") {
+    if (!els.ownerBidang) return;
+    if (!divisionId) {
+      els.ownerBidang.innerHTML = `<option value="">— Pilih Bidang —</option>`;
+      return;
+    }
+    let items = state.bidangsByDivision[divisionId] || state.bidangsByDivision[String(divisionId)];
+    if (!items) {
+      await loadOrganizationOptions();
+      items = state.bidangsByDivision[divisionId] || state.bidangsByDivision[String(divisionId)] || [];
+    }
+    els.ownerBidang.innerHTML =
+      `<option value="">— Pilih Bidang —</option>` +
+      (items || [])
+        .map(
+          (b) =>
+            `<option value="${b.id}" ${String(b.id) === String(selectedBidangId) ? "selected" : ""}>${escapeHtml(b.name)}</option>`
+        )
+        .join("");
+  }
+
+  async function applyOwnershipToForm(project = null) {
+    let kind = project?.owner_type || null;
+    let divisionId = project?.owner_division_id || null;
+    let bidangId = project?.owner_bidang_id || null;
+
+    if (!project) {
+      const workspaceBidangId = readWorkspaceBidangId();
+      const workspaceMeta = findBidangMeta(workspaceBidangId);
+      if (workspaceMeta) {
+        kind = "bidang";
+        divisionId = workspaceMeta.division_id;
+        bidangId = workspaceMeta.id;
+      } else if (state.defaultOwnership) {
+        kind = state.defaultOwnership.owner_type || "unassigned";
+        divisionId = state.defaultOwnership.owner_division_id || null;
+        bidangId = state.defaultOwnership.owner_bidang_id || null;
+      } else {
+        kind = "unassigned";
+      }
+    }
+
+    if (els.ownerType) els.ownerType.value = kind || "unassigned";
+    fillDivisionOptions(divisionId || "");
+    syncOwnershipFields();
+    if ((kind || "unassigned") === "bidang") {
+      await loadBidangsForDivision(divisionId || "", bidangId || "");
+    } else if (els.ownerBidang) {
+      els.ownerBidang.innerHTML = `<option value="">— Pilih Bidang —</option>`;
+    }
+  }
+
   async function populateForm(project = null) {
     state.selectedPicIds = [];
     state.picSearch = "";
@@ -535,6 +658,7 @@
         if (els.description) els.description.value = quill.root.innerHTML;
       }
       setSelectedPicsFromNames(project.pic || "");
+      await applyOwnershipToForm(project);
       try {
         const docs = project.documents?.length
           ? project.documents
@@ -561,6 +685,7 @@
         if (els.description) els.description.value = "";
       }
       syncPicField();
+      await applyOwnershipToForm(null);
       renderDocList();
     }
   }
@@ -579,6 +704,9 @@
     const rbbYear = rbbYearRaw ? Number(rbbYearRaw) : null;
     const rbbProgramRef = (els.rbbProgramRef?.value || "").trim() || null;
     const budget = syncBudgetFromDisplay();
+    const ownerType = (els.ownerType?.value || "unassigned").trim();
+    const ownerDivisionId = els.ownerDivision?.value ? Number(els.ownerDivision.value) : null;
+    const ownerBidangId = els.ownerBidang?.value ? Number(els.ownerBidang.value) : null;
     const payload = {
       name: document.getElementById("field-name").value.trim(),
       description: getDescriptionHtml(),
@@ -592,6 +720,10 @@
       rbb_program_ref: workCategories.includes("rbb") ? rbbProgramRef : null,
       budget,
       member_ids: state.selectedPicIds.slice(),
+      owner_type: ownerType,
+      owner_division_id:
+        ownerType === "division" || ownerType === "bidang" ? ownerDivisionId : null,
+      owner_bidang_id: ownerType === "bidang" ? ownerBidangId : null,
     };
 
     const missing = [];
@@ -600,6 +732,8 @@
     if (!workType) missing.push("jenis pekerjaan");
     if (!workCategories.length) missing.push("kategori pekerjaan");
     if (workCategories.includes("rbb") && !rbbYear) missing.push("tahun RBB");
+    if (ownerType === "division" && !ownerDivisionId) missing.push("divisi");
+    if (ownerType === "bidang" && (!ownerDivisionId || !ownerBidangId)) missing.push("divisi/bidang");
     if (!payload.pic || !state.selectedPicIds.length) missing.push("PIC");
     if (!payload.start_date || !payload.end_date) missing.push("tanggal");
     if (missing.length) {
@@ -767,8 +901,19 @@
     els.budgetDisplay?.addEventListener("blur", syncBudgetFromDisplay);
     fillRbbYearOptions();
     els.workCategoryGrid?.addEventListener("change", syncRbbFieldsVisibility);
+    els.ownerType?.addEventListener("change", async () => {
+      syncOwnershipFields();
+      if ((els.ownerType?.value || "") === "bidang") {
+        await loadBidangsForDivision(els.ownerDivision?.value || "");
+      }
+    });
+    els.ownerDivision?.addEventListener("change", async () => {
+      if ((els.ownerType?.value || "") === "bidang") {
+        await loadBidangsForDivision(els.ownerDivision.value || "");
+      }
+    });
 
-    await loadUsers();
+    await Promise.all([loadUsers(), loadOrganizationOptions(), loadDefaultOwnership()]);
 
     if (mode === "edit" && projectId) {
       const project = await api(`/api/projects/${projectId}`);
