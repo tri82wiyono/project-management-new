@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -102,10 +102,12 @@ def list_users(
     division_id: int | None = None,
     bidang_id: int | None = None,
     unassigned: bool | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> dict:
-    users = placement_svc.list_users_with_placement(
+    users, filtered_total = placement_svc.list_users_with_placement(
         db,
         q=q,
         role=role,
@@ -113,12 +115,20 @@ def list_users(
         division_id=division_id,
         bidang_id=bidang_id,
         unassigned=unassigned,
+        page=page,
+        page_size=page_size,
     )
+    pages = max(1, (filtered_total + page_size - 1) // page_size) if filtered_total else 1
+    current_page = min(page, pages)
     total = db.scalar(select(func.count()).select_from(User)) or 0
     active_count = db.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))) or 0
     unassigned_count = placement_svc.count_unassigned_users(db)
     return {
         "items": [_serialize(db, u) for u in users],
+        "total": filtered_total,
+        "page": current_page,
+        "page_size": page_size,
+        "pages": pages,
         "roles": list_roles(db, active_only=True),
         "stats": {
             "total": total,

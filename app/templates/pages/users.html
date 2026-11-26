@@ -3,7 +3,7 @@
 {% block title %}Users · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/users.css?v=17" />
+  <link rel="stylesheet" href="/static/css/users.css?v=18" />
 {% endblock %}
 
 {% block header %}
@@ -82,6 +82,7 @@
           </thead>
           <tbody id="users-tbody"></tbody>
         </table>
+        <div class="users-pagination" id="users-pagination" aria-label="Navigasi halaman users"></div>
       </section>
     </div>
 
@@ -351,5 +352,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/users.js?v=17" defer></script>
+  <script src="/static/js/users.js?v=18" defer></script>
 {% endblock %}

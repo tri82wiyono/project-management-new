@@ -59,6 +59,7 @@
   const divisionFilterEl = $("user-division-filter");
   const bidangFilterEl = $("user-bidang-filter");
   const placementFilterEl = $("user-placement-filter");
+  const paginationEl = $("users-pagination");
   const modal = $("user-modal");
   const form = $("user-form");
   const formStatus = $("user-form-status");
@@ -72,6 +73,12 @@
   let divisionsCache = [];
   let bidangCache = [];
   let usersCache = [];
+  const usersPager = {
+    page: 1,
+    pageSize: 10,
+    pages: 1,
+    total: 0,
+  };
 
   function setStatus(el, message, kind) {
     if (!el) return;
@@ -360,10 +367,47 @@
     return `<button type="button" class="icon-action ${extraClass}" data-action="${action}" title="${label}" aria-label="${label}">${icon}<span class="sr-only">${label}</span></button>`;
   }
 
+  function pageWindow(current, totalPages) {
+    const pages = [];
+    const windowSize = 5;
+    let start = Math.max(1, current - Math.floor(windowSize / 2));
+    let end = Math.min(totalPages, start + windowSize - 1);
+    start = Math.max(1, end - windowSize + 1);
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    return pages;
+  }
+
+  function renderUsersPagination() {
+    if (!paginationEl) return;
+    if (!usersPager.total) {
+      paginationEl.innerHTML = "";
+      return;
+    }
+    const from = (usersPager.page - 1) * usersPager.pageSize + 1;
+    const to = Math.min(usersPager.page * usersPager.pageSize, usersPager.total);
+    const pages = pageWindow(usersPager.page, usersPager.pages);
+    paginationEl.innerHTML = `
+      <div class="pagination-meta">
+        Menampilkan <strong>${from}–${to}</strong> dari <strong>${usersPager.total}</strong> user
+      </div>
+      <div class="pagination-controls">
+        <button type="button" class="btn btn-ghost btn-sm" data-page="prev" ${usersPager.page <= 1 ? "disabled" : ""}>‹ Prev</button>
+        ${pages
+          .map(
+            (p) =>
+              `<button type="button" class="btn btn-sm ${p === usersPager.page ? "btn-primary" : "btn-ghost"}" data-page="${p}">${p}</button>`
+          )
+          .join("")}
+        <button type="button" class="btn btn-ghost btn-sm" data-page="next" ${usersPager.page >= usersPager.pages ? "disabled" : ""}>Next ›</button>
+      </div>
+    `;
+  }
+
   function renderRows(items) {
     usersCache = items || [];
     if (!items.length) {
       tbody.innerHTML = `<tr><td colspan="7" style="color:var(--muted)">Belum ada user.</td></tr>`;
+      renderUsersPagination();
       return;
     }
     tbody.innerHTML = items
@@ -400,10 +444,14 @@
         </tr>`;
       })
       .join("");
+    renderUsersPagination();
   }
 
-  async function loadUsers() {
+  async function loadUsers({ resetPage = false } = {}) {
+    if (resetPage) usersPager.page = 1;
     const params = new URLSearchParams();
+    params.set("page", String(usersPager.page));
+    params.set("page_size", String(usersPager.pageSize));
     if (searchEl.value.trim()) params.set("q", searchEl.value.trim());
     if (roleFilterEl.value) params.set("role", roleFilterEl.value);
     if (activeFilterEl.value) params.set("active", activeFilterEl.value);
@@ -419,6 +467,7 @@
     }
     if (res.status === 403) {
       tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">Hanya Admin yang dapat mengelola user.</td></tr>`;
+      if (paginationEl) paginationEl.innerHTML = "";
       return;
     }
     if (!res.ok) throw new Error("Gagal memuat users");
@@ -429,6 +478,10 @@
     fillRoleSelects();
     if (previousRoleFilter) roleFilterEl.value = previousRoleFilter;
     if (previousFormRole) $("field-role").value = previousFormRole;
+    usersPager.total = Number(data.total || 0);
+    usersPager.page = Number(data.page || usersPager.page);
+    usersPager.pageSize = Number(data.page_size || usersPager.pageSize);
+    usersPager.pages = Number(data.pages || 1);
     renderStats(data.stats || {});
     renderRows(data.items || []);
   }
@@ -687,11 +740,27 @@
   function scheduleReload() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      loadUsers().catch((err) => {
+      loadUsers({ resetPage: true }).catch((err) => {
         tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">${escapeHtml(err.message)}</td></tr>`;
       });
     }, 250);
   }
+
+  paginationEl?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-page]");
+    if (!btn || btn.disabled) return;
+    const raw = btn.getAttribute("data-page");
+    let next = usersPager.page;
+    if (raw === "prev") next = usersPager.page - 1;
+    else if (raw === "next") next = usersPager.page + 1;
+    else next = Number(raw) || usersPager.page;
+    next = Math.max(1, Math.min(usersPager.pages, next));
+    if (next === usersPager.page) return;
+    usersPager.page = next;
+    loadUsers().catch((err) => {
+      tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">${escapeHtml(err.message)}</td></tr>`;
+    });
+  });
 
   searchEl.addEventListener("input", scheduleReload);
   roleFilterEl.addEventListener("change", scheduleReload);

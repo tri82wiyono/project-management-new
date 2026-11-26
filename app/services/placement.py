@@ -178,30 +178,54 @@ def list_users_with_placement(
     division_id: int | None = None,
     bidang_id: int | None = None,
     unassigned: bool | None = None,
-) -> list[User]:
+    page: int | None = None,
+    page_size: int | None = None,
+) -> tuple[list[User], int]:
+    """Return matching users and filtered total. Optional page/page_size for pagination."""
+    filters = []
+    join_bidang = False
+    if q:
+        like = f"%{q.strip()}%"
+        filters.append((User.name.ilike(like)) | (User.email.ilike(like)))
+    if role:
+        filters.append(User.role == role)
+    if active is not None:
+        filters.append(User.is_active.is_(active))
+    if bidang_id is not None:
+        filters.append(User.primary_bidang_id == int(bidang_id))
+    if division_id is not None:
+        join_bidang = True
+        filters.append(Bidang.division_id == int(division_id))
+    if unassigned is True:
+        filters.append(User.primary_bidang_id.is_(None))
+    elif unassigned is False:
+        filters.append(User.primary_bidang_id.is_not(None))
+
+    count_stmt = select(func.count()).select_from(User)
+    if join_bidang:
+        count_stmt = count_stmt.join(Bidang, User.primary_bidang_id == Bidang.id, isouter=False)
+    if filters:
+        count_stmt = count_stmt.where(*filters)
+    filtered_total = int(db.scalar(count_stmt) or 0)
+
     stmt = (
         select(User)
         .options(joinedload(User.primary_bidang).joinedload(Bidang.division))
-        .order_by(User.name.asc())
+        .order_by(User.name.asc(), User.id.asc())
     )
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where((User.name.ilike(like)) | (User.email.ilike(like)))
-    if role:
-        stmt = stmt.where(User.role == role)
-    if active is not None:
-        stmt = stmt.where(User.is_active.is_(active))
-    if bidang_id is not None:
-        stmt = stmt.where(User.primary_bidang_id == int(bidang_id))
-    if division_id is not None:
-        stmt = stmt.join(Bidang, User.primary_bidang_id == Bidang.id, isouter=False).where(
-            Bidang.division_id == int(division_id)
-        )
-    if unassigned is True:
-        stmt = stmt.where(User.primary_bidang_id.is_(None))
-    elif unassigned is False:
-        stmt = stmt.where(User.primary_bidang_id.is_not(None))
-    return list(db.scalars(stmt).unique().all())
+    if join_bidang:
+        stmt = stmt.join(Bidang, User.primary_bidang_id == Bidang.id, isouter=False)
+    if filters:
+        stmt = stmt.where(*filters)
+
+    if page is not None and page_size is not None:
+        size = max(1, int(page_size))
+        pages = max(1, (filtered_total + size - 1) // size) if filtered_total else 1
+        current = min(max(1, int(page)), pages)
+        stmt = stmt.offset((current - 1) * size).limit(size)
+
+    users = list(db.scalars(stmt).unique().all())
+    return users, filtered_total
 
 
 def count_members_by_bidang(db: Session, bidang_ids: list[int] | None = None) -> dict[int, int]:
