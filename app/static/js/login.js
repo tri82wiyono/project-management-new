@@ -9,9 +9,6 @@
   const btnLogin = document.getElementById("btn-login");
   const btnRefresh = document.getElementById("btn-refresh-captcha");
   const btnTogglePassword = document.getElementById("btn-toggle-password");
-  const rememberEl = document.getElementById("login-remember");
-  const btnForgot = document.getElementById("btn-forgot-password");
-  const REMEMBER_KEY = "pm_login_email";
 
   const mfaForm = document.getElementById("mfa-form");
   const mfaCodeEl = document.getElementById("login-mfa-code");
@@ -139,20 +136,8 @@
     );
   });
 
-  btnForgot?.addEventListener("click", () => {
-    setStatus(
-      statusEl,
-      "Reset password dilakukan oleh admin. Hubungi administrator sistem.",
-      "err"
-    );
-  });
-
   try {
-    const saved = localStorage.getItem(REMEMBER_KEY);
-    if (saved && emailEl) {
-      emailEl.value = saved;
-      if (rememberEl) rememberEl.checked = true;
-    }
+    localStorage.removeItem("pm_login_email");
   } catch {
     /* ignore */
   }
@@ -194,13 +179,6 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(detailMessage(data, "Login gagal"));
-
-      try {
-        if (rememberEl?.checked && email) localStorage.setItem(REMEMBER_KEY, email);
-        else localStorage.removeItem(REMEMBER_KEY);
-      } catch {
-        /* ignore */
-      }
 
       if (data.mfa_required) {
         setStatus(statusEl, "");
