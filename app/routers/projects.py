@@ -88,7 +88,6 @@ def _normalize_work_classification(
     work_categories: list[str] | None,
     rbb_year: int | None,
     rbb_program_ref: str | None,
-    *,
     require_complete: bool = False,
 ) -> tuple[str | None, list[str], int | None, str | None]:
     wt = (work_type or "").strip() or None
