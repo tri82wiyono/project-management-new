@@ -32,6 +32,70 @@
       <input type="hidden" id="project-id" name="id" value="{{ project_id or '' }}" />
 
       <section class="form-section">
+        <div class="form-section-head form-section-head-split">
+          <div>
+            <h2>Klasifikasi &amp; Dasar Pekerjaan</h2>
+            <p>Tentukan dasar pelaksanaan pekerjaan. Dapat memilih lebih dari satu kategori.</p>
+          </div>
+          <span class="form-section-badge">Baru</span>
+        </div>
+        <div class="form-section-body">
+          <div class="field">
+            <span>Kategori Pekerjaan <em>*</em></span>
+            <div class="work-category-grid" id="work-category-grid" role="group" aria-label="Kategori pekerjaan">
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="rbb" />
+                <span>RBB</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="inisiatif" />
+                <span>Inisiatif</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="temuan_audit" />
+                <span>Temuan Audit</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="regulasi" />
+                <span>Regulasi</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="penugasan_manajemen" />
+                <span>Penugasan Manajemen</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="operasional" />
+                <span>Operasional</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="rbb-info-box" id="rbb-info-box" hidden>
+            <h3>Informasi RBB</h3>
+            <div class="field-row">
+              <label class="field">
+                <span>Tahun RBB <em>*</em></span>
+                <select id="field-rbb-year" name="rbb_year">
+                  <option value="">Pilih tahun</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Referensi Program RBB</span>
+                <input
+                  id="field-rbb-program-ref"
+                  name="rbb_program_ref"
+                  type="text"
+                  maxlength="120"
+                  placeholder="Kode / nomor program"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section">
         <div class="form-section-head">
           <h2>Informasi Project</h2>
           <p>Detail utama project yang akan dikelola.</p>
@@ -142,70 +206,6 @@
           <p class="field-hint status-derived-hint">
             Status project mengikuti progress task (Backlog → Dev → … → Release). Tidak perlu dipilih di form ini.
           </p>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="form-section-head form-section-head-split">
-          <div>
-            <h2>Klasifikasi &amp; Dasar Pekerjaan</h2>
-            <p>Tentukan dasar pelaksanaan pekerjaan. Dapat memilih lebih dari satu kategori.</p>
-          </div>
-          <span class="form-section-badge">Baru</span>
-        </div>
-        <div class="form-section-body">
-          <div class="field">
-            <span>Kategori Pekerjaan <em>*</em></span>
-            <div class="work-category-grid" id="work-category-grid" role="group" aria-label="Kategori pekerjaan">
-              <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="rbb" />
-                <span>RBB</span>
-              </label>
-              <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="inisiatif" />
-                <span>Inisiatif</span>
-              </label>
-              <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="temuan_audit" />
-                <span>Temuan Audit</span>
-              </label>
-              <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="regulasi" />
-                <span>Regulasi</span>
-              </label>
-              <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="penugasan_manajemen" />
-                <span>Penugasan Manajemen</span>
-              </label>
-              <label class="work-category-card">
-                <input type="checkbox" name="work_categories" value="operasional" />
-                <span>Operasional</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="rbb-info-box" id="rbb-info-box" hidden>
-            <h3>Informasi RBB</h3>
-            <div class="field-row">
-              <label class="field">
-                <span>Tahun RBB <em>*</em></span>
-                <select id="field-rbb-year" name="rbb_year">
-                  <option value="">Pilih tahun</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Referensi Program RBB</span>
-                <input
-                  id="field-rbb-program-ref"
-                  name="rbb_program_ref"
-                  type="text"
-                  maxlength="120"
-                  placeholder="Kode / nomor program"
-                  autocomplete="off"
-                />
-              </label>
-            </div>
-          </div>
         </div>
       </section>
 
