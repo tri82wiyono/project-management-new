@@ -48,6 +48,10 @@ class ProjectBase(BaseModel):
     end_date: date
     developed_by: str | None = Field(default=None, max_length=40)
     budget: int | None = Field(default=None, ge=0)
+    work_type: str | None = Field(default=None, max_length=40)
+    work_categories: list[str] = Field(default_factory=list)
+    rbb_year: int | None = Field(default=None, ge=2000, le=2100)
+    rbb_program_ref: str | None = Field(default=None, max_length=120)
     owner_type: str = "unassigned"
     owner_division_id: int | None = None
     owner_bidang_id: int | None = None
@@ -68,6 +72,10 @@ class ProjectUpdate(BaseModel):
     end_date: date | None = None
     developed_by: str | None = Field(default=None, max_length=40)
     budget: int | None = Field(default=None, ge=0)
+    work_type: str | None = Field(default=None, max_length=40)
+    work_categories: list[str] | None = None
+    rbb_year: int | None = Field(default=None, ge=2000, le=2100)
+    rbb_program_ref: str | None = Field(default=None, max_length=120)
     member_ids: list[int] | None = None
     owner_type: str | None = None
     owner_division_id: int | None = None

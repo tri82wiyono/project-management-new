@@ -320,6 +320,29 @@ class ProjectDevelopedBy(str, enum.Enum):
     blanket_mandays = "blanket_mandays"
 
 
+class ProjectWorkType(str, enum.Enum):
+    """Jenis pekerjaan (single select)."""
+
+    new_development = "new_development"
+    enhancement = "enhancement"
+    bug_fix = "bug_fix"
+    maintenance = "maintenance"
+    infrastructure = "infrastructure"
+    security = "security"
+    non_development = "non_development"
+
+
+class ProjectWorkCategory(str, enum.Enum):
+    """Dasar / klasifikasi pekerjaan (multi select)."""
+
+    rbb = "rbb"
+    inisiatif = "inisiatif"
+    temuan_audit = "temuan_audit"
+    regulasi = "regulasi"
+    penugasan_manajemen = "penugasan_manajemen"
+    operasional = "operasional"
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -337,6 +360,10 @@ class Project(Base):
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     developed_by: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     budget: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    work_type: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    work_categories: Mapped[list] = mapped_column(JSON, default=list)
+    rbb_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rbb_program_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
     # Phase 4 — organizational ownership (Division XOR Bidang; unassigned for legacy).
     owner_type: Mapped[str] = mapped_column(String(20), default=ProjectOwnerType.unassigned.value, index=True)
     owner_division_id: Mapped[int | None] = mapped_column(

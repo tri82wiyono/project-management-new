@@ -4,7 +4,7 @@
 
 {% block head_extra %}
   <link rel="stylesheet" href="/static/css/projects.css?v=24" />
-  <link rel="stylesheet" href="/static/css/project-form.css?v=7" />
+  <link rel="stylesheet" href="/static/css/project-form.css?v=8" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" />
 {% endblock %}
 
@@ -52,6 +52,22 @@
                 <option value="blanket_mandays">Blanket Mandays</option>
               </select>
             </label>
+            <label class="field">
+              <span>Jenis Pekerjaan <em>*</em></span>
+              <select id="field-work-type" name="work_type" required>
+                <option value="">Pilih jenis pekerjaan</option>
+                <option value="new_development">New Development</option>
+                <option value="enhancement">Enhancement</option>
+                <option value="bug_fix">Bug Fix</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="infrastructure">Infrastructure</option>
+                <option value="security">Security</option>
+                <option value="non_development">Non Development</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
             <label class="field">
               <span>Anggaran (Rp)</span>
               <input
@@ -126,6 +142,70 @@
           <p class="field-hint status-derived-hint">
             Status project mengikuti progress task (Backlog → Dev → … → Release). Tidak perlu dipilih di form ini.
           </p>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-head form-section-head-split">
+          <div>
+            <h2>Klasifikasi &amp; Dasar Pekerjaan</h2>
+            <p>Tentukan dasar pelaksanaan pekerjaan. Dapat memilih lebih dari satu kategori.</p>
+          </div>
+          <span class="form-section-badge">Baru</span>
+        </div>
+        <div class="form-section-body">
+          <div class="field">
+            <span>Kategori Pekerjaan <em>*</em></span>
+            <div class="work-category-grid" id="work-category-grid" role="group" aria-label="Kategori pekerjaan">
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="rbb" />
+                <span>RBB</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="inisiatif" />
+                <span>Inisiatif</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="temuan_audit" />
+                <span>Temuan Audit</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="regulasi" />
+                <span>Regulasi</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="penugasan_manajemen" />
+                <span>Penugasan Manajemen</span>
+              </label>
+              <label class="work-category-card">
+                <input type="checkbox" name="work_categories" value="operasional" />
+                <span>Operasional</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="rbb-info-box" id="rbb-info-box" hidden>
+            <h3>Informasi RBB</h3>
+            <div class="field-row">
+              <label class="field">
+                <span>Tahun RBB <em>*</em></span>
+                <select id="field-rbb-year" name="rbb_year">
+                  <option value="">Pilih tahun</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Referensi Program RBB</span>
+                <input
+                  id="field-rbb-program-ref"
+                  name="rbb_program_ref"
+                  type="text"
+                  maxlength="120"
+                  placeholder="Kode / nomor program"
+                  autocomplete="off"
+                />
+              </label>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -205,5 +285,5 @@
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-  <script src="/static/js/project-form.js?v=8" defer></script>
+  <script src="/static/js/project-form.js?v=9" defer></script>
 {% endblock %}

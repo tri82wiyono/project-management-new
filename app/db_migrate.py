@@ -402,6 +402,12 @@ def ensure_schema() -> None:
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS developed_by VARCHAR(40);
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget BIGINT;
     CREATE INDEX IF NOT EXISTS ix_projects_developed_by ON projects(developed_by);
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS work_type VARCHAR(40);
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS work_categories JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS rbb_year INTEGER;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS rbb_program_ref VARCHAR(120);
+    CREATE INDEX IF NOT EXISTS ix_projects_work_type ON projects(work_type);
+    UPDATE projects SET work_categories = '[]'::jsonb WHERE work_categories IS NULL;
                 """
             )
         )

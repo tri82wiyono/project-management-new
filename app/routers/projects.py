@@ -63,6 +63,66 @@ def _task_count_map(db: Session, project_ids: list[int]) -> dict[int, int]:
     return {int(pid): int(count) for pid, count in rows}
 
 
+ALLOWED_WORK_TYPES = {
+    "new_development",
+    "enhancement",
+    "bug_fix",
+    "maintenance",
+    "infrastructure",
+    "security",
+    "non_development",
+}
+ALLOWED_WORK_CATEGORIES = {
+    "rbb",
+    "inisiatif",
+    "temuan_audit",
+    "regulasi",
+    "penugasan_manajemen",
+    "operasional",
+}
+
+
+def _normalize_work_classification(
+    *,
+    work_type: str | None,
+    work_categories: list[str] | None,
+    rbb_year: int | None,
+    rbb_program_ref: str | None,
+    *,
+    require_complete: bool = False,
+) -> tuple[str | None, list[str], int | None, str | None]:
+    wt = (work_type or "").strip() or None
+    if wt and wt not in ALLOWED_WORK_TYPES:
+        raise HTTPException(status_code=400, detail="Jenis pekerjaan tidak valid")
+
+    cats_raw = work_categories if work_categories is not None else []
+    cats: list[str] = []
+    for item in cats_raw:
+        key = str(item or "").strip()
+        if not key:
+            continue
+        if key not in ALLOWED_WORK_CATEGORIES:
+            raise HTTPException(status_code=400, detail=f"Kategori pekerjaan tidak valid: {key}")
+        if key not in cats:
+            cats.append(key)
+
+    year = rbb_year
+    ref = (rbb_program_ref or "").strip() or None
+    if "rbb" not in cats:
+        year = None
+        ref = None
+    elif year is None and require_complete:
+        raise HTTPException(status_code=400, detail="Tahun RBB wajib diisi jika kategori RBB dipilih")
+
+    if require_complete:
+        if not wt:
+            raise HTTPException(status_code=400, detail="Jenis pekerjaan wajib diisi")
+        if not cats:
+            raise HTTPException(status_code=400, detail="Pilih minimal satu kategori pekerjaan")
+
+    return wt, cats, year, ref
+
+
 def _to_out(project: Project, task_count: int = 0, *, with_documents: bool = False) -> ProjectOut:
     documents = (
         [docs_svc.document_to_out(d) for d in (project.documents or [])]
@@ -70,6 +130,9 @@ def _to_out(project: Project, task_count: int = 0, *, with_documents: bool = Fal
         else []
     )
     ownership = org_scope.ownership_summary(project)
+    categories = getattr(project, "work_categories", None) or []
+    if not isinstance(categories, list):
+        categories = []
     return ProjectOut(
         id=project.id,
         name=project.name,
@@ -82,6 +145,10 @@ def _to_out(project: Project, task_count: int = 0, *, with_documents: bool = Fal
         end_date=project.end_date,
         developed_by=getattr(project, "developed_by", None),
         budget=getattr(project, "budget", None),
+        work_type=getattr(project, "work_type", None),
+        work_categories=[str(c) for c in categories],
+        rbb_year=getattr(project, "rbb_year", None),
+        rbb_program_ref=getattr(project, "rbb_program_ref", None),
         owner_type=ownership["owner_type"],
         owner_division_id=ownership["owner_division_id"],
         owner_bidang_id=ownership["owner_bidang_id"],
@@ -430,6 +497,14 @@ def create_project(
     if developed_by and developed_by not in {"internal", "vendor", "blanket_mandays"}:
         raise HTTPException(status_code=400, detail="Nilai developed_by tidak valid")
 
+    work_type, work_categories, rbb_year, rbb_program_ref = _normalize_work_classification(
+        work_type=payload.work_type,
+        work_categories=payload.work_categories,
+        rbb_year=payload.rbb_year,
+        rbb_program_ref=payload.rbb_program_ref,
+        require_complete=True,
+    )
+
     # Creator is always the first team member (org-scope visibility + ownership of the row).
     member_ids = list(
         dict.fromkeys(
@@ -458,6 +533,10 @@ def create_project(
         end_date=payload.end_date,
         developed_by=developed_by,
         budget=payload.budget,
+        work_type=work_type,
+        work_categories=work_categories,
+        rbb_year=rbb_year,
+        rbb_program_ref=rbb_program_ref,
         owner_type=owner_type,
         owner_division_id=owner_division_id,
         owner_bidang_id=owner_bidang_id,
@@ -528,6 +607,34 @@ def update_project(
         if developed_by and developed_by not in {"internal", "vendor", "blanket_mandays"}:
             raise HTTPException(status_code=400, detail="Nilai developed_by tidak valid")
         data["developed_by"] = developed_by
+
+    work_fields_touch = any(
+        k in data for k in ("work_type", "work_categories", "rbb_year", "rbb_program_ref")
+    )
+    if work_fields_touch:
+        next_work_type = data["work_type"] if "work_type" in data else getattr(project, "work_type", None)
+        next_categories = (
+            data["work_categories"]
+            if "work_categories" in data
+            else (getattr(project, "work_categories", None) or [])
+        )
+        next_rbb_year = data["rbb_year"] if "rbb_year" in data else getattr(project, "rbb_year", None)
+        next_rbb_ref = (
+            data["rbb_program_ref"]
+            if "rbb_program_ref" in data
+            else getattr(project, "rbb_program_ref", None)
+        )
+        work_type, work_categories, rbb_year, rbb_program_ref = _normalize_work_classification(
+            work_type=next_work_type,
+            work_categories=next_categories,
+            rbb_year=next_rbb_year,
+            rbb_program_ref=next_rbb_ref,
+            require_complete=True,
+        )
+        data["work_type"] = work_type
+        data["work_categories"] = work_categories
+        data["rbb_year"] = rbb_year
+        data["rbb_program_ref"] = rbb_program_ref
 
     for key, value in data.items():
         setattr(project, key, value)

@@ -51,6 +51,11 @@
     ownerDivisionField: document.getElementById("owner-division-field"),
     ownerBidangField: document.getElementById("owner-bidang-field"),
     developedBy: document.getElementById("field-developed-by"),
+    workType: document.getElementById("field-work-type"),
+    workCategoryGrid: document.getElementById("work-category-grid"),
+    rbbInfoBox: document.getElementById("rbb-info-box"),
+    rbbYear: document.getElementById("field-rbb-year"),
+    rbbProgramRef: document.getElementById("field-rbb-program-ref"),
     budgetDisplay: document.getElementById("field-budget"),
     budgetValue: document.getElementById("field-budget-value"),
     description: document.getElementById("field-description"),
@@ -90,6 +95,41 @@
     const value = parseBudgetValue(digits);
     els.budgetValue.value = value == null ? "" : String(value);
     return value;
+  }
+
+  function fillRbbYearOptions(selected) {
+    if (!els.rbbYear) return;
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let y = currentYear + 1; y >= currentYear - 5; y -= 1) years.push(y);
+    const prev = selected != null && selected !== "" ? String(selected) : els.rbbYear.value;
+    els.rbbYear.innerHTML =
+      `<option value="">Pilih tahun</option>` +
+      years.map((y) => `<option value="${y}">${y}</option>`).join("");
+    if (prev && years.some((y) => String(y) === prev)) els.rbbYear.value = prev;
+  }
+
+  function selectedWorkCategories() {
+    return Array.from(
+      els.workCategoryGrid?.querySelectorAll('input[name="work_categories"]:checked') || []
+    ).map((el) => el.value);
+  }
+
+  function setWorkCategories(values) {
+    const set = new Set((values || []).map(String));
+    els.workCategoryGrid?.querySelectorAll('input[name="work_categories"]').forEach((el) => {
+      el.checked = set.has(el.value);
+    });
+    syncRbbFieldsVisibility();
+  }
+
+  function syncRbbFieldsVisibility() {
+    const hasRbb = selectedWorkCategories().includes("rbb");
+    if (els.rbbInfoBox) els.rbbInfoBox.hidden = !hasRbb;
+    if (!hasRbb) {
+      if (els.rbbYear) els.rbbYear.value = "";
+      if (els.rbbProgramRef) els.rbbProgramRef.value = "";
+    }
   }
 
   function setBudgetValue(value) {
@@ -585,6 +625,10 @@
       document.getElementById("field-start").value = project.start_date || "";
       document.getElementById("field-end").value = project.end_date || "";
       if (els.developedBy) els.developedBy.value = project.developed_by || "";
+      if (els.workType) els.workType.value = project.work_type || "";
+      setWorkCategories(project.work_categories || []);
+      fillRbbYearOptions(project.rbb_year);
+      if (els.rbbProgramRef) els.rbbProgramRef.value = project.rbb_program_ref || "";
       setBudgetValue(project.budget);
       if (!quill) quill = initQuill(project.description || "");
       else {
@@ -608,6 +652,10 @@
       document.getElementById("field-start").value = todayISO();
       document.getElementById("field-end").value = plusDaysISO(90);
       if (els.developedBy) els.developedBy.value = "";
+      if (els.workType) els.workType.value = "";
+      setWorkCategories([]);
+      fillRbbYearOptions();
+      if (els.rbbProgramRef) els.rbbProgramRef.value = "";
       setBudgetValue(null);
       if (!quill) quill = initQuill("");
       else {
@@ -631,6 +679,11 @@
     const ownerDivisionId = els.ownerDivision?.value ? Number(els.ownerDivision.value) : null;
     const ownerBidangId = els.ownerBidang?.value ? Number(els.ownerBidang.value) : null;
     const developedBy = (els.developedBy?.value || "").trim();
+    const workType = (els.workType?.value || "").trim();
+    const workCategories = selectedWorkCategories();
+    const rbbYearRaw = (els.rbbYear?.value || "").trim();
+    const rbbYear = rbbYearRaw ? Number(rbbYearRaw) : null;
+    const rbbProgramRef = (els.rbbProgramRef?.value || "").trim() || null;
     const budget = syncBudgetFromDisplay();
     const payload = {
       name: document.getElementById("field-name").value.trim(),
@@ -639,6 +692,10 @@
       start_date: document.getElementById("field-start").value,
       end_date: document.getElementById("field-end").value,
       developed_by: developedBy || null,
+      work_type: workType || null,
+      work_categories: workCategories,
+      rbb_year: workCategories.includes("rbb") ? rbbYear : null,
+      rbb_program_ref: workCategories.includes("rbb") ? rbbProgramRef : null,
       budget,
       member_ids: state.selectedPicIds.slice(),
       owner_type: ownerType,
@@ -649,6 +706,9 @@
     const missing = [];
     if (!payload.name) missing.push("nama");
     if (!developedBy) missing.push("dikembangkan oleh");
+    if (!workType) missing.push("jenis pekerjaan");
+    if (!workCategories.length) missing.push("kategori pekerjaan");
+    if (workCategories.includes("rbb") && !rbbYear) missing.push("tahun RBB");
     if (!payload.pic || !state.selectedPicIds.length) missing.push("PIC");
     if (!payload.start_date || !payload.end_date) missing.push("tanggal");
     if (missing.length) {
@@ -824,6 +884,8 @@
     wireDocEvents();
     els.budgetDisplay?.addEventListener("input", syncBudgetFromDisplay);
     els.budgetDisplay?.addEventListener("blur", syncBudgetFromDisplay);
+    fillRbbYearOptions();
+    els.workCategoryGrid?.addEventListener("change", syncRbbFieldsVisibility);
     els.ownerType?.addEventListener("change", async () => {
       syncOwnershipFields();
       if ((els.ownerType?.value || "") === "bidang") {
