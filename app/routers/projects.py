@@ -484,15 +484,10 @@ def create_project(
 ) -> ProjectOut:
     if not org_scope.can_create_project(db, current):
         raise HTTPException(status_code=403, detail="Tidak berwenang membuat project")
-    try:
-        owner_type, owner_division_id, owner_bidang_id = org_scope.validate_and_normalize_ownership(
-            db,
-            owner_type=payload.owner_type,
-            owner_division_id=payload.owner_division_id,
-            owner_bidang_id=payload.owner_bidang_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Ownership follows the creator's organizational placement (not a form field).
+    owner_type, owner_division_id, owner_bidang_id = org_scope.ownership_from_user_placement(
+        db, current
+    )
 
     developed_by = (payload.developed_by or "").strip() or None
     if developed_by and developed_by not in {"internal", "vendor", "blanket_mandays"}:

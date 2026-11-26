@@ -109,6 +109,25 @@ def ownership_summary(project: Project) -> dict:
     }
 
 
+def ownership_from_user_placement(db: Session, user: User) -> tuple[str, int | None, int | None]:
+    """Derive project ownership from the creator's primary Bidang placement.
+
+    Returns (owner_type, owner_division_id, owner_bidang_id).
+    Unassigned when the user has no active organizational placement.
+    """
+    bidang_id = getattr(user, "primary_bidang_id", None)
+    if not bidang_id:
+        return ProjectOwnerType.unassigned.value, None, None
+    bidang = db.scalar(
+        select(Bidang).options(joinedload(Bidang.division)).where(Bidang.id == int(bidang_id)).limit(1)
+    )
+    if not bidang or not bidang.is_active:
+        return ProjectOwnerType.unassigned.value, None, None
+    if not bidang.division or not bidang.division.is_active:
+        return ProjectOwnerType.unassigned.value, None, None
+    return ProjectOwnerType.bidang.value, bidang.division_id, bidang.id
+
+
 def validate_and_normalize_ownership(
     db: Session,
     *,

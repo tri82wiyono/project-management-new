@@ -211,40 +211,8 @@
 
       <section class="form-section">
         <div class="form-section-head">
-          <h2>Kepemilikan Organisasi</h2>
-          <p>Tentukan Divisi atau Bidang pemilik project.</p>
-        </div>
-        <div class="form-section-body">
-          <div class="field-row ownership-fields" id="ownership-fields">
-            <label class="field">
-              <span>Kepemilikan organisasi</span>
-              <select id="field-owner-type" name="owner_type">
-                <option value="unassigned">Belum diklasifikasi</option>
-                <option value="division">Divisi</option>
-                <option value="bidang">Bidang</option>
-              </select>
-              <small class="field-hint">Hanya satu: Divisi atau Bidang.</small>
-            </label>
-            <label class="field" id="owner-division-field">
-              <span>Divisi pemilik</span>
-              <select id="field-owner-division" name="owner_division_id">
-                <option value="">— Pilih Divisi —</option>
-              </select>
-            </label>
-            <label class="field" id="owner-bidang-field" hidden>
-              <span>Bidang pemilik</span>
-              <select id="field-owner-bidang" name="owner_bidang_id">
-                <option value="">— Pilih Bidang —</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="form-section-head">
           <h2>Project Manager (PIC)</h2>
-          <p>Tunjuk PIC yang bertanggung jawab atas project.</p>
+          <p>Tunjuk PIC project. Kolaborasi lintas unit tetap lewat penambahan anggota di sini.</p>
         </div>
         <div class="form-section-body">
           <div class="field">
@@ -285,5 +253,5 @@
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-  <script src="/static/js/project-form.js?v=10" defer></script>
+  <script src="/static/js/project-form.js?v=11" defer></script>
 {% endblock %}
