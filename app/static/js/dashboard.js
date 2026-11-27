@@ -82,6 +82,21 @@ function animateCount(el, target, { suffix = "", duration = 700 } = {}) {
   requestAnimationFrame(tick);
 }
 
+const CLASSIFICATION_META = {
+  business_support: {
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="8" width="17" height="12" rx="2"/><path d="M9 8V6.5A2.5 2.5 0 0 1 11.5 4h1A2.5 2.5 0 0 1 15 6.5V8" stroke-linecap="round"/><path d="M3.5 13h17" stroke-linecap="round"/></svg>`,
+  },
+  supporting: {
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6" stroke-linecap="round"/></svg>`,
+  },
+  security: {
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l7 3v5.2c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V6.5l7-3Z"/><path d="M9.2 12.1l1.8 1.8 3.8-3.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  },
+  compliance: {
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 4.5h8a2 2 0 0 1 2 2v13l-2.2-1.4L13.6 19 11.4 18.1 9.2 19 7 17.6V6.5a2 2 0 0 1 1-2Z"/><path d="M9.5 9.5h5M9.5 12.5h5M9.5 15.5h3" stroke-linecap="round"/></svg>`,
+  },
+};
+
 function renderClassificationOverview(data) {
   const grid = document.getElementById("classification-overview-grid");
   if (!grid) return;
@@ -91,33 +106,69 @@ function renderClassificationOverview(data) {
     return;
   }
   grid.innerHTML = items
-    .map((item) => {
+    .map((item, index) => {
+      const key = item.key || "";
+      const meta = CLASSIFICATION_META[key] || CLASSIFICATION_META.business_support;
       const tasks = item.tasks || {};
-      const totalTasks = Number(tasks.total || 0);
+      const todo = Number(tasks.todo || 0);
+      const inProgress = Number(tasks.in_progress || 0);
+      const review = Number(tasks.review || 0);
       const done = Number(tasks.done || 0);
-      const pct = totalTasks ? Math.round((done / totalTasks) * 100) : 0;
+      const totalTasks = Number(tasks.total || todo + inProgress + review + done);
+      const projectCount = Number(item.project_count || 0);
+      const pct = (n) => (totalTasks ? Math.round((n / totalTasks) * 100) : 0);
+      const donePct = pct(done);
+      const empty = projectCount === 0 && totalTasks === 0;
+      const statuses = [
+        { key: "todo", label: "To Do", value: todo },
+        { key: "progress", label: "In Progress", value: inProgress },
+        { key: "review", label: "Review", value: review },
+        { key: "done", label: "Done", value: done },
+      ];
       return `
-        <article class="classification-card" data-class="${escapeHtml(item.key || "")}">
-          <div class="classification-card-head">
-            <div>
-              <h3>${escapeHtml(item.label || item.key || "")}</h3>
+        <article class="classification-card${empty ? " is-empty" : ""}" data-class="${escapeHtml(key)}" style="--reveal-delay:${index * 40}ms">
+          <div class="classification-card-top">
+            <span class="classification-icon" aria-hidden="true">${meta.icon}</span>
+            <div class="classification-card-copy">
+              <h3>${escapeHtml(item.label || key)}</h3>
               <p>${escapeHtml(item.description || "")}</p>
             </div>
-            <strong class="classification-project-count">${Number(item.project_count || 0)} project</strong>
           </div>
-          <div class="classification-task-total">
-            <span>Total task</span>
-            <strong>${totalTasks}</strong>
+
+          <div class="classification-metrics">
+            <div class="classification-metric is-primary">
+              <span>Total task</span>
+              <strong>${totalTasks}</strong>
+            </div>
+            <div class="classification-metric">
+              <span>Project</span>
+              <strong>${projectCount}</strong>
+            </div>
+            <div class="classification-metric">
+              <span>Selesai</span>
+              <strong>${donePct}%</strong>
+            </div>
           </div>
-          <div class="classification-progress-track" aria-hidden="true">
-            <span style="width:${pct}%"></span>
+
+          <div class="classification-stack" aria-hidden="true" title="Komposisi status task">
+            <span class="is-todo" style="width:${pct(todo)}%"></span>
+            <span class="is-progress" style="width:${pct(inProgress)}%"></span>
+            <span class="is-review" style="width:${pct(review)}%"></span>
+            <span class="is-done" style="width:${pct(done)}%"></span>
           </div>
-          <div class="classification-status-grid">
-            <div><span>To Do</span><strong>${Number(tasks.todo || 0)}</strong></div>
-            <div><span>In Progress</span><strong>${Number(tasks.in_progress || 0)}</strong></div>
-            <div><span>Review</span><strong>${Number(tasks.review || 0)}</strong></div>
-            <div><span>Done</span><strong>${Number(tasks.done || 0)}</strong></div>
-          </div>
+
+          <ul class="classification-status-list">
+            ${statuses
+              .map(
+                (s) => `
+              <li data-status="${s.key}">
+                <span class="classification-status-dot" aria-hidden="true"></span>
+                <span class="classification-status-label">${s.label}</span>
+                <strong>${s.value}</strong>
+              </li>`
+              )
+              .join("")}
+          </ul>
         </article>`;
     })
     .join("");
