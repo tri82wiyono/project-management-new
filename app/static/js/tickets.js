@@ -382,14 +382,32 @@ function statusBadge(status) {
   )}</span>`;
 }
 
+function nameInitials(name) {
+  const parts = String(name || "?")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+}
+
+function hasPhoto(url) {
+  const value = String(url || "").trim().toLowerCase();
+  if (!value) return false;
+  if (value.includes("dicebear.com")) return false;
+  if (value.startsWith("data:image/svg")) return false;
+  return true;
+}
+
 function picCell(item) {
   const pics = item.pics || [];
   if (!pics.length) return `<span class="tk-pic-more">—</span>`;
   const first = pics[0];
   const avatar = safeUrl(first.avatar_url);
   const extra = pics.length > 1 ? `<span class="tk-pic-more">+${pics.length - 1}</span>` : "";
-  const initial = escapeHtml((first.name || "?").slice(0, 1).toUpperCase());
-  const img = avatar
+  const initial = escapeHtml(nameInitials(first.name));
+  const img = hasPhoto(avatar)
     ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(first.name)}" />`
     : `<span class="tk-pic-fallback">${initial}</span>`;
   return `<div class="tk-pic" title="${escapeHtml(pics.map((p) => p.name).join(", "))}">${img}<span>${escapeHtml(

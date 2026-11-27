@@ -459,9 +459,12 @@ function nameInitials(name) {
 }
 
 function hasRealPhoto(url) {
-  const value = String(url || "").trim();
+  const value = String(url || "").trim().toLowerCase();
   if (!value) return false;
-  // Account profile photo: uploaded file or generated avatar URL
+  // DiceBear/SVG placeholders are not profile photos — render name initials instead
+  // (e.g. "Tri Wiyono" → TW), otherwise stale seeds show unrelated letters like VU.
+  if (value.includes("dicebear.com")) return false;
+  if (value.startsWith("data:image/svg")) return false;
   return true;
 }
 

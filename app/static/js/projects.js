@@ -390,7 +390,8 @@ function picPeople(project) {
 function hasPhoto(url) {
   const value = String(url || "").trim().toLowerCase();
   if (!value) return false;
-    if (value.startsWith("data:image/svg")) return false;
+  if (value.includes("dicebear.com")) return false;
+  if (value.startsWith("data:image/svg")) return false;
   return true;
 }
 

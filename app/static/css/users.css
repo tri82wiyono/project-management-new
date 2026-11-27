@@ -280,13 +280,25 @@
   min-width: 0;
 }
 
-.user-cell img {
+.user-cell img,
+.user-cell .user-avatar-fallback {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
   flex: 0 0 auto;
-  background: #e8edf3;
+  background: #453a82;
+}
+
+.user-cell .user-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
 }
 
 .user-cell strong {

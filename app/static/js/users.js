@@ -416,11 +416,27 @@
           ? `<span class="badge badge-active">Active</span>`
           : `<span class="badge badge-inactive">Inactive</span>`;
         const place = placementLabel(user);
+        const avatarUrl = String(user.avatar_url || "").trim();
+        const isPlaceholder =
+          !avatarUrl ||
+          avatarUrl.toLowerCase().includes("dicebear.com") ||
+          avatarUrl.toLowerCase().startsWith("data:image/svg");
+        const parts = String(user.name || "?")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+        const initials =
+          parts.length >= 2
+            ? `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase()
+            : (parts[0] || "?").slice(0, 2).toUpperCase();
+        const avatarHtml = isPlaceholder
+          ? `<span class="user-avatar-fallback" aria-hidden="true">${escapeHtml(initials)}</span>`
+          : `<img src="${escapeHtml(avatarUrl)}" alt="" />`;
         return `
         <tr data-id="${user.id}">
           <td>
             <div class="user-cell">
-              <img src="${user.avatar_url}" alt="" />
+              ${avatarHtml}
               <div>
                 <strong>${escapeHtml(user.name)}</strong>
                 <span>${escapeHtml(user.email)}</span>

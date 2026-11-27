@@ -288,12 +288,18 @@
     return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
   }
 
+  function hasPhoto(url) {
+    const value = String(url || "").trim().toLowerCase();
+    if (!value) return false;
+    if (value.includes("dicebear.com")) return false;
+    if (value.startsWith("data:image/svg")) return false;
+    return true;
+  }
+
   function avatarChip(user) {
     const name = user?.name || user?.full_name || user?.username || "?";
-    const url = String(user?.avatar_url || "").trim();
-    // Follow account profile photo (uploaded file or generated avatar URL)
-    if (url) {
-      return `<img class="sp-avatar" src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
+    if (hasPhoto(user?.avatar_url)) {
+      return `<img class="sp-avatar" src="${escapeHtml(user.avatar_url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" />`;
     }
     return `<span class="sp-avatar sp-avatar-initials" title="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`;
   }
