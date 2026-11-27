@@ -153,7 +153,6 @@ def list_users(
     }
 
 
-@router.post("")
 def _require_admin_reauth(current: User, current_password: str | None) -> None:
     if not verify_password(current_password or "", current.password_hash):
         raise HTTPException(
@@ -162,6 +161,7 @@ def _require_admin_reauth(current: User, current_password: str | None) -> None:
         )
 
 
+@router.post("")
 def create_user(
     payload: UserCreate,
     request: Request,
