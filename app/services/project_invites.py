@@ -99,7 +99,9 @@ def invite_emails_to_project(
             added = ensure_team_member(db, project, user)
             db.flush()
 
-            if created or user.must_change_password:
+            # Password setup only for brand-new accounts.
+            # Existing users (even if prior invite unfinished) are only added as member/PIC.
+            if created:
                 send_project_invite_email(
                     db,
                     user=user,
@@ -108,7 +110,7 @@ def invite_emails_to_project(
                     project_id=project.id,
                 )
                 row["status"] = "invited"
-                row["message"] = "Undangan atur password dikirim."
+                row["message"] = "User baru: undangan atur password dikirim."
             else:
                 send_project_added_email(
                     db,
@@ -118,16 +120,17 @@ def invite_emails_to_project(
                     inviter_name=inviter.name or inviter.email,
                     project_id=project.id,
                 )
-                row["status"] = "added" if added else "already_member"
-                row["message"] = (
-                    "Ditambahkan ke tim project."
-                    if added
-                    else "Sudah menjadi anggota project."
-                )
+                if added:
+                    row["status"] = "added"
+                    row["message"] = "User terdaftar: ditambahkan ke tim/PIC project."
+                else:
+                    row["status"] = "already_member"
+                    row["message"] = "Sudah menjadi anggota/PIC project."
             row["ok"] = True
             row["user_id"] = user.id
             row["created"] = created
             row["added"] = added
+            row["password_setup"] = bool(created)
         except Exception as exc:  # noqa: BLE001
             row["ok"] = False
             row["status"] = "error"
