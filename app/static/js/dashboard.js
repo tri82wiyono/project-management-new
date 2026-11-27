@@ -690,7 +690,6 @@ async function boot() {
     // Satu request bootstrap — jauh lebih cepat daripada 7 parallel round-trip
     const data = await api("/api/dashboard/summary");
     // Above-the-fold first for perceived speed
-    renderKPI(data.kpi);
     renderOverdueAlert(data.overdue || { count: 0, items: [] });
     renderClassificationOverview(data.classifications || { items: [] });
     renderSprintOverview(
@@ -714,7 +713,10 @@ async function boot() {
     });
   } catch (err) {
     console.error(err);
-    document.getElementById("kpi-grid").innerHTML = `<div class="panel">Gagal memuat dashboard. Pastikan API berjalan.</div>`;
+    const host = document.getElementById("classification-overview-grid");
+    if (host) {
+      host.innerHTML = `<div class="panel">Gagal memuat dashboard. Pastikan API berjalan.</div>`;
+    }
   }
 }
 
