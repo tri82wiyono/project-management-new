@@ -133,7 +133,31 @@ def activate_smtp_provider(db: Session, provider: str) -> SmtpSetting:
     return target
 
 
+def _mask_email(value: str | None) -> str:
+    raw = (value or "").strip()
+    if not raw or "@" not in raw:
+        return raw[:2] + "***" if raw else ""
+    local, _, domain = raw.partition("@")
+    keep = local[:2] if len(local) > 2 else local[:1]
+    return f"{keep}***@{domain}"
+
+
+def _is_personal_mailbox(value: str | None) -> bool:
+    domain = ((value or "").strip().split("@")[-1] or "").lower()
+    return domain in {
+        "gmail.com",
+        "googlemail.com",
+        "yahoo.com",
+        "yahoo.co.id",
+        "outlook.com",
+        "hotmail.com",
+        "live.com",
+        "icloud.com",
+    }
+
+
 def smtp_to_public_dict(row: SmtpSetting) -> dict:
+    # KKS-PM-05: never return full mailbox identifiers; confirm password presence only.
     return {
         "id": row.id,
         "provider": row.provider,
@@ -143,10 +167,12 @@ def smtp_to_public_dict(row: SmtpSetting) -> dict:
         "host": row.host,
         "port": row.port,
         "encryption": row.encryption,
-        "username": row.username,
+        "username": _mask_email(row.username),
         "password_set": bool(row.password),
-        "from_email": row.from_email,
+        "from_email": _mask_email(row.from_email),
         "from_name": row.from_name,
+        "is_personal_email": _is_personal_mailbox(row.from_email)
+        or _is_personal_mailbox(row.username),
         "updated_at": row.updated_at,
     }
 

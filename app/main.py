@@ -85,6 +85,12 @@ async def lifespan(_: FastAPI):
         get_or_create_security_settings(db)
         ensure_default_roles(db)
         ensure_default_admin(db)
+        # KKS-PM-06: keep device confirmation aligned with production security posture.
+        if (settings.app_env or "").strip().lower() in {"production", "prod"} or settings.cookie_secure:
+            policy = get_or_create_security_settings(db)
+            if not bool(getattr(policy, "device_detection_enabled", True)):
+                policy.device_detection_enabled = True
+                db.commit()
         if settings.seed_data:
             seed_database(db)
         # Derive project pipeline status from task progress on boot.
@@ -136,6 +142,12 @@ def _looks_like_asset_path(path: str) -> bool:
     if not name or name.startswith("."):
         return False
     if "." not in name:
+        return False
+    # KKS-PM-02: never treat API schema as a public asset probe.
+    lowered = name.lower()
+    if lowered in {"openapi.json", "swagger.json"}:
+        return False
+    if lowered.endswith((".json", ".yaml", ".yml")) and "openapi" in lowered:
         return False
     # Allow extension-less app routes only; anything with a file suffix is an asset probe.
     return True
@@ -218,7 +230,15 @@ class StaticCacheMiddleware(BaseHTTPMiddleware):
         return response
 
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+_docs_enabled = (settings.app_env or "").strip().lower() in {"development", "dev", "local"}
+app = FastAPI(
+    title=settings.app_name,
+    lifespan=lifespan,
+    # KKS-PM-02: hide OpenAPI surface in non-dev environments.
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 # Order matters: last added runs first.
 # GZip → SecurityHeaders → StaticCache → ForceHttps → CSRF → Session → AuthGuard.
 app.add_middleware(AuthGuardMiddleware)

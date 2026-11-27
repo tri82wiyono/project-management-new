@@ -266,7 +266,12 @@ def create_task_note(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     org_scope.require_task_manage(db, user, task)
-    body = payload.body.strip()
+    import html as html_lib
+    import re
+
+    # KKS-PM-08: strip markup before persist (UI already escapes on render).
+    raw_body = (payload.body or "").strip()
+    body = html_lib.unescape(re.sub(r"<[^>]*>", "", raw_body)).strip()
     if not body:
         raise HTTPException(status_code=400, detail="Catatan tidak boleh kosong")
     note = TaskNote(task_id=task_id, body=body, kind=payload.kind, author_id=user.id)

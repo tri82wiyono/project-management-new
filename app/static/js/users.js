@@ -492,6 +492,7 @@
     $("field-name").value = user?.name || "";
     $("field-email").value = user?.email || "";
     $("field-role").value = user?.role || "Member";
+    $("user-id").dataset.prevRole = user?.role || "";
     $("field-active").checked = user ? Boolean(user.is_active) : true;
     $("field-send-email").checked = true;
     sendEmailWrap.hidden = mode === "edit";
@@ -532,6 +533,20 @@
       role: $("field-role").value,
       is_active: $("field-active").checked,
     };
+    const previousRole = ($("user-id").dataset.prevRole || "").trim();
+    const needsAdminConfirm =
+      payload.role === "Admin" && (!id || previousRole !== "Admin");
+    if (needsAdminConfirm) {
+      const pwd = window.prompt(
+        "Pembuatan/promosi Admin memerlukan konfirmasi password Anda saat ini:"
+      );
+      if (!pwd) {
+        setStatus(formStatus, "Dibatalkan — password konfirmasi wajib untuk role Admin.", "err");
+        saveBtn.disabled = false;
+        return;
+      }
+      payload.current_password = pwd;
+    }
     const willSendEmail = !id && $("field-send-email")?.checked;
     if (willSendEmail) {
       window.pmBusy?.show({
@@ -656,6 +671,18 @@
         cancelText: "Batal",
       });
       if (!ok) return;
+      const adminPwd = window.prompt(
+        "Konfirmasi password Anda (wajib untuk reset password pengguna lain):"
+      );
+      if (!adminPwd) {
+        await showNotice({
+          title: "Dibatalkan",
+          message: "Reset password memerlukan konfirmasi password Anda.",
+          tone: "warn",
+          icon: "!",
+        });
+        return;
+      }
 
       btn.disabled = true;
       window.pmBusy?.show({
@@ -668,7 +695,11 @@
         const res = await fetch(`/api/users/${id}/reset-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ send_email: true }),
+          body: JSON.stringify({
+            send_email: true,
+            confirm: true,
+            current_password: adminPwd,
+          }),
         });
         const data = await res.json().catch(() => ({}));
         window.pmBusy?.hide();

@@ -16,7 +16,12 @@ from app.services.roles import (
     is_last_active_admin,
     list_roles,
 )
-from app.services.security import default_avatar, generate_temp_password, hash_password
+from app.services.security import (
+    default_avatar,
+    generate_temp_password,
+    hash_password,
+    verify_password,
+)
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -39,6 +44,8 @@ class UserCreate(BaseModel):
     is_active: bool = True
     send_email: bool = True
     temporary_password: str | None = Field(default=None, max_length=128)
+    # KKS-PM-03: required when creating an Admin account.
+    current_password: str | None = Field(default=None, max_length=128)
 
 
 class UserUpdate(BaseModel):
@@ -47,11 +54,16 @@ class UserUpdate(BaseModel):
     role: str | None = Field(default=None, max_length=80)
     is_active: bool | None = None
     avatar_url: str | None = Field(default=None, max_length=255)
+    # KKS-PM-03: required when promoting to Admin.
+    current_password: str | None = Field(default=None, max_length=128)
 
 
 class ResetPasswordRequest(BaseModel):
     send_email: bool = True
     temporary_password: str | None = Field(default=None, max_length=128)
+    # KKS-PM-04: explicit confirmation + admin re-auth.
+    confirm: bool = False
+    current_password: str = Field(min_length=1, max_length=128)
 
 
 class PlacementUpdate(BaseModel):
@@ -142,6 +154,14 @@ def list_users(
 
 
 @router.post("")
+def _require_admin_reauth(current: User, current_password: str | None) -> None:
+    if not verify_password(current_password or "", current.password_hash):
+        raise HTTPException(
+            status_code=403,
+            detail="Konfirmasi password Anda salah. Operasi sensitif dibatalkan.",
+        )
+
+
 def create_user(
     payload: UserCreate,
     request: Request,
@@ -150,6 +170,15 @@ def create_user(
 ) -> dict:
     email = _normalize_email(payload.email)
     role = _resolve_role_code(db, payload.role)
+    # KKS-PM-03: creating Admin requires re-authentication of the acting admin.
+    if role == "Admin":
+        if not (payload.current_password or "").strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Pembuatan akun Admin memerlukan konfirmasi password Anda saat ini.",
+            )
+        _require_admin_reauth(current, payload.current_password)
+
     exists = db.scalar(select(User.id).where(User.email == email).limit(1))
     if exists:
         raise HTTPException(status_code=400, detail="Email sudah terdaftar")
@@ -169,6 +198,17 @@ def create_user(
     db.add(user)
     db.commit()
     user = placement_svc.load_user_with_placement(db, user.id) or user
+
+    write_audit_log(
+        db,
+        action="user_created",
+        success=True,
+        actor=current,
+        target=user,
+        message=f"User baru dibuat dengan role {user.role}",
+        request=request,
+        meta={"role": user.role, "admin_privilege": user.role == "Admin"},
+    )
 
     email_sent = False
     email_error = None
@@ -206,9 +246,9 @@ def create_user(
     data = _serialize(db, user)
     data["email_sent"] = email_sent
     data["email_error"] = email_error
-    # Always return temp password to admin so support can confirm login
-    # even when email delivery is delayed or the user opens an older message.
-    data["temporary_password"] = temp_password
+    # Only expose temp password when email failed / was skipped (support fallback).
+    if not email_sent:
+        data["temporary_password"] = temp_password
     return data
 
 
@@ -359,6 +399,14 @@ def update_user(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if user.id == current.id and role_row.code != "Admin" and current.role == "Admin":
             raise HTTPException(status_code=400, detail="Tidak dapat menurunkan role akun sendiri")
+        # KKS-PM-03: promoting to Admin requires actor password confirmation.
+        if role_row.code == "Admin" and previous_role != "Admin":
+            if not (payload.current_password or "").strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Promosi ke Admin memerlukan konfirmasi password Anda saat ini.",
+                )
+            _require_admin_reauth(current, payload.current_password)
         user.role = role_row.code
     if payload.is_active is not None:
         if user.id == current.id and not payload.is_active:
@@ -405,6 +453,19 @@ def reset_user_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # KKS-PM-04: refuse empty/unconfirmed resets; require admin password re-auth.
+    if not payload.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Reset password memerlukan konfirmasi eksplisit (confirm=true).",
+        )
+    _require_admin_reauth(current, payload.current_password)
+    if user.id == current.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Gunakan menu ganti password untuk akun Anda sendiri.",
+        )
+
     temp_password = payload.temporary_password or generate_temp_password()
     user.password_hash = hash_password(temp_password)
     user.must_change_password = True
@@ -412,6 +473,17 @@ def reset_user_password(
     user.locked_until = None
     db.commit()
     user = placement_svc.load_user_with_placement(db, user.id) or user
+
+    write_audit_log(
+        db,
+        action="password_reset",
+        success=True,
+        actor=current,
+        target=user,
+        message=f"Password direset oleh admin untuk {user.email}",
+        request=request,
+        meta={"target_role": user.role},
+    )
 
     email_sent = False
     email_error = None
@@ -451,9 +523,10 @@ def reset_user_password(
         "email_sent": email_sent,
         "email_error": email_error,
         "message": "Password direset. User mengatur password baru lewat tautan di email.",
-        # Always return to admin (email may be delayed / user may open older mail).
-        "temporary_password": temp_password,
     }
+    # Only return temp password when email could not be delivered.
+    if not email_sent:
+        data["temporary_password"] = temp_password
     return data
 
 

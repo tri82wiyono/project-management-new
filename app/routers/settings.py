@@ -114,11 +114,29 @@ def update_security_settings(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("settings.manage")),
 ) -> dict:
+    from fastapi import HTTPException
+
+    from app.config import get_settings
+
     row = get_or_create_security_settings(db)
     row.max_failed_logins = payload.max_failed_logins
     row.lockout_minutes = payload.lockout_minutes
     row.session_timeout_minutes = payload.session_timeout_minutes
-    row.device_detection_enabled = bool(payload.device_detection_enabled)
+    next_device = bool(payload.device_detection_enabled)
+    cfg = get_settings()
+    # KKS-PM-06: production must keep device confirmation enabled.
+    if (
+        not next_device
+        and (
+            (cfg.app_env or "").strip().lower() in {"production", "prod"}
+            or bool(cfg.cookie_secure)
+        )
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Deteksi perangkat wajib aktif di production agar UI login konsisten.",
+        )
+    row.device_detection_enabled = next_device
     db.commit()
     db.refresh(row)
     invalidate_security_settings_cache()

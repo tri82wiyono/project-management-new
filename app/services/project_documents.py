@@ -55,6 +55,57 @@ def _extension(name: str) -> str:
     return Path(name or "").suffix.lower()
 
 
+def _is_blocked_host(host: str) -> bool:
+    """Reject loopback / link-local / private destinations (KKS-PM-09)."""
+    import ipaddress
+    import socket
+
+    hostname = (host or "").strip().lower().rstrip(".")
+    if not hostname:
+        return True
+    if hostname in {"localhost", "localhost.localdomain"}:
+        return True
+    if hostname.endswith(".local") or hostname.endswith(".internal"):
+        return True
+    # Strip brackets for IPv6 literals.
+    candidate = hostname[1:-1] if hostname.startswith("[") and hostname.endswith("]") else hostname
+    try:
+        ip = ipaddress.ip_address(candidate)
+        return bool(
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        )
+    except ValueError:
+        pass
+    # Resolve hostname and reject if any address is non-public.
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except OSError:
+        # Unresolvable hosts are allowed as bookmarks (no server-side fetch),
+        # but still block obvious internal names above.
+        return False
+    for info in infos:
+        addr = info[4][0]
+        try:
+            ip = ipaddress.ip_address(addr)
+        except ValueError:
+            continue
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return True
+    return False
+
+
 def _normalize_http_url(raw: str) -> str:
     url = (raw or "").strip()
     if not url:
@@ -67,6 +118,12 @@ def _normalize_http_url(raw: str) -> str:
         )
     if len(url) > 2000:
         raise HTTPException(status_code=400, detail="URL terlalu panjang")
+    host = parsed.hostname or ""
+    if _is_blocked_host(host):
+        raise HTTPException(
+            status_code=400,
+            detail="URL tujuan tidak diizinkan (localhost/IP privat/link-local ditolak).",
+        )
     return url
 
 

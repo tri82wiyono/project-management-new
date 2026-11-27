@@ -110,7 +110,10 @@
       if (!res.ok) throw new Error("Gagal memuat captcha");
       const data = await res.json();
       captchaIdEl.value = data.captcha_id || "";
-      captchaImageEl.innerHTML = data.image_svg || "";
+      const src = data.image_png || data.image_svg || "";
+      captchaImageEl.innerHTML = src
+        ? `<img src="${src}" alt="Captcha" width="180" height="56" draggable="false" />`
+        : "";
     } catch (err) {
       captchaImageEl.innerHTML = "";
       setStatus(statusEl, err.message || "Captcha gagal dimuat", "err");

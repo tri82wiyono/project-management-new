@@ -156,15 +156,15 @@ def _purge_used_nonces(now: float) -> None:
 
 
 def create_captcha() -> tuple[str, str, str]:
-    """Return (token, answer, svg). Answer is only for image rendering."""
+    """Return (token, answer, png_data_url). Answer never leaves the server as text."""
     settings = get_settings()
     length = 5
     answer = "".join(secrets.choice(_CAPTCHA_ALPHABET) for _ in range(length))
     nonce = secrets.token_hex(16)
     exp = int(time.time()) + settings.captcha_ttl_seconds
     token = _sign({"n": nonce, "e": exp, "h": _answer_digest(nonce, answer)})
-    svg = render_captcha_svg(answer)
-    return token, answer, svg
+    png_data_url = render_captcha_png_data_url(answer)
+    return token, answer, png_data_url
 
 
 def verify_captcha(token: str, answer: str) -> bool:
@@ -188,41 +188,55 @@ def verify_captcha(token: str, answer: str) -> bool:
     return True
 
 
-def render_captcha_svg(answer: str) -> str:
+def render_captcha_png_data_url(answer: str) -> str:
+    """Raster captcha — glyphs are pixels only (no extractable SVG text)."""
+    from io import BytesIO
+
+    from PIL import Image, ImageDraw, ImageFont
+
     width, height = 180, 56
-    # Random-ish but deterministic-looking noise from secrets
-    lines = []
+    img = Image.new("RGB", (width, height), "#eef1f7")
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 26)
+    except OSError:
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
+        except OSError:
+            font = ImageFont.load_default()
+
     for _ in range(5):
         x1, y1 = secrets.randbelow(width), secrets.randbelow(height)
         x2, y2 = secrets.randbelow(width), secrets.randbelow(height)
         color = secrets.choice(["#c5cce0", "#b7c0d9", "#d7dde9", "#aab4cf"])
-        lines.append(
-            f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{color}" stroke-width="1.4"/>'
-        )
+        draw.line((x1, y1, x2, y2), fill=color, width=2)
 
-    chars = []
-    start_x = 18
+    for _ in range(40):
+        cx, cy = secrets.randbelow(width), secrets.randbelow(height)
+        draw.ellipse((cx, cy, cx + 2, cy + 2), fill="#9aa6c1")
+
+    start_x = 16
     for i, ch in enumerate(answer):
         x = start_x + i * 30 + secrets.randbelow(4)
-        y = 34 + secrets.randbelow(8) - 3
-        rot = secrets.randbelow(25) - 12
+        y = 10 + secrets.randbelow(8)
         fill = secrets.choice(["#322a62", "#453a82", "#1a2332", "#3b4b75"])
-        chars.append(
-            f'<text x="{x}" y="{y}" fill="{fill}" font-size="26" font-family="Arial, Helvetica, sans-serif" '
-            f'font-weight="700" transform="rotate({rot} {x} {y})">{ch}</text>'
-        )
+        # Draw onto a small rotated layer so text isn't axis-aligned OCR-friendly.
+        glyph = Image.new("RGBA", (36, 40), (0, 0, 0, 0))
+        gdraw = ImageDraw.Draw(glyph)
+        gdraw.text((4, 2), ch, font=font, fill=fill)
+        angle = secrets.randbelow(25) - 12
+        rotated = glyph.rotate(angle, expand=True, resample=Image.BICUBIC)
+        img.paste(rotated, (x, y), rotated)
 
-    dots = []
-    for _ in range(28):
-        cx, cy = secrets.randbelow(width), secrets.randbelow(height)
-        dots.append(f'<circle cx="{cx}" cy="{cy}" r="1.2" fill="#9aa6c1" opacity="0.55"/>')
+    buf = BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
 
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="Captcha">'
-        f'<rect width="100%" height="100%" rx="10" fill="#eef1f7"/>'
-        f'{"".join(lines)}{"".join(dots)}{"".join(chars)}'
-        f"</svg>"
-    )
+
+def render_captcha_svg(answer: str) -> str:
+    """Deprecated — kept for compatibility; prefer render_captcha_png_data_url."""
+    return render_captcha_png_data_url(answer)
 
 
 def default_avatar(name: str) -> str:

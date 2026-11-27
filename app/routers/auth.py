@@ -282,10 +282,11 @@ def _finalize_login(request: Request, response: Response, db: Session, user) -> 
 
 @router.get("/api/auth/captcha")
 def get_captcha() -> dict:
-    token, _, svg = create_captcha()
+    token, _, image = create_captcha()
     return {
         "captcha_id": token,
-        "image_svg": svg,
+        # Raster image only — never return extractable SVG text of the answer (KKS-PM-01).
+        "image_png": image,
         "expires_in": 300,
     }
 

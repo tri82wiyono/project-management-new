@@ -148,8 +148,12 @@
           </label>
           <small class="field-hint security-device-hint">
             Jika aktif, login dari perangkat atau browser baru meminta konfirmasi email (kecuali admin / perangkat pertama).
-            Matikan untuk melewati pengecekan tersebut.
+            Di production, kontrol ini wajib aktif agar UI login konsisten dengan kebijakan keamanan.
           </small>
+          <p class="field-hint" id="security-mfa-hint" style="margin-top:10px">
+            Disarankan: aktifkan MFA (Google Authenticator) pada setiap akun Admin lewat menu profil.
+            Password saja tidak cukup untuk peran administratif.
+          </p>
           <div class="settings-actions">
             <button type="submit" class="btn btn-primary" id="btn-save-security">Simpan Keamanan</button>
             <span class="settings-status" id="security-save-status" aria-live="polite"></span>

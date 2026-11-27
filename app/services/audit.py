@@ -36,6 +36,8 @@ ACTION_LABELS = {
     "role_duplicated": "Role digandakan",
     "role_deleted": "Role dihapus",
     "user_role_changed": "Role pengguna diubah",
+    "user_created": "User dibuat",
+    "password_reset": "Password direset oleh admin",
     "project_created": "Project dibuat",
     "project_membership_changed": "Keanggotaan project diubah",
     "project_ownership_classified": "Kepemilikan project diklasifikasi",
@@ -81,7 +83,31 @@ def write_audit_log(
     return row
 
 
+def _mask_ip(value: str | None) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    if ":" in raw and raw.count(":") >= 2:
+        # IPv6 — keep prefix only
+        parts = raw.split(":")
+        return ":".join(parts[:3] + ["****"])
+    chunks = raw.split(".")
+    if len(chunks) == 4:
+        return ".".join(chunks[:3] + ["xxx"])
+    if len(raw) <= 4:
+        return "***"
+    return raw[: max(3, len(raw) // 2)] + "***"
+
+
+def _truncate_ua(value: str | None) -> str:
+    raw = (value or "").strip()
+    if len(raw) <= 80:
+        return raw
+    return raw[:77] + "..."
+
+
 def audit_to_dict(row: AuditLog) -> dict:
+    # KKS-PM-07: mask IP / shorten UA before exposing via API.
     return {
         "id": row.id,
         "action": row.action,
@@ -94,8 +120,8 @@ def audit_to_dict(row: AuditLog) -> dict:
         "target_name": row.target_name or "",
         "target_email": row.target_email or "",
         "message": row.message or "",
-        "ip_address": row.ip_address,
-        "user_agent": row.user_agent or "",
+        "ip_address": _mask_ip(row.ip_address),
+        "user_agent": _truncate_ua(row.user_agent),
         "meta": row.meta or {},
         "created_at": row.created_at,
     }
