@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from urllib.parse import quote
 
 from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import cast, func, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -445,6 +446,7 @@ def list_projects(
     owner_type: str | None = Query(default=None),
     owner_division_id: int | None = Query(default=None),
     owner_bidang_id: int | None = Query(default=None),
+    work_category: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -462,6 +464,13 @@ def list_projects(
         filters.append(Project.owner_division_id == owner_division_id)
     if owner_bidang_id is not None:
         filters.append(Project.owner_bidang_id == owner_bidang_id)
+    category = (work_category or "").strip()
+    if category:
+        known = ALLOWED_WORK_CATEGORIES | LEGACY_WORK_CATEGORIES
+        if category not in known:
+            raise HTTPException(status_code=400, detail="Klasifikasi project tidak valid")
+        # work_categories is a JSON array; match projects that include the selected value.
+        filters.append(cast(Project.work_categories, JSONB).contains([category]))
     if q:
         like = f"%{q.strip()}%"
         filters.append(

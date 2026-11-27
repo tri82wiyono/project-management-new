@@ -49,6 +49,7 @@ const state = {
   query: "",
   status: "",
   ownerType: "",
+  workCategory: "",
   picSearch: "",
   page: 1,
   pages: 1,
@@ -77,6 +78,7 @@ const els = {
   search: document.getElementById("project-search"),
   filter: document.getElementById("project-status-filter"),
   ownerFilter: document.getElementById("project-owner-filter"),
+  classTabs: document.getElementById("project-class-tabs"),
   ownerType: document.getElementById("field-owner-type"),
   ownerDivision: document.getElementById("field-owner-division"),
   ownerBidang: document.getElementById("field-owner-bidang"),
@@ -1117,6 +1119,8 @@ function enterWorkspace(workspaceId, kind = "bidang") {
     state.workspaceId = null;
     state.workspaceKind = kind;
     state.page = 1;
+    state.workCategory = "";
+    syncClassTabs();
     setWorkspaceUrl({ kind });
     syncWorkspaceView();
     return Promise.all([loadStats(), loadProjects()]);
@@ -1128,6 +1132,8 @@ function enterWorkspace(workspaceId, kind = "bidang") {
   state.workspaceId = Number(ws.id);
   state.workspaceKind = "bidang";
   state.page = 1;
+  state.workCategory = "";
+  syncClassTabs();
   setWorkspaceUrl({ kind: "bidang", id: state.workspaceId });
   syncWorkspaceView();
   return Promise.all([loadStats(), loadProjects()]);
@@ -1140,10 +1146,29 @@ function exitWorkspace() {
   state.page = 1;
   state.query = "";
   state.status = "";
+  state.workCategory = "";
   if (els.search) els.search.value = "";
   if (els.filter) els.filter.value = "";
+  syncClassTabs();
   setWorkspaceUrl({});
   syncWorkspaceView();
+}
+
+function syncClassTabs() {
+  if (!els.classTabs) return;
+  els.classTabs.querySelectorAll("[data-work-category]").forEach((btn) => {
+    const value = btn.getAttribute("data-work-category") || "";
+    btn.classList.toggle("is-active", value === state.workCategory);
+  });
+}
+
+async function setWorkCategory(category) {
+  const next = String(category || "");
+  if (next === state.workCategory) return;
+  state.workCategory = next;
+  state.page = 1;
+  syncClassTabs();
+  await loadProjects();
 }
 
 async function loadProjects() {
@@ -1151,6 +1176,7 @@ async function loadProjects() {
   if (state.query) params.set("q", state.query);
   if (state.status) params.set("status", state.status);
   if (state.ownerType) params.set("owner_type", state.ownerType);
+  if (state.workCategory) params.set("work_category", state.workCategory);
   if (state.workspaceKind === "bidang" && state.workspaceId) {
     params.set("owner_type", "bidang");
     params.set("owner_bidang_id", String(state.workspaceId));
@@ -1168,6 +1194,7 @@ async function loadProjects() {
   state.page = Number(data.page || 1);
   state.pages = Number(data.pages || 1);
   state.pageSize = Number(data.page_size || PAGE_SIZE);
+  syncClassTabs();
   renderList();
 }
 
@@ -1405,6 +1432,18 @@ function wireEvents() {
     state.status = els.filter.value;
     state.page = 1;
     await loadProjects();
+  });
+
+  els.classTabs?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-work-category]");
+    if (!btn) return;
+    try {
+      await setWorkCategory(btn.getAttribute("data-work-category") || "");
+    } catch (err) {
+      if (els.list) {
+        els.list.innerHTML = `<tr><td colspan="10" class="list-empty">${escapeHtml(err.message || "Gagal memfilter project")}</td></tr>`;
+      }
+    }
   });
 
   els.ownerFilter?.addEventListener("change", async () => {

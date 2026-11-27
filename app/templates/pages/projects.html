@@ -3,7 +3,7 @@
 {% block title %}Projects · {{ app_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/projects.css?v=30" />
+  <link rel="stylesheet" href="/static/css/projects.css?v=31" />
 {% endblock %}
 
 {% block header %}
@@ -53,6 +53,14 @@
       </section>
 
       <section class="projects-stats" id="projects-stats" aria-label="Project statistics"></section>
+
+      <nav class="project-class-tabs" id="project-class-tabs" aria-label="Filter klasifikasi project">
+        <button type="button" class="project-class-tab is-active" data-work-category="">Semua</button>
+        <button type="button" class="project-class-tab" data-work-category="business_support">Business Support</button>
+        <button type="button" class="project-class-tab" data-work-category="supporting">Supporting</button>
+        <button type="button" class="project-class-tab" data-work-category="security">Security</button>
+        <button type="button" class="project-class-tab" data-work-category="compliance">Compliance</button>
+      </nav>
 
       <section class="projects-toolbar">
         <label class="projects-search">
@@ -105,5 +113,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/projects.js?v=35" defer></script>
+  <script src="/static/js/projects.js?v=36" defer></script>
 {% endblock %}
