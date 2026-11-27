@@ -1,0 +1,426 @@
+{
+  "marker": "[kanal:itgov-list-solusi-2026-06]",
+  "owner_bidang_id": 5,
+  "enrichments": [
+    {
+      "project_name": "MPN GEN3 / CTAS",
+      "pemda": "PEMERINTAH PUSAT",
+      "task_title": "Implementasi MPN GEN3 / CTAS — PEMERINTAH PUSAT",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[MPN] 4 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, CMS / ibCorp",
+      "kanal_cells": 4,
+      "jenis": [
+        "MPN"
+      ]
+    },
+    {
+      "project_name": "OPSEN PKB-BBNKB",
+      "pemda": "PEMPROVSU",
+      "task_title": "Implementasi OPSEN PKB-BBNKB — PEMPROVSU",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PKB] 40 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, CIMB Niaga ATM, OCBC NISP ATM & m-Bank, Sinarmas ATM, MyBills, PPOB Payfazz (Billfazz), PPOB Sobatku (Billfazz), PPOB Kaspin (Billfazz), PPOB DJI, PPOB Teleanjar, PPOB VSI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI",
+      "kanal_cells": 40,
+      "jenis": [
+        "PKB"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Medan",
+      "task_title": "Implementasi PBB — Kota Medan",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 40 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, CIMB Niaga ATM, OCBC NISP ATM & m-Bank, Sinarmas ATM, MyBills, PPOB Payfazz (Billfazz), PPOB Sobatku (Billfazz), PPOB Kaspin (Billfazz), PPOB DJI, PPOB Teleanjar, PPOB VSI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 51,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Tebing Tinggi",
+      "task_title": "Implementasi PBB — Kota Tebing Tinggi",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 38 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB Payfazz (Billfazz), PPOB Sobatku (Billfazz), PPOB Kaspin (Billfazz), PPOB DJI, PPOB Teleanjar, PPOB VSI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 49,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Asahan",
+      "task_title": "Implementasi PBB — Kabupaten Asahan",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 35 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB Payfazz (Billfazz), PPOB Sobatku (Billfazz), PPOB Kaspin (Billfazz), PPOB DJI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 46,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Batu Bara",
+      "task_title": "Implementasi PBB — Kabupaten Batu Bara",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 33 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB DJI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 44,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Dairi",
+      "task_title": "Implementasi PBB — Kabupaten Dairi",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 33 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB DJI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 4 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai",
+      "kanal_cells": 37,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Deli Serdang",
+      "task_title": "Implementasi PBB — Kabupaten Deli Serdang",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 36 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB Payfazz (Billfazz), PPOB Sobatku (Billfazz), PPOB Kaspin (Billfazz), PPOB DJI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[PTSP] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 47,
+      "jenis": [
+        "PBB",
+        "PDL & RET",
+        "PTSP"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Humbang Hasundutan",
+      "task_title": "Implementasi PBB — Kabupaten Humbang Hasundutan",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 27 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, MyBills\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia",
+      "kanal_cells": 33,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Karo",
+      "task_title": "Implementasi PBB — Kabupaten Karo",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 34 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB DJI, PPOB VSI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 45,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Labuhanbatu",
+      "task_title": "Implementasi PBB — Kabupaten Labuhanbatu",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 36 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB Payfazz (Billfazz), PPOB Sobatku (Billfazz), PPOB Kaspin (Billfazz), PPOB DJI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 47,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Labuhanbatu Selatan",
+      "task_title": "Implementasi PBB — Kabupaten Labuhanbatu Selatan",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 33 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB DJI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia",
+      "kanal_cells": 39,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Labuhanbatu Utara",
+      "task_title": "Implementasi PBB — Kabupaten Labuhanbatu Utara",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 33 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia, Bukalapak, Traveloka, LinkAja, OVO, Blibli, Shopee, DANA, Indomaret, Alfamart, Alfamidi, PIB (UOB) i-Bank, TMRW (UOB) m-Bank, BTN ATM, BCA ATM, BCA i-Bank, BCA m-Bank, Bank Muamalat, Mega Syariah, BSI Internet Banking, Sinarmas ATM, MyBills, PPOB DJI\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 44,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Langkat",
+      "task_title": "Implementasi PBB — Kabupaten Langkat",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Mandailing Natal",
+      "task_title": "Implementasi PBB — Kabupaten Mandailing Natal",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia",
+      "kanal_cells": 17,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Nias",
+      "task_title": "Implementasi PBB — Kabupaten Nias",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Nias Barat",
+      "task_title": "Implementasi PBB — Kabupaten Nias Barat",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 10 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 21,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Nias Selatan",
+      "task_title": "Implementasi PBB — Kabupaten Nias Selatan",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 10 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI",
+      "kanal_cells": 10,
+      "jenis": [
+        "PBB"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Nias Utara",
+      "task_title": "Implementasi PBB — Kabupaten Nias Utara",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 10 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI",
+      "kanal_cells": 10,
+      "jenis": [
+        "PBB"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Padang Lawas",
+      "task_title": "Implementasi PBB — Kabupaten Padang Lawas",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Padang Lawas Utara",
+      "task_title": "Implementasi PBB — Kabupaten Padang Lawas Utara",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Pakpak Bharat",
+      "task_title": "Implementasi PBB — Kabupaten Pakpak Bharat",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Samosir",
+      "task_title": "Implementasi PBB — Kabupaten Samosir",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Serdang Bedagai",
+      "task_title": "Implementasi PBB — Kabupaten Serdang Bedagai",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI",
+      "kanal_cells": 11,
+      "jenis": [
+        "PBB"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Simalungun",
+      "task_title": "Implementasi PBB — Kabupaten Simalungun",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Tapanuli Selatan",
+      "task_title": "Implementasi PBB — Kabupaten Tapanuli Selatan",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia",
+      "kanal_cells": 17,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Tapanuli Tengah",
+      "task_title": "Implementasi PBB — Kabupaten Tapanuli Tengah",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Tapanuli Utara",
+      "task_title": "Implementasi PBB — Kabupaten Tapanuli Utara",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia",
+      "kanal_cells": 17,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kabupaten Toba",
+      "task_title": "Implementasi PBB — Kabupaten Toba",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia",
+      "kanal_cells": 17,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Binjai",
+      "task_title": "Implementasi PBB — Kota Binjai",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Gunungsitoli",
+      "task_title": "Implementasi PBB — Kota Gunungsitoli",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 5 kanal\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI",
+      "kanal_cells": 5,
+      "jenis": [
+        "PBB"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Padangsidempuan",
+      "task_title": "Implementasi PBB — Kota Padangsidempuan",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia",
+      "kanal_cells": 17,
+      "jenis": [
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Pematangsiantar",
+      "task_title": "Implementasi PBB — Kota Pematangsiantar",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Sibolga",
+      "task_title": "Implementasi PBB — Kota Sibolga",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 6 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 22,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Tanjungbalai",
+      "task_title": "Implementasi PBB — Kota Tanjungbalai",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 11 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n  • MITRACOMM: Tokopedia\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI\n[PDL & RET] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp\n[BPHTB] 5 kanal\n  • BANK SUMUT: ATM, Teller, m-Bank, Laku Pandai, CMS / ibCorp",
+      "kanal_cells": 21,
+      "jenis": [
+        "BPHTB",
+        "PBB",
+        "PDL & RET"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Pekanbaru",
+      "task_title": "Implementasi PBB — Kota Pekanbaru",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 5 kanal\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI",
+      "kanal_cells": 5,
+      "jenis": [
+        "PBB"
+      ]
+    },
+    {
+      "project_name": "PBB",
+      "pemda": "Kota Batam",
+      "task_title": "Implementasi PBB — Kota Batam",
+      "kanal_block": "Kanal Penerimaan Daerah:\n[kanal:itgov-list-solusi-2026-06]\n[PBB] 5 kanal\n  • H2H: BJB, MANDIRI, PT.POS, GOJEK, BIMASAKTI",
+      "kanal_cells": 5,
+      "jenis": [
+        "PBB"
+      ]
+    }
+  ]
+}
