@@ -4,7 +4,8 @@ from calendar import monthrange
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, cast, func, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.models import Project, ProjectStatus, Sprint, SprintStatus, Task, TaskAssignee, TaskStatus, User
@@ -13,6 +14,9 @@ from app.schemas.schemas import (
     AnalyticsResponse,
     CalendarDay,
     CalendarResponse,
+    ClassificationOverview,
+    ClassificationOverviewItem,
+    ClassificationTaskBreakdown,
     DashboardKPI,
     DashboardSprintOverview,
     DashSprintDoneItem,
@@ -59,6 +63,13 @@ STATUS_LABELS = {
     TaskStatus.review: "Review",
     TaskStatus.done: "Done",
 }
+
+PROJECT_CLASSIFICATIONS = (
+    ("business_support", "Business Support", "Bisnis dan layanan perbankan"),
+    ("supporting", "Supporting", "Operasional dan internal"),
+    ("security", "Security", "Keamanan informasi dan sistem"),
+    ("compliance", "Compliance", "Regulasi dan kepatuhan"),
+)
 
 
 def _task_assignees(task: Task) -> list[UserOut]:
@@ -578,6 +589,62 @@ def get_sprint_overview(
     )
 
 
+def get_classification_overview(
+    db: Session, *, user: User | None = None
+) -> ClassificationOverview:
+    """Project + task counts grouped by project classification."""
+    p_scope = _project_scope(db, user)
+    t_scope = _task_scope(db, user)
+    items: list[ClassificationOverviewItem] = []
+
+    for key, label, description in PROJECT_CLASSIFICATIONS:
+        project_q = select(func.count()).select_from(Project).where(
+            cast(Project.work_categories, JSONB).contains([key])
+        )
+        if p_scope is not None:
+            project_q = project_q.where(p_scope)
+        project_count = int(db.scalar(project_q) or 0)
+
+        status_rows = db.execute(
+            select(Task.status, func.count())
+            .join(Project, Project.id == Task.project_id)
+            .where(
+                _and_scope(
+                    cast(Project.work_categories, JSONB).contains([key]),
+                    t_scope,
+                )
+            )
+            .group_by(Task.status)
+        ).all()
+        counts = {
+            "todo": 0,
+            "in_progress": 0,
+            "review": 0,
+            "done": 0,
+        }
+        for status, count in status_rows:
+            status_key = status.value if hasattr(status, "value") else str(status)
+            if status_key in counts:
+                counts[status_key] = int(count or 0)
+        task_total = sum(counts.values())
+        items.append(
+            ClassificationOverviewItem(
+                key=key,
+                label=label,
+                description=description,
+                project_count=project_count,
+                tasks=ClassificationTaskBreakdown(
+                    todo=counts["todo"],
+                    in_progress=counts["in_progress"],
+                    review=counts["review"],
+                    done=counts["done"],
+                    total=task_total,
+                ),
+            )
+        )
+    return ClassificationOverview(items=items)
+
+
 def get_dashboard_summary(db: Session, user: User | None = None) -> dict:
     """Satu payload untuk bootstrap dashboard (hindari 7 round-trip HTTP)."""
     return {
@@ -590,6 +657,7 @@ def get_dashboard_summary(db: Session, user: User | None = None) -> dict:
         "team": get_team_overview(db),
         "overdue": get_overdue_alert(db, user=user),
         "sprints": get_sprint_overview(db, user=user),
+        "classifications": get_classification_overview(db, user=user),
     }
 
 

@@ -6,6 +6,7 @@ from app.models.models import User
 from app.schemas.schemas import (
     AnalyticsResponse,
     CalendarResponse,
+    ClassificationOverview,
     DashboardKPI,
     DashboardSprintOverview,
     KanbanBoard,
@@ -94,6 +95,14 @@ def sprints_overview(
     user: User = Depends(require_permission("dashboard.view")),
 ) -> DashboardSprintOverview:
     return svc.get_sprint_overview(db, user=user)
+
+
+@router.get("/classifications", response_model=ClassificationOverview)
+def classifications_overview(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("dashboard.view")),
+) -> ClassificationOverview:
+    return svc.get_classification_overview(db, user=user)
 
 
 @router.get("/summary")

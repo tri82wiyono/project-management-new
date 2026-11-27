@@ -82,6 +82,47 @@ function animateCount(el, target, { suffix = "", duration = 700 } = {}) {
   requestAnimationFrame(tick);
 }
 
+function renderClassificationOverview(data) {
+  const grid = document.getElementById("classification-overview-grid");
+  if (!grid) return;
+  const items = Array.isArray(data?.items) ? data.items : [];
+  if (!items.length) {
+    grid.innerHTML = `<div class="muted">Belum ada data klasifikasi.</div>`;
+    return;
+  }
+  grid.innerHTML = items
+    .map((item) => {
+      const tasks = item.tasks || {};
+      const totalTasks = Number(tasks.total || 0);
+      const done = Number(tasks.done || 0);
+      const pct = totalTasks ? Math.round((done / totalTasks) * 100) : 0;
+      return `
+        <article class="classification-card" data-class="${escapeHtml(item.key || "")}">
+          <div class="classification-card-head">
+            <div>
+              <h3>${escapeHtml(item.label || item.key || "")}</h3>
+              <p>${escapeHtml(item.description || "")}</p>
+            </div>
+            <strong class="classification-project-count">${Number(item.project_count || 0)} project</strong>
+          </div>
+          <div class="classification-task-total">
+            <span>Total task</span>
+            <strong>${totalTasks}</strong>
+          </div>
+          <div class="classification-progress-track" aria-hidden="true">
+            <span style="width:${pct}%"></span>
+          </div>
+          <div class="classification-status-grid">
+            <div><span>To Do</span><strong>${Number(tasks.todo || 0)}</strong></div>
+            <div><span>In Progress</span><strong>${Number(tasks.in_progress || 0)}</strong></div>
+            <div><span>Review</span><strong>${Number(tasks.review || 0)}</strong></div>
+            <div><span>Done</span><strong>${Number(tasks.done || 0)}</strong></div>
+          </div>
+        </article>`;
+    })
+    .join("");
+}
+
 function renderKPI(data) {
   const cards = [
     { label: "Total Projects", value: data.total_projects, growth: formatGrowth(data.total_projects_growth), icon: "▣", tone: "violet", down: data.total_projects_growth < 0, numeric: data.total_projects, suffix: "" },
@@ -600,6 +641,7 @@ async function boot() {
     // Above-the-fold first for perceived speed
     renderKPI(data.kpi);
     renderOverdueAlert(data.overdue || { count: 0, items: [] });
+    renderClassificationOverview(data.classifications || { items: [] });
     renderSprintOverview(
       data.sprints || {
         total_sprints: 0,

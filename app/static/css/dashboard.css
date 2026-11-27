@@ -1356,6 +1356,163 @@ body.pm-busy-open .app-shell.sidebar-collapsed > .app-main {
   color: var(--ink);
   font-weight: 700;
 }
+/* ===== CLASSIFICATION OVERVIEW ===== */
+.classification-overview {
+  padding: 14px 16px 16px;
+}
+
+.classification-overview-sub {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.classification-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.classification-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.classification-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.classification-card-head h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 750;
+  color: var(--ink);
+}
+
+.classification-card-head p {
+  margin: 3px 0 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.classification-project-count {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #274bb5;
+  background: #eef4ff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.classification-card[data-class="supporting"] .classification-project-count {
+  color: #b45309;
+  background: #fff7ed;
+}
+
+.classification-card[data-class="security"] .classification-project-count {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.classification-card[data-class="compliance"] .classification-project-count {
+  color: #6d28d9;
+  background: #f5f3ff;
+}
+
+.classification-task-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.classification-task-total span {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.classification-task-total strong {
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.classification-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #eef2f7;
+  overflow: hidden;
+}
+
+.classification-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6b8cff, #4f7cff);
+}
+
+.classification-card[data-class="supporting"] .classification-progress-track > span {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.classification-card[data-class="security"] .classification-progress-track > span {
+  background: linear-gradient(90deg, #34d399, #10b981);
+}
+
+.classification-card[data-class="compliance"] .classification-progress-track > span {
+  background: linear-gradient(90deg, #a78bfa, #7c3aed);
+}
+
+.classification-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.classification-status-grid > div {
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 8px 9px;
+  display: grid;
+  gap: 2px;
+}
+
+.classification-status-grid span {
+  font-size: 0.64rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.classification-status-grid strong {
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+@media (max-width: 1100px) {
+  .classification-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .classification-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ===== SPRINT OVERVIEW ===== */
 .sprint-overview {
   padding: 14px 16px 16px;

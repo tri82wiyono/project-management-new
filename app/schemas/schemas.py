@@ -343,6 +343,26 @@ class DashboardKPI(BaseModel):
     on_time_delivery_growth: float
 
 
+class ClassificationTaskBreakdown(BaseModel):
+    todo: int = 0
+    in_progress: int = 0
+    review: int = 0
+    done: int = 0
+    total: int = 0
+
+
+class ClassificationOverviewItem(BaseModel):
+    key: str
+    label: str
+    description: str = ""
+    project_count: int = 0
+    tasks: ClassificationTaskBreakdown = ClassificationTaskBreakdown()
+
+
+class ClassificationOverview(BaseModel):
+    items: list[ClassificationOverviewItem] = []
+
+
 class DashSprintProject(BaseModel):
     project_id: int
     project_name: str
