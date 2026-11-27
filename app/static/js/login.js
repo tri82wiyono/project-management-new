@@ -112,7 +112,7 @@
       captchaIdEl.value = data.captcha_id || "";
       const src = data.image_png || data.image_svg || "";
       captchaImageEl.innerHTML = src
-        ? `<img src="${src}" alt="Captcha" width="180" height="56" draggable="false" />`
+        ? `<img src="${src}" alt="Captcha" width="200" height="64" draggable="false" />`
         : "";
     } catch (err) {
       captchaImageEl.innerHTML = "";

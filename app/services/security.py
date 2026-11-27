@@ -194,14 +194,14 @@ def render_captcha_png_data_url(answer: str) -> str:
 
     from PIL import Image, ImageDraw, ImageFont
 
-    width, height = 180, 56
+    width, height = 200, 64
     img = Image.new("RGB", (width, height), "#eef1f7")
     draw = ImageDraw.Draw(img)
     try:
-        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 26)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
     except OSError:
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 28)
         except OSError:
             font = ImageFont.load_default()
 
@@ -211,21 +211,22 @@ def render_captcha_png_data_url(answer: str) -> str:
         color = secrets.choice(["#c5cce0", "#b7c0d9", "#d7dde9", "#aab4cf"])
         draw.line((x1, y1, x2, y2), fill=color, width=2)
 
-    for _ in range(40):
+    for _ in range(36):
         cx, cy = secrets.randbelow(width), secrets.randbelow(height)
         draw.ellipse((cx, cy, cx + 2, cy + 2), fill="#9aa6c1")
 
-    start_x = 16
+    # Keep glyphs fully inside the canvas (rotation expands the box).
+    slot = width // max(len(answer), 1)
     for i, ch in enumerate(answer):
-        x = start_x + i * 30 + secrets.randbelow(4)
-        y = 10 + secrets.randbelow(8)
         fill = secrets.choice(["#322a62", "#453a82", "#1a2332", "#3b4b75"])
-        # Draw onto a small rotated layer so text isn't axis-aligned OCR-friendly.
-        glyph = Image.new("RGBA", (36, 40), (0, 0, 0, 0))
+        glyph = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
         gdraw = ImageDraw.Draw(glyph)
-        gdraw.text((4, 2), ch, font=font, fill=fill)
-        angle = secrets.randbelow(25) - 12
+        gdraw.text((10, 6), ch, font=font, fill=fill)
+        angle = secrets.randbelow(17) - 8
         rotated = glyph.rotate(angle, expand=True, resample=Image.BICUBIC)
+        rw, rh = rotated.size
+        x = max(2, min(width - rw - 2, i * slot + (slot - rw) // 2))
+        y = max(2, (height - rh) // 2)
         img.paste(rotated, (x, y), rotated)
 
     buf = BytesIO()
