@@ -48,6 +48,11 @@
   };
 
   const WORK_CATEGORY_LABEL = {
+    business_support: "Business Support",
+    supporting: "Supporting",
+    security: "Security",
+    compliance: "Compliance",
+    // Legacy values
     rbb: "RBB",
     inisiatif: "Inisiatif",
     temuan_audit: "Temuan Audit",
@@ -537,17 +542,11 @@
                 <div class="pw-overview-item"><span>Kepemilikan</span><strong>${escapeHtml(ownershipLabel(p))}</strong></div>
                 <div class="pw-overview-item"><span>Dikembangkan oleh</span><strong>${escapeHtml(DEVELOPED_BY_LABEL[p.developed_by] || p.developed_by || "—")}</strong></div>
                 <div class="pw-overview-item"><span>Jenis Pekerjaan</span><strong>${escapeHtml(WORK_TYPE_LABEL[p.work_type] || p.work_type || "—")}</strong></div>
-                <div class="pw-overview-item"><span>Kategori Pekerjaan</span><strong>${escapeHtml(
+                <div class="pw-overview-item"><span>Klasifikasi Project</span><strong>${escapeHtml(
                   (Array.isArray(p.work_categories) ? p.work_categories : [])
                     .map((c) => WORK_CATEGORY_LABEL[c] || c)
                     .join(", ") || "—"
                 )}</strong></div>
-                ${
-                  (Array.isArray(p.work_categories) ? p.work_categories : []).includes("rbb")
-                    ? `<div class="pw-overview-item"><span>Tahun RBB</span><strong>${escapeHtml(p.rbb_year || "—")}</strong></div>
-                       <div class="pw-overview-item"><span>Referensi Program RBB</span><strong>${escapeHtml(p.rbb_program_ref || "—")}</strong></div>`
-                    : ""
-                }
                 <div class="pw-overview-item"><span>Anggaran</span><strong>${escapeHtml(formatBudgetId(p.budget))}</strong></div>
                 <div class="pw-overview-item"><span>Tasks</span><strong>${Number(p.task_count || state.tasks.length || 0)}</strong></div>
                 <div class="pw-overview-item">

@@ -4,7 +4,7 @@
 
 {% block head_extra %}
   <link rel="stylesheet" href="/static/css/projects.css?v=30" />
-  <link rel="stylesheet" href="/static/css/project-form.css?v=9" />
+  <link rel="stylesheet" href="/static/css/project-form.css?v=10" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" />
 {% endblock %}
 
@@ -32,65 +32,69 @@
       <input type="hidden" id="project-id" name="id" value="{{ project_id or '' }}" />
 
       <section class="form-section">
-        <div class="form-section-head form-section-head-split">
-          <div>
-            <h2>Klasifikasi &amp; Dasar Pekerjaan</h2>
-            <p>Tentukan dasar pelaksanaan pekerjaan. Pilih satu kategori.</p>
-          </div>
-          <span class="form-section-badge">Baru</span>
+        <div class="form-section-head">
+          <h2>Klasifikasi Project</h2>
+          <p>Tentukan klasifikasi berdasarkan fungsi utama dan tujuan pengembangan project.</p>
         </div>
         <div class="form-section-body">
           <div class="field">
-            <span>Kategori Pekerjaan <em>*</em></span>
-            <div class="work-category-grid" id="work-category-grid" role="radiogroup" aria-label="Kategori pekerjaan">
-              <label class="work-category-card">
-                <input type="radio" name="work_category" value="rbb" />
-                <span>RBB</span>
+            <span>Klasifikasi Project <em>*</em></span>
+            <div class="project-class-grid" id="work-category-grid" role="radiogroup" aria-label="Klasifikasi project">
+              <label class="project-class-card" data-class="business_support">
+                <input type="radio" name="work_category" value="business_support" />
+                <span class="project-class-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="3.5" y="8" width="17" height="12" rx="2"/>
+                    <path d="M9 8V6.5A2.5 2.5 0 0 1 11.5 4h1A2.5 2.5 0 0 1 15 6.5V8" stroke-linecap="round"/>
+                    <path d="M3.5 13h17" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="project-class-copy">
+                  <strong>Business Support</strong>
+                  <small>Bisnis dan layanan perbankan</small>
+                </span>
               </label>
-              <label class="work-category-card">
-                <input type="radio" name="work_category" value="inisiatif" />
-                <span>Inisiatif</span>
+              <label class="project-class-card" data-class="supporting">
+                <input type="radio" name="work_category" value="supporting" />
+                <span class="project-class-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="project-class-copy">
+                  <strong>Supporting</strong>
+                  <small>Operasional dan internal</small>
+                </span>
               </label>
-              <label class="work-category-card">
-                <input type="radio" name="work_category" value="temuan_audit" />
-                <span>Temuan Audit</span>
+              <label class="project-class-card" data-class="security">
+                <input type="radio" name="work_category" value="security" />
+                <span class="project-class-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M12 3.5l7 3v5.2c0 4.2-2.8 7.4-7 8.8-4.2-1.4-7-4.6-7-8.8V6.5l7-3Z"/>
+                    <path d="M9.2 12.1l1.8 1.8 3.8-3.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="project-class-copy">
+                  <strong>Security</strong>
+                  <small>Keamanan informasi dan sistem</small>
+                </span>
               </label>
-              <label class="work-category-card">
-                <input type="radio" name="work_category" value="regulasi" />
-                <span>Regulasi</span>
-              </label>
-              <label class="work-category-card">
-                <input type="radio" name="work_category" value="penugasan_manajemen" />
-                <span>Penugasan Manajemen</span>
-              </label>
-              <label class="work-category-card">
-                <input type="radio" name="work_category" value="operasional" />
-                <span>Operasional</span>
+              <label class="project-class-card" data-class="compliance">
+                <input type="radio" name="work_category" value="compliance" />
+                <span class="project-class-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M8 4.5h8a2 2 0 0 1 2 2v13l-2.2-1.4L13.6 19 11.4 18.1 9.2 19 7 17.6V6.5a2 2 0 0 1 1-2Z"/>
+                    <path d="M9.5 9.5h5M9.5 12.5h5M9.5 15.5h3" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="project-class-copy">
+                  <strong>Compliance</strong>
+                  <small>Regulasi dan kepatuhan</small>
+                </span>
               </label>
             </div>
-          </div>
-
-          <div class="rbb-info-box" id="rbb-info-box" hidden>
-            <h3>Informasi RBB</h3>
-            <div class="field-row">
-              <label class="field">
-                <span>Tahun RBB <em>*</em></span>
-                <select id="field-rbb-year" name="rbb_year">
-                  <option value="">Pilih tahun</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Referensi Program RBB</span>
-                <input
-                  id="field-rbb-program-ref"
-                  name="rbb_program_ref"
-                  type="text"
-                  maxlength="120"
-                  placeholder="Kode / nomor program"
-                  autocomplete="off"
-                />
-              </label>
-            </div>
+            <small class="field-hint">Pilih salah satu klasifikasi project.</small>
           </div>
         </div>
       </section>
@@ -285,5 +289,5 @@
 
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-  <script src="/static/js/project-form.js?v=12" defer></script>
+  <script src="/static/js/project-form.js?v=13" defer></script>
 {% endblock %}

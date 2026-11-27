@@ -49,9 +49,6 @@
     developedBy: document.getElementById("field-developed-by"),
     workType: document.getElementById("field-work-type"),
     workCategoryGrid: document.getElementById("work-category-grid"),
-    rbbInfoBox: document.getElementById("rbb-info-box"),
-    rbbYear: document.getElementById("field-rbb-year"),
-    rbbProgramRef: document.getElementById("field-rbb-program-ref"),
     ownerType: document.getElementById("field-owner-type"),
     ownerDivision: document.getElementById("field-owner-division"),
     ownerBidang: document.getElementById("field-owner-bidang"),
@@ -98,18 +95,6 @@
     return value;
   }
 
-  function fillRbbYearOptions(selected) {
-    if (!els.rbbYear) return;
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let y = currentYear + 1; y >= currentYear - 5; y -= 1) years.push(y);
-    const prev = selected != null && selected !== "" ? String(selected) : els.rbbYear.value;
-    els.rbbYear.innerHTML =
-      `<option value="">Pilih tahun</option>` +
-      years.map((y) => `<option value="${y}">${y}</option>`).join("");
-    if (prev && years.some((y) => String(y) === prev)) els.rbbYear.value = prev;
-  }
-
   function selectedWorkCategories() {
     const checked = els.workCategoryGrid?.querySelector('input[name="work_category"]:checked');
     return checked?.value ? [checked.value] : [];
@@ -117,19 +102,10 @@
 
   function setWorkCategories(values) {
     const chosen = Array.isArray(values) && values.length ? String(values[0]) : "";
+    const known = new Set(["business_support", "supporting", "security", "compliance"]);
     els.workCategoryGrid?.querySelectorAll('input[name="work_category"]').forEach((el) => {
-      el.checked = el.value === chosen;
+      el.checked = known.has(chosen) && el.value === chosen;
     });
-    syncRbbFieldsVisibility();
-  }
-
-  function syncRbbFieldsVisibility() {
-    const hasRbb = selectedWorkCategories().includes("rbb");
-    if (els.rbbInfoBox) els.rbbInfoBox.hidden = !hasRbb;
-    if (!hasRbb) {
-      if (els.rbbYear) els.rbbYear.value = "";
-      if (els.rbbProgramRef) els.rbbProgramRef.value = "";
-    }
   }
 
   function setBudgetValue(value) {
@@ -649,8 +625,6 @@
       if (els.developedBy) els.developedBy.value = project.developed_by || "";
       if (els.workType) els.workType.value = project.work_type || "";
       setWorkCategories(project.work_categories || []);
-      fillRbbYearOptions(project.rbb_year);
-      if (els.rbbProgramRef) els.rbbProgramRef.value = project.rbb_program_ref || "";
       setBudgetValue(project.budget);
       if (!quill) quill = initQuill(project.description || "");
       else {
@@ -676,8 +650,6 @@
       if (els.developedBy) els.developedBy.value = "";
       if (els.workType) els.workType.value = "";
       setWorkCategories([]);
-      fillRbbYearOptions();
-      if (els.rbbProgramRef) els.rbbProgramRef.value = "";
       setBudgetValue(null);
       if (!quill) quill = initQuill("");
       else {
@@ -700,9 +672,6 @@
     const developedBy = (els.developedBy?.value || "").trim();
     const workType = (els.workType?.value || "").trim();
     const workCategories = selectedWorkCategories();
-    const rbbYearRaw = (els.rbbYear?.value || "").trim();
-    const rbbYear = rbbYearRaw ? Number(rbbYearRaw) : null;
-    const rbbProgramRef = (els.rbbProgramRef?.value || "").trim() || null;
     const budget = syncBudgetFromDisplay();
     const ownerType = (els.ownerType?.value || "unassigned").trim();
     const ownerDivisionId = els.ownerDivision?.value ? Number(els.ownerDivision.value) : null;
@@ -716,8 +685,8 @@
       developed_by: developedBy || null,
       work_type: workType || null,
       work_categories: workCategories,
-      rbb_year: workCategories.includes("rbb") ? rbbYear : null,
-      rbb_program_ref: workCategories.includes("rbb") ? rbbProgramRef : null,
+      rbb_year: null,
+      rbb_program_ref: null,
       budget,
       member_ids: state.selectedPicIds.slice(),
       owner_type: ownerType,
@@ -730,8 +699,7 @@
     if (!payload.name) missing.push("nama");
     if (!developedBy) missing.push("dikembangkan oleh");
     if (!workType) missing.push("jenis pekerjaan");
-    if (!workCategories.length) missing.push("kategori pekerjaan");
-    if (workCategories.includes("rbb") && !rbbYear) missing.push("tahun RBB");
+    if (!workCategories.length) missing.push("klasifikasi project");
     if (ownerType === "division" && !ownerDivisionId) missing.push("divisi");
     if (ownerType === "bidang" && (!ownerDivisionId || !ownerBidangId)) missing.push("divisi/bidang");
     if (!payload.pic || !state.selectedPicIds.length) missing.push("PIC");
@@ -899,8 +867,6 @@
     wireDocEvents();
     els.budgetDisplay?.addEventListener("input", syncBudgetFromDisplay);
     els.budgetDisplay?.addEventListener("blur", syncBudgetFromDisplay);
-    fillRbbYearOptions();
-    els.workCategoryGrid?.addEventListener("change", syncRbbFieldsVisibility);
     els.ownerType?.addEventListener("change", async () => {
       syncOwnershipFields();
       if ((els.ownerType?.value || "") === "bidang") {

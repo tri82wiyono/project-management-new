@@ -79,7 +79,15 @@ ALLOWED_WORK_TYPES = {
     "security",
     "non_development",
 }
+# Current project classification options (stored in work_categories, single value).
 ALLOWED_WORK_CATEGORIES = {
+    "business_support",
+    "supporting",
+    "security",
+    "compliance",
+}
+# Legacy values kept readable for older rows; create/update require a current value.
+LEGACY_WORK_CATEGORIES = {
     "rbb",
     "inisiatif",
     "temuan_audit",
@@ -103,30 +111,35 @@ def _normalize_work_classification(
 
     cats_raw = work_categories if work_categories is not None else []
     cats: list[str] = []
+    known = ALLOWED_WORK_CATEGORIES | LEGACY_WORK_CATEGORIES
     for item in cats_raw:
         key = str(item or "").strip()
         if not key:
             continue
-        if key not in ALLOWED_WORK_CATEGORIES:
-            raise HTTPException(status_code=400, detail=f"Kategori pekerjaan tidak valid: {key}")
+        if key not in known:
+            raise HTTPException(status_code=400, detail=f"Klasifikasi project tidak valid: {key}")
         if key not in cats:
             cats.append(key)
 
     year = rbb_year
     ref = (rbb_program_ref or "").strip() or None
+    # RBB detail fields only apply to legacy RBB classification rows.
     if "rbb" not in cats:
         year = None
         ref = None
-    elif year is None and require_complete:
-        raise HTTPException(status_code=400, detail="Tahun RBB wajib diisi jika kategori RBB dipilih")
 
     if require_complete:
         if not wt:
             raise HTTPException(status_code=400, detail="Jenis pekerjaan wajib diisi")
         if not cats:
-            raise HTTPException(status_code=400, detail="Pilih kategori pekerjaan")
+            raise HTTPException(status_code=400, detail="Pilih klasifikasi project")
         if len(cats) > 1:
-            raise HTTPException(status_code=400, detail="Kategori pekerjaan hanya boleh satu")
+            raise HTTPException(status_code=400, detail="Klasifikasi project hanya boleh satu")
+        if cats[0] not in ALLOWED_WORK_CATEGORIES:
+            raise HTTPException(
+                status_code=400,
+                detail="Pilih klasifikasi project yang baru (Business Support / Supporting / Security / Compliance)",
+            )
 
     return wt, cats, year, ref
 
