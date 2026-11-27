@@ -32,7 +32,7 @@
         </div>
         <div class="reports-hero-copy">
           <h2>Export Project &amp; Task</h2>
-          <p>Unduh ringkasan project beserta task/modul dan statusnya — termasuk yang sudah selesai maupun masih berjalan.</p>
+          <p>Unduh ringkasan project beserta task/modul dan statusnya, dikelompokkan per klasifikasi (Business Support, Supporting, Security, Compliance).</p>
         </div>
       </div>
 
@@ -84,12 +84,12 @@
         <article class="reports-sheet-card">
           <span class="reports-sheet-badge">Sheet 1</span>
           <h3>Projects</h3>
-          <p>Nama project, status, progress, PIC, Divisi/Bidang, jumlah task selesai &amp; belum.</p>
+          <p>Dikelompokkan per klasifikasi: nama, status, progress, PIC, Divisi/Bidang, jumlah task selesai &amp; belum.</p>
         </article>
         <article class="reports-sheet-card">
           <span class="reports-sheet-badge">Sheet 2</span>
           <h3>Tasks</h3>
-          <p>Nama project, task/modul, status task, assignee, dan due date.</p>
+          <p>Dikelompokkan per klasifikasi yang sama: task/modul, status, assignee, dan due date.</p>
         </article>
       </div>
     </section>
@@ -97,5 +97,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/reports.js?v=2" defer></script>
+  <script src="/static/js/reports.js?v=3" defer></script>
 {% endblock %}

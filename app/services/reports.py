@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import io
+from collections import defaultdict
 from datetime import datetime, timezone
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -30,6 +31,35 @@ TASK_STATUS_LABEL = {
     "review": "Review",
     "done": "Done",
 }
+
+# Canonical order for report grouping (matches UI klasifikasi project).
+CLASSIFICATION_ORDER = (
+    "business_support",
+    "supporting",
+    "security",
+    "compliance",
+)
+CLASSIFICATION_LABEL = {
+    "business_support": "Business Support",
+    "supporting": "Supporting",
+    "security": "Security",
+    "compliance": "Compliance",
+    "rbb": "RBB",
+    "inisiatif": "Inisiatif",
+    "temuan_audit": "Temuan Audit",
+    "regulasi": "Regulasi",
+    "penugasan_manajemen": "Penugasan Manajemen",
+    "operasional": "Operasional",
+    "unassigned": "Belum diklasifikasi",
+}
+CLASSIFICATION_SECTION_FILL = {
+    "business_support": "1D4ED8",
+    "supporting": "0F766E",
+    "security": "B45309",
+    "compliance": "6D28D9",
+    "unassigned": "475569",
+}
+DEFAULT_SECTION_FILL = "334155"
 
 
 def _workspace_label(name: str) -> str:
@@ -239,6 +269,61 @@ def query_report_projects(
     return list(db.scalars(stmt).unique().all())
 
 
+def _project_classification_key(project: Project) -> str:
+    cats = getattr(project, "work_categories", None) or []
+    for item in cats:
+        key = str(item or "").strip()
+        if key:
+            return key
+    return "unassigned"
+
+
+def _classification_label(key: str) -> str:
+    return CLASSIFICATION_LABEL.get(key, key.replace("_", " ").title() if key else "Belum diklasifikasi")
+
+
+def _classification_sort_index(key: str) -> tuple[int, str]:
+    if key in CLASSIFICATION_ORDER:
+        return (CLASSIFICATION_ORDER.index(key), key)
+    if key == "unassigned":
+        return (len(CLASSIFICATION_ORDER) + 100, key)
+    # Legacy / other values after the four main classifications.
+    return (len(CLASSIFICATION_ORDER) + 10, key)
+
+
+def _group_projects_by_classification(projects: list[Project]) -> list[tuple[str, list[Project]]]:
+    buckets: dict[str, list[Project]] = defaultdict(list)
+    for project in projects:
+        buckets[_project_classification_key(project)].append(project)
+
+    ordered_keys = sorted(buckets.keys(), key=_classification_sort_index)
+    groups: list[tuple[str, list[Project]]] = []
+    for key in ordered_keys:
+        items = sorted(buckets[key], key=lambda p: ((p.name or "").lower(), p.id or 0))
+        groups.append((key, items))
+    return groups
+
+
+def _write_section_header(
+    ws,
+    *,
+    row: int,
+    col_count: int,
+    title: str,
+    fill_hex: str,
+) -> None:
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=col_count)
+    cell = ws.cell(row, 1, title)
+    cell.fill = PatternFill("solid", fgColor=fill_hex)
+    cell.font = Font(color="FFFFFF", bold=True, size=11)
+    cell.alignment = Alignment(vertical="center", horizontal="left", indent=1)
+    thin = Border(bottom=Side(style="thin", color="FFFFFF"))
+    for col in range(1, col_count + 1):
+        ws.cell(row, col).fill = PatternFill("solid", fgColor=fill_hex)
+        ws.cell(row, col).border = thin
+    ws.row_dimensions[row].height = 22
+
+
 def build_projects_excel(projects: list[Project]) -> bytes:
     wb = Workbook()
     ws_proj = wb.active
@@ -252,6 +337,7 @@ def build_projects_excel(projects: list[Project]) -> bytes:
 
     proj_headers = [
         "No",
+        "Klasifikasi",
         "Nama Project",
         "Status Project",
         "Progress %",
@@ -266,6 +352,7 @@ def build_projects_excel(projects: list[Project]) -> bytes:
     ]
     task_headers = [
         "No",
+        "Klasifikasi",
         "Nama Project",
         "Status Project",
         "Nama Task / Modul",
@@ -288,79 +375,111 @@ def build_projects_excel(projects: list[Project]) -> bytes:
         cell.font = header_font
         cell.alignment = Alignment(vertical="center")
 
+    groups = _group_projects_by_classification(projects)
+    class_counts: list[tuple[str, int]] = []
+
+    proj_row = 2
     task_row = 2
-    for idx, project in enumerate(projects, start=1):
-        tasks = list(project.tasks or [])
-        done_n = sum(1 for t in tasks if str(getattr(t.status, "value", t.status)) == "done")
-        open_n = len(tasks) - done_n
-        status_val = str(getattr(project.status, "value", project.status) or "")
-        ownership = org_scope.ownership_summary(project)
-        ws_proj.append(
-            [
-                idx,
-                project.name,
-                PROJECT_STATUS_LABEL.get(status_val, status_val),
-                round(float(project.progress or 0), 1),
-                project.pic or "",
-                ownership.get("owner_division_name") or "",
-                _workspace_label(ownership.get("owner_bidang_name") or "") or ownership.get("owner_bidang_name") or "",
-                project.start_date.isoformat() if project.start_date else "",
-                project.end_date.isoformat() if project.end_date else "",
-                len(tasks),
-                done_n,
-                open_n,
-            ]
+    global_proj_no = 0
+    global_task_no = 0
+
+    for class_key, class_projects in groups:
+        label = _classification_label(class_key)
+        fill_hex = CLASSIFICATION_SECTION_FILL.get(class_key, DEFAULT_SECTION_FILL)
+        class_counts.append((label, len(class_projects)))
+
+        _write_section_header(
+            ws_proj,
+            row=proj_row,
+            col_count=len(proj_headers),
+            title=f"{label}  ·  {len(class_projects)} project",
+            fill_hex=fill_hex,
         )
-        status_cell = ws_proj.cell(idx + 1, 3)
-        status_cell.fill = done_fill if status_val == "release" else open_fill
+        proj_row += 1
 
-        if not tasks:
-            ws_task.append(
-                [
-                    task_row - 1,
-                    project.name,
-                    PROJECT_STATUS_LABEL.get(status_val, status_val),
-                    "(Belum ada task/modul)",
-                    "-",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Tidak",
-                ]
-            )
-            task_row += 1
-            continue
+        _write_section_header(
+            ws_task,
+            row=task_row,
+            col_count=len(task_headers),
+            title=f"{label}  ·  {len(class_projects)} project",
+            fill_hex=fill_hex,
+        )
+        task_row += 1
 
-        for task in sorted(tasks, key=lambda t: (t.title or "").lower()):
-            t_status = str(getattr(task.status, "value", task.status) or "")
-            assignee_name = ""
-            if task.assignee:
-                assignee_name = task.assignee.name or ""
-            ws_task.append(
-                [
-                    task_row - 1,
-                    project.name,
-                    PROJECT_STATUS_LABEL.get(status_val, status_val),
-                    task.title,
-                    TASK_STATUS_LABEL.get(t_status, t_status),
-                    task.category or "",
-                    task.priority or "",
-                    assignee_name,
-                    task.due_date.isoformat() if task.due_date else "",
-                    "Ya" if t_status == "done" else "Tidak",
-                ]
+        for project in class_projects:
+            global_proj_no += 1
+            tasks = list(project.tasks or [])
+            done_n = sum(1 for t in tasks if str(getattr(t.status, "value", t.status)) == "done")
+            open_n = len(tasks) - done_n
+            status_val = str(getattr(project.status, "value", project.status) or "")
+            ownership = org_scope.ownership_summary(project)
+            ws_proj.cell(proj_row, 1, global_proj_no)
+            ws_proj.cell(proj_row, 2, label)
+            ws_proj.cell(proj_row, 3, project.name)
+            status_cell = ws_proj.cell(proj_row, 4, PROJECT_STATUS_LABEL.get(status_val, status_val))
+            status_cell.fill = done_fill if status_val == "release" else open_fill
+            ws_proj.cell(proj_row, 5, round(float(project.progress or 0), 1))
+            ws_proj.cell(proj_row, 6, project.pic or "")
+            ws_proj.cell(proj_row, 7, ownership.get("owner_division_name") or "")
+            ws_proj.cell(
+                proj_row,
+                8,
+                _workspace_label(ownership.get("owner_bidang_name") or "")
+                or ownership.get("owner_bidang_name")
+                or "",
             )
-            ws_task.cell(task_row, 5).fill = done_fill if t_status == "done" else open_fill
-            task_row += 1
+            ws_proj.cell(proj_row, 9, project.start_date.isoformat() if project.start_date else "")
+            ws_proj.cell(proj_row, 10, project.end_date.isoformat() if project.end_date else "")
+            ws_proj.cell(proj_row, 11, len(tasks))
+            ws_proj.cell(proj_row, 12, done_n)
+            ws_proj.cell(proj_row, 13, open_n)
+            proj_row += 1
+
+            if not tasks:
+                global_task_no += 1
+                ws_task.cell(task_row, 1, global_task_no)
+                ws_task.cell(task_row, 2, label)
+                ws_task.cell(task_row, 3, project.name)
+                ws_task.cell(task_row, 4, PROJECT_STATUS_LABEL.get(status_val, status_val))
+                ws_task.cell(task_row, 5, "(Belum ada task/modul)")
+                ws_task.cell(task_row, 6, "-")
+                ws_task.cell(task_row, 7, "")
+                ws_task.cell(task_row, 8, "")
+                ws_task.cell(task_row, 9, "")
+                ws_task.cell(task_row, 10, "")
+                ws_task.cell(task_row, 11, "Tidak")
+                task_row += 1
+                continue
+
+            for task in sorted(tasks, key=lambda t: (t.title or "").lower()):
+                global_task_no += 1
+                t_status = str(getattr(task.status, "value", task.status) or "")
+                assignee_name = ""
+                if task.assignee:
+                    assignee_name = task.assignee.name or ""
+                ws_task.cell(task_row, 1, global_task_no)
+                ws_task.cell(task_row, 2, label)
+                ws_task.cell(task_row, 3, project.name)
+                ws_task.cell(task_row, 4, PROJECT_STATUS_LABEL.get(status_val, status_val))
+                ws_task.cell(task_row, 5, task.title)
+                status_task_cell = ws_task.cell(
+                    task_row, 6, TASK_STATUS_LABEL.get(t_status, t_status)
+                )
+                status_task_cell.fill = done_fill if t_status == "done" else open_fill
+                ws_task.cell(task_row, 7, task.category or "")
+                ws_task.cell(task_row, 8, task.priority or "")
+                ws_task.cell(task_row, 9, assignee_name)
+                ws_task.cell(task_row, 10, task.due_date.isoformat() if task.due_date else "")
+                ws_task.cell(task_row, 11, "Ya" if t_status == "done" else "Tidak")
+                task_row += 1
 
     for ws, widths in (
-        (ws_proj, [6, 36, 14, 12, 28, 28, 36, 12, 12, 12, 12, 16]),
-        (ws_task, [6, 36, 14, 40, 14, 14, 12, 22, 12, 10]),
+        (ws_proj, [6, 18, 36, 14, 12, 28, 28, 36, 12, 12, 12, 12, 16]),
+        (ws_task, [6, 18, 36, 14, 40, 14, 14, 12, 22, 12, 10]),
     ):
         for i, width in enumerate(widths, start=1):
             ws.column_dimensions[get_column_letter(i)].width = width
-        ws.auto_filter.ref = ws.dimensions
+        # Freeze header only; auto-filter skipped because section rows break contiguous tables.
         ws.freeze_panes = "A2"
 
     meta = wb.create_sheet("Info", 0)
@@ -370,10 +489,29 @@ def build_projects_excel(projects: list[Project]) -> bytes:
     meta["B3"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     meta["A4"] = "Total projects"
     meta["B4"] = len(projects)
-    meta["A5"] = "Sheets"
-    meta["B5"] = "Projects = ringkasan project; Tasks = detail task/modul + status"
-    meta.column_dimensions["A"].width = 24
-    meta.column_dimensions["B"].width = 60
+    meta["A5"] = "Grouping"
+    meta["B5"] = (
+        "Projects & Tasks dikelompokkan berdasarkan klasifikasi: "
+        "Business Support, Supporting, Security, Compliance"
+    )
+    meta["A6"] = "Sheets"
+    meta["B6"] = "Projects = ringkasan project; Tasks = detail task/modul + status"
+
+    meta["A8"] = "Ringkasan klasifikasi"
+    meta["A8"].font = Font(bold=True)
+    meta["A9"] = "Klasifikasi"
+    meta["B9"] = "Jumlah Project"
+    meta["A9"].font = Font(bold=True)
+    meta["B9"].font = Font(bold=True)
+    for i, (label, count) in enumerate(class_counts, start=10):
+        meta.cell(i, 1, label)
+        meta.cell(i, 2, count)
+    if not class_counts:
+        meta.cell(10, 1, "(Tidak ada project)")
+        meta.cell(10, 2, 0)
+
+    meta.column_dimensions["A"].width = 28
+    meta.column_dimensions["B"].width = 72
 
     buf = io.BytesIO()
     wb.save(buf)
