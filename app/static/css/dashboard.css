@@ -1358,12 +1358,12 @@ body.pm-busy-open .app-shell.sidebar-collapsed > .app-main {
 }
 /* ===== CLASSIFICATION OVERVIEW ===== */
 .classification-overview {
-  padding: 18px 20px 20px;
+  padding: 20px 22px 22px;
   overflow: hidden;
 }
 
 .classification-overview-sub {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   font-size: 0.74rem;
   color: var(--muted);
 }
@@ -1371,8 +1371,8 @@ body.pm-busy-open .app-shell.sidebar-collapsed > .app-main {
 .classification-overview-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 16px;
+  gap: 18px;
+  margin-top: 18px;
 }
 
 .classification-card {
@@ -1381,32 +1381,40 @@ body.pm-busy-open .app-shell.sidebar-collapsed > .app-main {
   --class-ink: #1a4fbf;
   position: relative;
   isolation: isolate;
-  border: 1px solid rgba(21, 35, 63, 0.06);
-  border-radius: 20px;
+  border: 0;
+  border-radius: 22px;
   background:
-    radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--class-soft) 88%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--class-soft) 72%, #fff) 0%, #fff 42%),
     #fff;
-  padding: 18px;
+  padding: 20px 18px 16px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
   box-shadow:
-    0 1px 2px rgba(23, 48, 99, 0.03),
-    0 10px 28px rgba(23, 48, 99, 0.04);
+    0 0 0 1px rgba(21, 35, 63, 0.045),
+    0 12px 32px rgba(23, 48, 99, 0.045);
   transition:
-    transform 260ms var(--ease),
-    box-shadow 260ms var(--ease),
-    border-color 260ms var(--ease);
-  animation: classification-reveal 520ms var(--ease) both;
+    transform 320ms var(--ease),
+    box-shadow 320ms var(--ease);
+  animation: classification-reveal 560ms var(--ease) both;
   animation-delay: var(--reveal-delay, 0ms);
 }
 
+.classification-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  border-radius: 22px 22px 0 0;
+  background: linear-gradient(90deg, var(--class-accent), color-mix(in srgb, var(--class-accent) 30%, transparent));
+  opacity: 0.85;
+}
+
 .classification-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--class-accent) 22%, rgba(21, 35, 63, 0.06));
+  transform: translateY(-2px);
   box-shadow:
-    0 8px 18px rgba(23, 48, 99, 0.06),
-    0 18px 40px rgba(23, 48, 99, 0.07);
+    0 0 0 1px color-mix(in srgb, var(--class-accent) 16%, rgba(21, 35, 63, 0.04)),
+    0 16px 36px rgba(23, 48, 99, 0.08);
 }
 
 .classification-card[data-class="business_support"] {
@@ -1434,8 +1442,8 @@ body.pm-busy-open .app-shell.sidebar-collapsed > .app-main {
 }
 
 .classification-card.is-empty {
-  opacity: 0.78;
-  box-shadow: none;
+  opacity: 0.72;
+  box-shadow: 0 0 0 1px rgba(21, 35, 63, 0.04);
 }
 
 .classification-card-top {
@@ -1446,177 +1454,154 @@ body.pm-busy-open .app-shell.sidebar-collapsed > .app-main {
 }
 
 .classification-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--class-soft) 70%, #fff);
+  background: color-mix(in srgb, var(--class-soft) 55%, #fff);
   color: var(--class-ink);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--class-accent) 12%, transparent);
-}
-
-.classification-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
 }
 
 .classification-card-copy h3 {
   margin: 0;
-  font-size: 0.94rem;
-  font-weight: 720;
-  color: var(--ink);
-  letter-spacing: -0.025em;
-  min-width: 0;
-}
-
-.classification-project-pill {
-  flex: 0 0 auto;
-  font-size: 0.66rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  color: var(--class-ink);
-  background: color-mix(in srgb, var(--class-soft) 82%, #fff);
-  border-radius: 999px;
-  padding: 4px 8px;
-  white-space: nowrap;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .classification-card-copy p {
-  margin: 5px 0 0;
-  font-size: 0.72rem;
+  margin: 4px 0 0;
+  font-size: 0.7rem;
   color: var(--muted);
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .classification-hero {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 2px;
-}
-
-.classification-hero-main strong,
-.classification-hero-side strong {
-  display: block;
-  font-family: var(--font-display);
-  letter-spacing: -0.04em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
+  gap: 10px;
 }
 
 .classification-hero-main strong {
-  font-size: 1.7rem;
-  font-weight: 750;
-  color: var(--class-ink);
-}
-
-.classification-hero-side strong {
-  font-size: 1.15rem;
-  font-weight: 720;
-  color: var(--ink);
-  text-align: right;
-}
-
-.classification-hero-main span,
-.classification-hero-side span {
   display: block;
-  margin-top: 5px;
-  font-size: 0.68rem;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  color: var(--class-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.classification-hero-main span {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
-.classification-hero-side {
+.classification-hero-meta {
   text-align: right;
+  display: grid;
+  gap: 4px;
+}
+
+.classification-hero-meta span {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.classification-hero-meta strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .classification-stack {
   display: flex;
   width: 100%;
-  height: 7px;
-  gap: 3px;
+  height: 6px;
   border-radius: 999px;
   overflow: hidden;
-  background: transparent;
+  background: #eef2f7;
 }
 
 .classification-stack > span {
   display: block;
   height: 100%;
   min-width: 0;
-  border-radius: 999px;
-  background: #e8eef6;
-  transition: flex 320ms var(--ease);
+  background: transparent;
+  transition: flex 360ms var(--ease);
 }
 
-.classification-stack > span.is-todo { background: #b7c2d1; }
+.classification-stack > span.is-todo { background: #a8b4c4; }
 .classification-stack > span.is-progress { background: #f0b429; }
-.classification-stack > span.is-review { background: #7b86f5; }
+.classification-stack > span.is-review { background: #818cf8; }
 .classification-stack > span.is-done { background: #22c55e; }
 
 .classification-card.is-empty .classification-stack > span {
-  flex: 1 !important;
-  background: #eef2f7;
+  flex: 0 !important;
 }
 
-.classification-status-chips {
+.classification-legend {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
-.classification-chip {
+.classification-legend li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  padding: 9px 10px;
-  border-radius: 12px;
-  background: rgba(248, 250, 252, 0.92);
-  border: 1px solid rgba(21, 35, 63, 0.04);
 }
 
-.classification-chip span {
-  font-size: 0.68rem;
+.classification-legend li span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
   color: var(--muted);
-  white-space: nowrap;
 }
 
-.classification-chip strong {
-  font-size: 0.86rem;
-  font-weight: 750;
+.classification-legend li span::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a8b4c4;
+  flex: 0 0 auto;
+}
+
+.classification-legend li[data-status="progress"] span::before { background: #f0b429; }
+.classification-legend li[data-status="review"] span::before { background: #818cf8; }
+.classification-legend li[data-status="done"] span::before { background: #22c55e; }
+
+.classification-legend li strong {
+  font-size: 0.78rem;
+  font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-}
-
-.classification-chip[data-status="todo"] {
-  box-shadow: inset 3px 0 0 #b7c2d1;
-}
-
-.classification-chip[data-status="progress"] {
-  box-shadow: inset 3px 0 0 #f0b429;
-}
-
-.classification-chip[data-status="review"] {
-  box-shadow: inset 3px 0 0 #7b86f5;
-}
-
-.classification-chip[data-status="done"] {
-  box-shadow: inset 3px 0 0 #22c55e;
 }
 
 @keyframes classification-reveal {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.985);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 

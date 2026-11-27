@@ -126,14 +126,11 @@ function renderClassificationOverview(data) {
         { key: "done", label: "Done", value: done },
       ];
       return `
-        <article class="classification-card${empty ? " is-empty" : ""}" data-class="${escapeHtml(key)}" style="--reveal-delay:${index * 55}ms">
+        <article class="classification-card${empty ? " is-empty" : ""}" data-class="${escapeHtml(key)}" style="--reveal-delay:${index * 60}ms">
           <div class="classification-card-top">
             <span class="classification-icon" aria-hidden="true">${meta.icon}</span>
             <div class="classification-card-copy">
-              <div class="classification-title-row">
-                <h3>${escapeHtml(item.label || key)}</h3>
-                <span class="classification-project-pill">${projectCount} project</span>
-              </div>
+              <h3>${escapeHtml(item.label || key)}</h3>
               <p>${escapeHtml(item.description || "")}</p>
             </div>
           </div>
@@ -143,9 +140,9 @@ function renderClassificationOverview(data) {
               <strong>${totalTasks}</strong>
               <span>total task</span>
             </div>
-            <div class="classification-hero-side">
-              <strong>${donePct}%</strong>
-              <span>selesai</span>
+            <div class="classification-hero-meta">
+              <span>${projectCount} project</span>
+              <strong>${donePct}% selesai</strong>
             </div>
           </div>
 
@@ -156,17 +153,17 @@ function renderClassificationOverview(data) {
             <span class="is-done" style="flex:${Math.max(done, 0)}"></span>
           </div>
 
-          <div class="classification-status-chips">
+          <ul class="classification-legend">
             ${statuses
               .map(
                 (s) => `
-              <div class="classification-chip" data-status="${s.key}">
+              <li data-status="${s.key}">
                 <span>${s.label}</span>
                 <strong>${s.value}</strong>
-              </div>`
+              </li>`
               )
               .join("")}
-          </div>
+          </ul>
         </article>`;
     })
     .join("");
