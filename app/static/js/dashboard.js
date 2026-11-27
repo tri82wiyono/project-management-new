@@ -126,49 +126,47 @@ function renderClassificationOverview(data) {
         { key: "done", label: "Done", value: done },
       ];
       return `
-        <article class="classification-card${empty ? " is-empty" : ""}" data-class="${escapeHtml(key)}" style="--reveal-delay:${index * 40}ms">
+        <article class="classification-card${empty ? " is-empty" : ""}" data-class="${escapeHtml(key)}" style="--reveal-delay:${index * 55}ms">
           <div class="classification-card-top">
             <span class="classification-icon" aria-hidden="true">${meta.icon}</span>
             <div class="classification-card-copy">
-              <h3>${escapeHtml(item.label || key)}</h3>
+              <div class="classification-title-row">
+                <h3>${escapeHtml(item.label || key)}</h3>
+                <span class="classification-project-pill">${projectCount} project</span>
+              </div>
               <p>${escapeHtml(item.description || "")}</p>
             </div>
           </div>
 
-          <div class="classification-metrics">
-            <div class="classification-metric is-primary">
-              <span>Total task</span>
+          <div class="classification-hero">
+            <div class="classification-hero-main">
               <strong>${totalTasks}</strong>
+              <span>total task</span>
             </div>
-            <div class="classification-metric">
-              <span>Project</span>
-              <strong>${projectCount}</strong>
-            </div>
-            <div class="classification-metric">
-              <span>Selesai</span>
+            <div class="classification-hero-side">
               <strong>${donePct}%</strong>
+              <span>selesai</span>
             </div>
           </div>
 
           <div class="classification-stack" aria-hidden="true" title="Komposisi status task">
-            <span class="is-todo" style="width:${pct(todo)}%"></span>
-            <span class="is-progress" style="width:${pct(inProgress)}%"></span>
-            <span class="is-review" style="width:${pct(review)}%"></span>
-            <span class="is-done" style="width:${pct(done)}%"></span>
+            <span class="is-todo" style="flex:${Math.max(todo, 0)}"></span>
+            <span class="is-progress" style="flex:${Math.max(inProgress, 0)}"></span>
+            <span class="is-review" style="flex:${Math.max(review, 0)}"></span>
+            <span class="is-done" style="flex:${Math.max(done, 0)}"></span>
           </div>
 
-          <ul class="classification-status-list">
+          <div class="classification-status-chips">
             ${statuses
               .map(
                 (s) => `
-              <li data-status="${s.key}">
-                <span class="classification-status-dot" aria-hidden="true"></span>
-                <span class="classification-status-label">${s.label}</span>
+              <div class="classification-chip" data-status="${s.key}">
+                <span>${s.label}</span>
                 <strong>${s.value}</strong>
-              </li>`
+              </div>`
               )
               .join("")}
-          </ul>
+          </div>
         </article>`;
     })
     .join("");
