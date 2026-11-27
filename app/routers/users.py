@@ -540,7 +540,7 @@ def deactivate_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if user.id == current.id:
-        raise HTTPException(status_code=400, detail="Tidak dapat menghapus akun sendiri")
+        raise HTTPException(status_code=400, detail="Tidak dapat menonaktifkan akun sendiri")
     if is_last_active_admin(db, user):
         raise HTTPException(
             status_code=400,
@@ -548,4 +548,4 @@ def deactivate_user(
         )
     user.is_active = False
     db.commit()
-    return {"ok": True, "message": "User dinonaktifkan"}
+    return {"ok": True, "message": "User dinonaktifkan (bukan dihapus)"}

@@ -146,6 +146,8 @@
     edit: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4.5L18.5 10a1.5 1.5 0 0 0 0-2.1L16.1 5.5a1.5 1.5 0 0 0-2.1 0L4 15.5V20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
     reset: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="15" r="1.4" fill="currentColor"/></svg>`,
     trash: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7l1 12a2 2 0 0 0 2 1.8h2a2 2 0 0 0 2-1.8L16 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    deactivate: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="15.5" r="1" fill="currentColor"/></svg>`,
+    activate: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.2 12.2l1.9 1.9 3.7-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     place: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
     history: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
     copy: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 16V6a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
@@ -454,7 +456,11 @@
               ${iconBtn("place", "Penempatan", ICONS.place)}
               ${iconBtn("history", "Riwayat Penempatan", ICONS.history)}
               ${iconBtn("reset", "Reset Password", ICONS.reset)}
-              ${iconBtn("delete", "Delete", ICONS.trash, "danger")}
+              ${
+                user.is_active
+                  ? iconBtn("deactivate", "Nonaktifkan", ICONS.deactivate, "danger")
+                  : iconBtn("activate", "Aktifkan", ICONS.activate)
+              }
             </div>
           </td>
         </tr>`;
@@ -757,11 +763,12 @@
       return;
     }
 
-    if (action === "delete") {
+    if (action === "deactivate") {
       const userName = row.querySelector(".user-cell strong")?.textContent?.trim() || "user ini";
       const ok = await askConfirm({
         title: "Nonaktifkan user?",
-        message: "Akses login user ini akan dinonaktifkan. Anda bisa mengaktifkannya lagi nanti.",
+        message:
+          "User tidak dihapus. Akses login akan dinonaktifkan, dan bisa diaktifkan kembali nanti.",
         meta: userName,
         tone: "danger",
         icon: "!",
@@ -774,7 +781,38 @@
       if (!res.ok) {
         await showNotice({
           title: "Gagal menonaktifkan",
-          message: data.detail || "Gagal menghapus user",
+          message: data.detail || "Gagal menonaktifkan user",
+          tone: "danger",
+          icon: "!",
+        });
+        return;
+      }
+      await loadUsers();
+      return;
+    }
+
+    if (action === "activate") {
+      const userName = row.querySelector(".user-cell strong")?.textContent?.trim() || "user ini";
+      const ok = await askConfirm({
+        title: "Aktifkan user?",
+        message: "User akan bisa login kembali setelah diaktifkan.",
+        meta: userName,
+        tone: "success",
+        icon: "✓",
+        okText: "Aktifkan",
+        cancelText: "Batal",
+      });
+      if (!ok) return;
+      const res = await fetch(`/api/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        await showNotice({
+          title: "Gagal mengaktifkan",
+          message: data.detail || "Gagal mengaktifkan user",
           tone: "danger",
           icon: "!",
         });
